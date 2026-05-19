@@ -1,0 +1,173 @@
+version: '3.8'
+
+services:
+  # Service Discovery (Eureka)
+  service-discovery:
+    build: ./service-discovery
+    ports:
+      - "8761:8761"
+    networks:
+      - agriyield-net
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  # API Gateway
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    networks:
+      - agriyield-net
+    depends_on:
+      - service-discovery
+      - redis
+      - rabbitmq
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-discovery:8761/eureka/
+      - SPRING_REDIS_HOST=redis
+      - SPRING_RABBITMQ_HOST=rabbitmq
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: agriyield-postgres
+    environment:
+      POSTGRES_USER: agriyield
+      POSTGRES_PASSWORD: agriyield123
+      POSTGRES_DB: agriyield
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - agriyield-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agriyield"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB
+  mongodb:
+    image: mongo:7-jammy
+    container_name: agriyield-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: agriyield
+      MONGO_INITDB_ROOT_PASSWORD: agriyield123
+      MONGO_INITDB_DATABASE: agriyield
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - agriyield-net
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: agriyield-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - agriyield-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: agriyield-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: agriyield
+      RABBITMQ_DEFAULT_PASS: agriyield123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - agriyield-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Neo4j (for fraud detection - will be used by fraud-service)
+  neo4j:
+    image: neo4j:5-community
+    container_name: agriyield-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/agriyield123
+      NEO4J_PLUGINS: '["graph-data-science"]'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - agriyield-net
+
+  # MinIO (S3-compatible storage)
+  minio:
+    image: minio/minio
+    container_name: agriyield-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: agriyield
+      MINIO_ROOT_PASSWORD: agriyield123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - agriyield-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Zipkin for distributed tracing
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: agriyield-zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - agriyield-net
+
+  # TimescaleDB (PostgreSQL with time-series extension)
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: agriyield-timescaledb
+    environment:
+      POSTGRES_USER: agriyield
+      POSTGRES_PASSWORD: agriyield123
+      POSTGRES_DB: agriyield_ts
+    ports:
+      - "5433:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    networks:
+      - agriyield-net
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
+  neo4j_data:
+  minio_data:
+  timescaledb_data:
+
+networks:
+  agriyield-net:
+    driver: bridge
