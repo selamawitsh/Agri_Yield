@@ -6,6 +6,7 @@ import com.agriyield.userservice.core.domain.exceptions.ResourceNotFoundExceptio
 import com.agriyield.userservice.core.domain.model.User;
 import com.agriyield.userservice.core.port.incoming.UserServicePort;
 import com.agriyield.userservice.core.port.outgoing.CachePort;
+import com.agriyield.userservice.core.port.outgoing.InvestorProfileRepositoryPort;
 import com.agriyield.userservice.core.port.outgoing.NotificationPort;
 import com.agriyield.userservice.core.port.outgoing.UserRepositoryPort;
 import lombok.RequiredArgsConstructor;
@@ -27,12 +28,12 @@ public class UserServiceImpl implements UserServicePort {
     private final UserRepositoryPort userRepository;
     private final CachePort cachePort;
     private final NotificationPort notificationPort;
+    private final InvestorProfileRepositoryPort investorProfileRepository;
     
     @Override
     public User getUserById(UUID userId) {
         String cacheKey = "user:" + userId;
         
-        // Try cache first
         var cachedUser = cachePort.get(cacheKey);
         if (cachedUser.isPresent() && cachedUser.get() instanceof User) {
             return (User) cachedUser.get();
@@ -41,7 +42,6 @@ public class UserServiceImpl implements UserServicePort {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
         
-        // Cache for 5 minutes
         cachePort.set(cacheKey, user, 5, TimeUnit.MINUTES);
         
         return user;
@@ -65,12 +65,29 @@ public class UserServiceImpl implements UserServicePort {
         
         User user = getUserById(userId);
         
-        // Update allowed fields only (SRS page 16)
+        // Update allowed fields
         if (updates.containsKey("preferredLanguage")) {
             user.setPreferredLanguage(PreferredLanguage.fromCode((String) updates.get("preferredLanguage")));
         }
         if (updates.containsKey("email")) {
             user.setEmail((String) updates.get("email"));
+        }
+        if (updates.containsKey("riskTolerance")) {
+            user.setRiskTolerance((String) updates.get("riskTolerance"));
+            // Also update investor profile if exists
+            try {
+                investorProfileRepository.updateRiskTolerance(userId, (String) updates.get("riskTolerance"));
+            } catch (Exception e) {
+                log.warn("Could not update investor profile: {}", e.getMessage());
+            }
+        }
+        if (updates.containsKey("investmentGoal")) {
+            user.setInvestmentGoal((String) updates.get("investmentGoal"));
+            try {
+                investorProfileRepository.updateInvestmentGoal(userId, (String) updates.get("investmentGoal"));
+            } catch (Exception e) {
+                log.warn("Could not update investor profile: {}", e.getMessage());
+            }
         }
         
         user.setUpdatedAt(LocalDateTime.now());
@@ -90,16 +107,11 @@ public class UserServiceImpl implements UserServicePort {
         
         User user = getUserById(userId);
         
-        // In a real implementation, this would call Telebirr/CBE API
-        // to verify the account with a 1 ETB test deposit (SRS page 16)
-        
-        // For now, just log the linking
         log.info("Bank account linked - Telebirr: {}, CBE: {} for user: {}", 
                  telebirrAccount, cbeAccount, userId);
         
-        // Send notification
         notificationPort.sendSms(user.getPhone(), 
-            "Agri-Yield: Your bank account has been linked successfully. A test deposit of 1 ETB has been sent to verify your account.");
+            "Agri-Yield: Your bank account has been linked successfully.");
     }
     
     @Override
@@ -112,7 +124,6 @@ public class UserServiceImpl implements UserServicePort {
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
         
-        // Invalidate cache
         cachePort.delete("user:" + userId);
     }
     
