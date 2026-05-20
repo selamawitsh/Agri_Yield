@@ -1,6 +1,5 @@
 package com.agriyield.userservice.infrastructure.adapter.incoming.rest;
 
-import com.agriyield.userservice.core.domain.model.User;
 import com.agriyield.userservice.core.port.incoming.AuthServicePort;
 import com.agriyield.userservice.infrastructure.adapter.incoming.rest.dto.request.LoginRequest;
 import com.agriyield.userservice.infrastructure.adapter.incoming.rest.dto.request.OtpVerifyRequest;
@@ -14,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -26,7 +27,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<String>> register(@Valid @RequestBody RegisterRequest request) {
         log.info("REST: Registration request for phone: {}", request.getPhone());
         
-        User user = authService.register(
+        var user = authService.register(
             request.getPhone(),
             request.getFaydaId(),
             request.getPassword(),
@@ -52,11 +53,12 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         log.info("REST: Login request for phone: {}", request.getPhone());
         
-        String accessToken = authService.login(request.getPhone(), request.getPassword());
+        Map<String, String> tokens = authService.login(request.getPhone(), request.getPassword());
         
         AuthResponse response = AuthResponse.builder()
-            .accessToken(accessToken)
-            .expiresIn(86400000L)
+            .accessToken(tokens.get("access_token"))
+            .refreshToken(tokens.get("refresh_token"))
+            .expiresIn(Long.parseLong(tokens.get("expires_in")))
             .build();
         
         return ResponseEntity.ok(ApiResponse.success(response));
