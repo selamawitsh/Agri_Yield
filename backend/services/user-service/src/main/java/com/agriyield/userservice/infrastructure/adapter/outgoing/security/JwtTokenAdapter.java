@@ -4,14 +4,12 @@ import com.agriyield.userservice.core.domain.enums.UserRole;
 import com.agriyield.userservice.core.port.outgoing.CachePort;
 import com.agriyield.userservice.core.port.outgoing.JwtTokenPort;
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
@@ -22,8 +20,8 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class JwtTokenAdapter implements JwtTokenPort {
     
-    @Value("${spring.security.jwt.secret}")
-    private String jwtSecret;
+    private final SecretKey secretKey;
+    private final CachePort cachePort;
     
     @Value("${spring.security.jwt.expiration:86400000}")
     private long jwtExpiration;
@@ -31,30 +29,25 @@ public class JwtTokenAdapter implements JwtTokenPort {
     @Value("${spring.security.jwt.refresh-expiration:604800000}")
     private long refreshExpiration;
     
-    private final CachePort cachePort;
-    
-    private SecretKey getSigningKey() {
-        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
-        return Keys.hmacShaKeyFor(keyBytes);
-    }
-    
     @Override
     public String generateAccessToken(UUID userId, UserRole role, String faydaId) {
         Instant now = Instant.now();
         Date issuedAt = Date.from(now);
         Date expiresAt = Date.from(now.plusMillis(jwtExpiration));
         
+        String jti = UUID.randomUUID().toString();
+        
         String token = Jwts.builder()
             .setSubject(userId.toString())
             .claim("role", role.getValue())
             .claim("fayda_id", faydaId)
-            .claim("jti", UUID.randomUUID().toString())
+            .claim("jti", jti)
             .setIssuedAt(issuedAt)
             .setExpiration(expiresAt)
-            .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+            .signWith(secretKey, SignatureAlgorithm.HS256)
             .compact();
         
-        log.debug("Generated access token for user: {}", userId);
+        log.info("Generated access token for user: {}, jti: {}", userId, jti);
         return token;
     }
     
@@ -89,7 +82,7 @@ public class JwtTokenAdapter implements JwtTokenPort {
     public TokenValidationResult validateToken(String token) {
         try {
             Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
+                .setSigningKey(secretKey)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
@@ -98,6 +91,7 @@ public class JwtTokenAdapter implements JwtTokenPort {
             if (jti != null) {
                 String blacklistKey = "jwt:blacklist:" + jti;
                 if (cachePort.exists(blacklistKey)) {
+                    log.warn("Token is blacklisted: {}", jti);
                     return TokenValidationResult.failure("Token has been revoked");
                 }
             }
@@ -109,11 +103,11 @@ public class JwtTokenAdapter implements JwtTokenPort {
             return TokenValidationResult.success(userId, role, faydaId);
             
         } catch (ExpiredJwtException e) {
-            log.warn("Token expired: {}", e.getMessage());
+            log.warn("Token expired");
             return TokenValidationResult.failure("Token expired");
-        } catch (JwtException | IllegalArgumentException e) {
+        } catch (JwtException e) {
             log.warn("Invalid token: {}", e.getMessage());
-            return TokenValidationResult.failure("Invalid token");
+            return TokenValidationResult.failure("Invalid token: " + e.getMessage());
         }
     }
     
@@ -121,7 +115,7 @@ public class JwtTokenAdapter implements JwtTokenPort {
     public void blacklistToken(String token, long expiryInMillis) {
         try {
             Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
+                .setSigningKey(secretKey)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
