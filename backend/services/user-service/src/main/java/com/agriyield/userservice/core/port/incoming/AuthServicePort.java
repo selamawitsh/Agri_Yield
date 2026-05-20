@@ -2,6 +2,7 @@ package com.agriyield.userservice.core.port.incoming;
 
 import com.agriyield.userservice.core.domain.model.User;
 
+import java.util.Map;
 import java.util.UUID;
 
 public interface AuthServicePort {
@@ -10,7 +11,7 @@ public interface AuthServicePort {
     
     String verifyOtp(String phone, String otpCode, String purpose);
     
-    String login(String phone, String password);
+    Map<String, String> login(String phone, String password);
     
     String refreshToken(String refreshToken);
     
