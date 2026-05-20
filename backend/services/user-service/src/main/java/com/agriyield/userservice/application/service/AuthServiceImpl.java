@@ -14,7 +14,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -33,6 +36,8 @@ public class AuthServiceImpl implements AuthServicePort {
     private final CachePort cachePort;
     private final PasswordEncoder passwordEncoder;
     private final UserEventPublisher eventPublisher;
+    private final InvestorProfileRepositoryPort investorProfileRepository;
+    private final MerchantProfileRepositoryPort merchantProfileRepository;
     
     @Value("${app.otp.expiry-minutes:10}")
     private int otpExpiryMinutes;
@@ -44,10 +49,12 @@ public class AuthServiceImpl implements AuthServicePort {
     public User register(String phone, String faydaId, String password, String role, String fullName) {
         log.info("Registering new user with phone: {}, faydaId: {}, role: {}", phone, faydaId, role);
         
+        // Step 1: Validate phone format (Ethiopian: +251XXXXXXXXX)
         if (!phone.matches("^\\+251[0-9]{9}$")) {
             throw new BusinessException("Invalid Ethiopian phone number format. Use +251XXXXXXXXX", "INVALID_PHONE");
         }
         
+        // Step 2: Check if user already exists
         if (userRepository.existsByPhone(phone)) {
             throw new BusinessException("User already exists with this phone number", "DUPLICATE_PHONE");
         }
@@ -56,11 +63,16 @@ public class AuthServiceImpl implements AuthServicePort {
             throw new BusinessException("Fayda ID already registered", "DUPLICATE_FAYDA_ID");
         }
         
+        // Step 3: Verify Fayda ID via gRPC (SRS Page 15)
         boolean faydaVerified = faydaVerificationPort.verifyFaydaId(faydaId, phone, fullName);
         if (!faydaVerified) {
-            throw new BusinessException("Fayda ID verification failed", "FAYDA_VERIFICATION_FAILED");
+            throw new BusinessException("Fayda ID verification failed. Please check your National ID.", "FAYDA_VERIFICATION_FAILED");
         }
         
+        // Step 4: Pull KYC data from Fayda (SRS requirement)
+        FaydaVerificationPort.KycData kycData = faydaVerificationPort.pullKycData(faydaId);
+        
+        // Step 5: Create user with PENDING status (SRS Page 12)
         User user = User.builder()
             .id(UUID.randomUUID())
             .phone(phone)
@@ -68,7 +80,7 @@ public class AuthServiceImpl implements AuthServicePort {
             .passwordHash(passwordEncoder.encode(password))
             .role(UserRole.fromValue(role))
             .kycStatus(KycStatus.PENDING)
-            .accountStatus(AccountStatus.ACTIVE)
+            .accountStatus(AccountStatus.PENDING_VERIFICATION) // Changed from ACTIVE to PENDING_VERIFICATION
             .preferredLanguage(PreferredLanguage.AM)
             .createdAt(LocalDateTime.now())
             .updatedAt(LocalDateTime.now())
@@ -77,6 +89,19 @@ public class AuthServiceImpl implements AuthServicePort {
         User savedUser = userRepository.save(user);
         log.info("User registered successfully with ID: {}", savedUser.getId());
         
+        // Step 6: Create role-specific profile (SRS Pages 13-14)
+        if (savedUser.getRole() == UserRole.INVESTOR) {
+            investorProfileRepository.createDefaultProfile(savedUser.getId());
+            log.info("Created investor profile for user: {}", savedUser.getId());
+        } else if (savedUser.getRole() == UserRole.MERCHANT) {
+            merchantProfileRepository.createDefaultProfile(savedUser.getId());
+            log.info("Created merchant profile for user: {}", savedUser.getId());
+        }
+        
+        // Step 7: Publish user.pre_registered event (SRS Page 15)
+        eventPublisher.publishUserPreRegistered(savedUser);
+        
+        // Step 8: Generate and send OTP
         String otpCode = generateOtp();
         Otp otp = Otp.builder()
             .id(UUID.randomUUID())
@@ -88,7 +113,9 @@ public class AuthServiceImpl implements AuthServicePort {
             .build();
         otpRepository.save(otp);
         
-        notificationPort.sendSms(phone, String.format("Agri-Yield: Your OTP for registration is %s. Valid for %d minutes.", otpCode, otpExpiryMinutes));
+        // Step 9: Send OTP via SMS (SRS Page 15)
+        String smsMessage = String.format("Agri-Yield: Your OTP for registration is %s. Valid for %d minutes.", otpCode, otpExpiryMinutes);
+        notificationPort.sendSms(phone, smsMessage);
         
         return savedUser;
     }
@@ -98,6 +125,7 @@ public class AuthServiceImpl implements AuthServicePort {
     public String verifyOtp(String phone, String otpCode, String purpose) {
         log.info("Verifying OTP for phone: {}, purpose: {}", phone, purpose);
         
+        // Rate limiting check (SRS Page 65)
         String rateLimitKey = "otp:verify:" + phone;
         if (cachePort.exists(rateLimitKey)) {
             long attempts = cachePort.getIncrement(rateLimitKey);
@@ -108,9 +136,11 @@ public class AuthServiceImpl implements AuthServicePort {
         cachePort.increment(rateLimitKey);
         cachePort.set(rateLimitKey, 1, 1, TimeUnit.MINUTES);
         
+        // Find user
         User user = userRepository.findByPhone(phone)
             .orElseThrow(() -> new BusinessException("User not found with phone: " + phone, "USER_NOT_FOUND"));
         
+        // Validate OTP
         OtpPurpose otpPurpose = OtpPurpose.valueOf(purpose);
         Otp otp = otpRepository.findByUserIdAndOtpCodeAndPurpose(user.getId(), otpCode, otpPurpose)
             .orElseThrow(() -> new BusinessException("Invalid OTP code", "INVALID_OTP"));
@@ -119,13 +149,18 @@ public class AuthServiceImpl implements AuthServicePort {
             throw new BusinessException("OTP has expired or already used", "OTP_EXPIRED");
         }
         
+        // Mark OTP as used
         otp.markUsed();
         otpRepository.save(otp);
         
+        // For registration, activate the account
         if (otpPurpose == OtpPurpose.REGISTRATION) {
-            user.activate();
+            user.setAccountStatus(AccountStatus.ACTIVE);
             userRepository.save(user);
+            
+            // Publish user.registered event (SRS Page 16)
             eventPublisher.publishUserRegistered(user);
+            
             log.info("User activated successfully: {}", user.getId());
         }
         
@@ -133,9 +168,10 @@ public class AuthServiceImpl implements AuthServicePort {
     }
     
     @Override
-    public String login(String phone, String password) {
+    public Map<String, String> login(String phone, String password) {
         log.info("Login attempt for phone: {}", phone);
         
+        // Rate limiting (SRS Page 65)
         String rateLimitKey = "login:attempts:" + phone;
         if (cachePort.exists(rateLimitKey)) {
             long attempts = cachePort.getIncrement(rateLimitKey);
@@ -146,22 +182,43 @@ public class AuthServiceImpl implements AuthServicePort {
         cachePort.increment(rateLimitKey);
         cachePort.set(rateLimitKey, 1, 1, TimeUnit.HOURS);
         
+        // Find user
         User user = userRepository.findByPhone(phone)
             .orElseThrow(() -> new BusinessException("Invalid credentials", "AUTH_FAILED"));
         
-        if (!user.isActive()) {
+        // Check account status
+        if (user.getAccountStatus() == AccountStatus.SUSPENDED) {
             throw new BusinessException("Account is suspended. Contact support.", "ACCOUNT_SUSPENDED");
         }
         
+        if (user.getAccountStatus() == AccountStatus.PENDING_VERIFICATION) {
+            throw new BusinessException("Please verify your OTP first.", "ACCOUNT_NOT_VERIFIED");
+        }
+        
+        // Verify password
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new BusinessException("Invalid credentials", "AUTH_FAILED");
         }
         
+        // Update last login time
+        user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
+        
+        // Generate tokens (SRS Page 8)
         String accessToken = jwtTokenPort.generateAccessToken(user.getId(), user.getRole(), user.getFaydaId());
-        jwtTokenPort.generateRefreshToken(user.getId());
+        String refreshToken = jwtTokenPort.generateRefreshToken(user.getId());
+        
+        // Clear rate limit on success
+        cachePort.delete(rateLimitKey);
         
         log.info("User logged in successfully: {}", user.getId());
-        return accessToken;
+        
+        Map<String, String> tokens = new HashMap<>();
+        tokens.put("access_token", accessToken);
+        tokens.put("refresh_token", refreshToken);
+        tokens.put("expires_in", "86400000");
+        
+        return tokens;
     }
     
     @Override
