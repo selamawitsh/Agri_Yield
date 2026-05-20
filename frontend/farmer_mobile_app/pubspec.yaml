@@ -1,0 +1,27 @@
+name: farmer_mobile_app
+description: Agri-Yield Farmer Mobile App
+version: 1.0.0+1
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.0.5
+  dio: ^5.3.2
+  shared_preferences: ^2.2.2
+  connectivity_plus: ^5.0.1
+  intl: ^0.20.2
+  flutter_localizations:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
