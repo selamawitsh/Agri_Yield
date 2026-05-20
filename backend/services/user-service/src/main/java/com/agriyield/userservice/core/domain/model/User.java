@@ -27,34 +27,39 @@ public class User {
     private AccountStatus accountStatus;
     private LocalDateTime faydaVerifiedAt;
     private PreferredLanguage preferredLanguage;
+    private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-
-    // Business methods
+    
+    // Investor-specific fields
+    private String riskTolerance;
+    private String investmentGoal;
+    private Integer agriScore;
+    
     public boolean isActive() {
         return this.accountStatus == AccountStatus.ACTIVE;
     }
-
+    
     public boolean isKycVerified() {
         return this.kycStatus == KycStatus.VERIFIED;
     }
-
+    
     public void activate() {
         this.accountStatus = AccountStatus.ACTIVE;
         this.updatedAt = LocalDateTime.now();
     }
-
+    
     public void suspend() {
         this.accountStatus = AccountStatus.SUSPENDED;
         this.updatedAt = LocalDateTime.now();
     }
-
+    
     public void verifyKyc() {
         this.kycStatus = KycStatus.VERIFIED;
         this.faydaVerifiedAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
-
+    
     public void rejectKyc() {
         this.kycStatus = KycStatus.REJECTED;
         this.updatedAt = LocalDateTime.now();
