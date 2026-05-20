@@ -5,6 +5,8 @@ import com.agriyield.userservice.core.port.outgoing.UserRepositoryPort;
 import com.agriyield.userservice.infrastructure.adapter.outgoing.persistence.mapper.EntityDomainMapper;
 import com.agriyield.userservice.infrastructure.repository.JpaUserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -61,5 +63,42 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     @Override
     public void deleteById(UUID id) {
         jpaUserRepository.deleteById(id);
+    }
+    
+    @Override
+    public Page<User> findAllWithFilters(String role, String status, Pageable pageable) {
+        if (role != null && !role.equals("ALL") && status != null && !status.equals("ALL")) {
+            return jpaUserRepository.findByRoleAndAccountStatus(role, status, pageable)
+                .map(mapper::toDomain);
+        } else if (role != null && !role.equals("ALL")) {
+            return jpaUserRepository.findByRole(role, pageable)
+                .map(mapper::toDomain);
+        } else if (status != null && !status.equals("ALL")) {
+            return jpaUserRepository.findByAccountStatus(status, pageable)
+                .map(mapper::toDomain);
+        } else {
+            return jpaUserRepository.findAll(pageable)
+                .map(mapper::toDomain);
+        }
+    }
+    
+    @Override
+    public long countTotalUsers() {
+        return jpaUserRepository.count();
+    }
+    
+    @Override
+    public long countByRole(String role) {
+        return jpaUserRepository.countByRole(role);
+    }
+    
+    @Override
+    public long countByKycStatus(String kycStatus) {
+        return jpaUserRepository.countByKycStatus(kycStatus);
+    }
+    
+    @Override
+    public long countByAccountStatus(String accountStatus) {
+        return jpaUserRepository.countByAccountStatus(accountStatus);
     }
 }
