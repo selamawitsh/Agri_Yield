@@ -19,6 +19,26 @@ public class UserEventPublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
+    // SRS Page 15: Publish user.pre_registered event after Fayda verification, before OTP
+    public void publishUserPreRegistered(User user) {
+        Map<String, Object> event = new HashMap<>();
+        event.put("event_type", "user.pre_registered");
+        event.put("user_id", user.getId().toString());
+        event.put("phone", user.getPhone());
+        event.put("fayda_id", user.getFaydaId());
+        event.put("role", user.getRole().getValue());
+        event.put("kyc_status", user.getKycStatus().getValue());
+        event.put("timestamp", LocalDateTime.now().toString());
+
+        log.info("Publishing user.pre_registered event for user: {}", user.getId());
+        rabbitTemplate.convertAndSend(
+            RabbitMQConfig.USER_EXCHANGE,
+            "user.pre_registered",
+            event
+        );
+    }
+
+    // SRS Page 16: Publish user.registered event after OTP verification
     public void publishUserRegistered(User user) {
         Map<String, Object> event = new HashMap<>();
         event.put("event_type", "user.registered");
@@ -27,7 +47,6 @@ public class UserEventPublisher {
         event.put("email", user.getEmail());
         event.put("fayda_id", user.getFaydaId());
         event.put("role", user.getRole().getValue());
-        event.put("full_name", "User");
         event.put("preferred_language", user.getPreferredLanguage().getCode());
         event.put("timestamp", LocalDateTime.now().toString());
 
@@ -39,6 +58,7 @@ public class UserEventPublisher {
         );
     }
 
+    // SRS Page 16: Publish user.kyc.verified event
     public void publishUserKycVerified(User user) {
         Map<String, Object> event = new HashMap<>();
         event.put("event_type", "user.kyc.verified");
@@ -55,6 +75,7 @@ public class UserEventPublisher {
         );
     }
 
+    // SRS Page 16: Publish user.suspended event
     public void publishUserSuspended(User user, UUID adminId, String reason) {
         Map<String, Object> event = new HashMap<>();
         event.put("event_type", "user.suspended");
@@ -71,6 +92,7 @@ public class UserEventPublisher {
         );
     }
 
+    // SRS Page 16: Publish user.reactivated event
     public void publishUserReactivated(User user, UUID adminId) {
         Map<String, Object> event = new HashMap<>();
         event.put("event_type", "user.reactivated");
