@@ -1,31 +1,7 @@
 version: '3.8'
 
 services:
-  # Service Discovery (Eureka)
-  service-discovery:
-    build: ./service-discovery
-    ports:
-      - "8761:8761"
-    networks:
-      - agriyield-net
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
 
-  # API Gateway
-  api-gateway:
-    build: ./api-gateway
-    ports:
-      - "8080:8080"
-    networks:
-      - agriyield-net
-    depends_on:
-      - service-discovery
-      - redis
-      - rabbitmq
-    environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-discovery:8761/eureka/
-      - SPRING_REDIS_HOST=redis
-      - SPRING_RABBITMQ_HOST=rabbitmq
 
   # PostgreSQL Database
   postgres:
@@ -56,7 +32,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: agriyield123
       MONGO_INITDB_DATABASE: agriyield
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - mongodb_data:/data/db
     networks:
