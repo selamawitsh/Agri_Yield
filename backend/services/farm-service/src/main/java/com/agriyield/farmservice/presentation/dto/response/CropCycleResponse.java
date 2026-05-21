@@ -1,0 +1,28 @@
+package com.agriyield.farmservice.presentation.dto.response;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class CropCycleResponse {
+
+    private UUID id;
+    private UUID farmId;
+    private String seasonName;
+    private LocalDate plantingDate;
+    private LocalDate expectedHarvestDate;
+    private LocalDate actualHarvestDate;
+    private String status;
+    private LocalDateTime createdAt;
+}
