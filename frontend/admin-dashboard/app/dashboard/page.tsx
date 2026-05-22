@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { User, UserStats } from '@/lib/types';
 import StatsCards from '@/components/StatsCards';
@@ -16,122 +15,75 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      router.push('/login');
-      return;
-    }
     fetchStats();
     fetchUsers();
-  }, [roleFilter, statusFilter, currentPage]);
+  }, [roleFilter, statusFilter]);
 
   const fetchStats = async () => {
     try {
       const response = await api.get('/admin/stats');
-      if (response.data.success) {
-        setStats(response.data.data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch stats', error);
-    }
+      if (response.data.success) setStats(response.data.data);
+    } catch (e) { console.error(e); }
   };
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const params: any = { page: currentPage, size: 20 };
+      const params: any = {};
       if (roleFilter !== 'ALL') params.role = roleFilter;
       if (statusFilter !== 'ALL') params.status = statusFilter;
-
       const response = await api.get('/admin/users', { params });
-      if (response.data.success) {
-        setUsers(response.data.data.users);
-        setTotalPages(response.data.data.totalPages);
-      }
-    } catch (error: any) {
-      if (error.response?.status === 403) {
-        toast.error('Admin access required');
-        router.push('/login');
-      } else {
-        toast.error('Failed to fetch users');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    router.push('/login');
+      if (response.data.success) setUsers(response.data.data.users);
+    } catch (e) { console.error(e); }
+    setLoading(false);
   };
 
   if (loading && users.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p>Loading...</p>
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 text-xs font-bold tracking-widest text-emerald-900/60 uppercase">
+          Loading Vector Topology Map...
         </div>
-      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-md sticky top-0 z-10">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
+      <div className="min-h-screen bg-[#F4F7F5] pb-12">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">Agri-Yield Admin</h1>
-              <p className="text-sm text-gray-500">User Management Dashboard</p>
+              <h1 className="text-xl font-black text-emerald-950 tracking-tight">Yogyakarta Sector</h1>
+              <p className="text-xs font-bold text-emerald-700/80">Central Registry Console</p>
             </div>
-            <button onClick={handleLogout} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
-              Logout
+            <button
+                onClick={() => { localStorage.clear(); router.push('/login'); }}
+                className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 transition-all shadow-2xs"
+            >
+              Sign Out Terminal
             </button>
           </div>
-        </div>
-      </nav>
+        </header>
 
-      <div className="container mx-auto px-6 py-8">
-        {stats && <StatsCards stats={stats} />}
-        
-        <FilterBar
-          roleFilter={roleFilter}
-          statusFilter={statusFilter}
-          onRoleChange={setRoleFilter}
-          onStatusChange={setStatusFilter}
-          onRefresh={fetchUsers}
-        />
+        <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+          {stats && <StatsCards stats={stats} />}
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <UserTable users={users} onUserUpdated={fetchUsers} />
-        </div>
+          <FilterBar
+              roleFilter={roleFilter}
+              statusFilter={statusFilter}
+              onRoleChange={setRoleFilter}
+              onStatusChange={setStatusFilter}
+              onRefresh={fetchUsers}
+          />
 
-        {totalPages > 1 && (
-          <div className="flex justify-center gap-2 mt-6">
-            <button
-              onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-              disabled={currentPage === 0}
-              className="px-4 py-2 border rounded-lg disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="px-4 py-2">Page {currentPage + 1} of {totalPages}</span>
-            <button
-              onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
-              disabled={currentPage === totalPages - 1}
-              className="px-4 py-2 border rounded-lg disabled:opacity-50"
-            >
-              Next
-            </button>
+          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
+            <div className="px-6 py-5 border-b border-slate-100 bg-white">
+              <h2 className="text-sm font-bold text-slate-900">Ecosystem Identity Ledger</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Verified sector identities mapped to local plots</p>
+            </div>
+            <UserTable users={users} onUserUpdated={fetchUsers} />
           </div>
-        )}
+        </main>
       </div>
-    </div>
   );
 }
