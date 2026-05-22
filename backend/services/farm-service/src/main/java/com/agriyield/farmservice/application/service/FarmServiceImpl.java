@@ -51,7 +51,7 @@ public class FarmServiceImpl implements FarmServicePort {
 
         boolean farmerExists = userServicePort.verifyFarmerExists(farmerId);
         if (!farmerExists) {
-            log.warn("Farmer not found via gRPC, proceeding anyway (gRPC stub)");
+            log.warn("Farmer not found via gRPC, proceeding (gRPC stub mode)");
         }
 
         if (geoJsonPolygon == null || geoJsonPolygon.isBlank()) {
@@ -91,8 +91,6 @@ public class FarmServiceImpl implements FarmServicePort {
             .build();
 
         cropCycleRepository.save(cropCycle);
-        log.info("Crop cycle created: {} for farm: {}",
-            cropCycle.getId(), savedFarm.getId());
 
         FarmDocument farmDocument = FarmDocument.builder()
             .farmId(savedFarm.getId().toString())
@@ -100,7 +98,6 @@ public class FarmServiceImpl implements FarmServicePort {
             .build();
 
         farmDocumentRepository.save(farmDocument);
-        log.info("Digital twin created for farm: {}", savedFarm.getId());
 
         eventPublisher.publishFarmRegistered(savedFarm);
 
@@ -113,8 +110,6 @@ public class FarmServiceImpl implements FarmServicePort {
                                  UUID farmerId,
                                  MultipartFile photo,
                                  String photoType) {
-
-        log.info("Uploading photo for farm: {}, type: {}", farmId, photoType);
 
         Farm farm = farmRepository.findById(farmId)
             .orElseThrow(() -> new FarmNotFoundException(farmId.toString()));
@@ -173,8 +168,6 @@ public class FarmServiceImpl implements FarmServicePort {
                                       UUID farmerId,
                                       List<InputNeedItemRequest> items) {
 
-        log.info("Submitting input needs for farm: {}", farmId);
-
         Farm farm = farmRepository.findById(farmId)
             .orElseThrow(() -> new FarmNotFoundException(farmId.toString()));
 
@@ -184,11 +177,9 @@ public class FarmServiceImpl implements FarmServicePort {
                 "UNAUTHORIZED_FARM_ACCESS");
         }
 
-        // Auto-fetch active crop cycle — farmer never needs to enter UUID
         CropCycle cropCycle = cropCycleRepository.findActiveByFarmId(farmId)
             .orElseThrow(() -> new BusinessException(
-                "No active crop cycle found for this farm. " +
-                "Please register the farm first.",
+                "No active crop cycle found. Please register the farm first.",
                 "NO_ACTIVE_CROP_CYCLE"));
 
         if (items == null || items.isEmpty()) {
@@ -236,6 +227,27 @@ public class FarmServiceImpl implements FarmServicePort {
         eventPublisher.publishInputNeedsCreated(farm, savedInputNeed);
 
         return savedInputNeed;
+    }
+
+    // NEW — get all input needs for a farm with their items
+    @Override
+    @Transactional(readOnly = true)
+    public List<InputNeed> getInputNeeds(UUID farmId) {
+        log.info("Getting input needs for farm: {}", farmId);
+
+        farmRepository.findById(farmId)
+            .orElseThrow(() -> new FarmNotFoundException(farmId.toString()));
+
+        List<InputNeed> inputNeeds = inputNeedRepository.findAllByFarmId(farmId);
+
+        // Load items for each input need
+        for (InputNeed inputNeed : inputNeeds) {
+            List<InputNeedItem> items = inputNeedItemRepository
+                .findAllByInputNeedId(inputNeed.getId());
+            inputNeed.setItems(items);
+        }
+
+        return inputNeeds;
     }
 
     @Override

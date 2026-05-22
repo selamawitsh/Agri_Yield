@@ -24,11 +24,14 @@ class FarmService {
         'geoJsonPolygon': geoJsonPolygon,
       });
       if (response['success'] == true) {
-        return {'success': true, 'farm': FarmModel.fromJson(response['data'])};
+        return {
+          'success': true,
+          'farm': FarmModel.fromJson(response['data'])
+        };
       }
       return {
         'success': false,
-        'message': response['message'] ?? 'Registration failed',
+        'message': response['message'] ?? 'Registration failed'
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -47,7 +50,7 @@ class FarmService {
       }
       return {
         'success': false,
-        'message': response['message'] ?? 'Failed to load farms',
+        'message': response['message'] ?? 'Failed to load farms'
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -58,11 +61,14 @@ class FarmService {
     try {
       final response = await _api.get('/farms/$farmId');
       if (response['success'] == true) {
-        return {'success': true, 'farm': FarmModel.fromJson(response['data'])};
+        return {
+          'success': true,
+          'farm': FarmModel.fromJson(response['data'])
+        };
       }
       return {
         'success': false,
-        'message': response['message'] ?? 'Farm not found',
+        'message': response['message'] ?? 'Farm not found'
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -77,7 +83,28 @@ class FarmService {
       }
       return {
         'success': false,
-        'message': response['message'] ?? 'Digital twin not found',
+        'message': response['message'] ?? 'Digital twin not found'
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // NEW — get all input needs for a farm
+  Future<Map<String, dynamic>> getInputNeeds(String farmId) async {
+    try {
+      final response = await _api.get('/farms/$farmId/input-needs');
+      if (response['success'] == true) {
+        final List<dynamic> data = response['data'] ?? [];
+        return {
+          'success': true,
+          'inputNeeds':
+              data.map((e) => InputNeedModel.fromJson(e)).toList(),
+        };
+      }
+      return {
+        'success': false,
+        'message': response['message'] ?? 'Failed to load input needs'
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -96,36 +123,36 @@ class FarmService {
       if (response['success'] == true) {
         return {
           'success': true,
-          'cropCycle': CropCycleModel.fromJson(response['data']),
+          'cropCycle': CropCycleModel.fromJson(response['data'])
         };
       }
       return {
         'success': false,
-        'message': response['message'] ?? 'Failed to confirm planting',
+        'message': response['message'] ?? 'Failed to confirm planting'
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
   }
 
-  // No cropCycleId needed — backend auto-fetches it
   Future<Map<String, dynamic>> submitInputNeeds({
     required String farmId,
     required List<Map<String, dynamic>> items,
   }) async {
     try {
-      final response = await _api.post('/farms/$farmId/input-needs', {
-        'items': items,
-      });
+      final response = await _api.post(
+        '/farms/$farmId/input-needs',
+        {'items': items},
+      );
       if (response['success'] == true) {
         return {
           'success': true,
-          'inputNeed': InputNeedModel.fromJson(response['data']),
+          'inputNeed': InputNeedModel.fromJson(response['data'])
         };
       }
       return {
         'success': false,
-        'message': response['message'] ?? 'Failed to submit input needs',
+        'message': response['message'] ?? 'Failed to submit input needs'
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -149,7 +176,7 @@ class FarmService {
       }
       return {
         'success': false,
-        'message': response['message'] ?? 'Photo upload failed',
+        'message': response['message'] ?? 'Photo upload failed'
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -164,7 +191,7 @@ class FarmService {
       }
       return {
         'success': false,
-        'message': response['message'] ?? 'Agri-score not found',
+        'message': response['message'] ?? 'Agri-score not found'
       };
     } catch (e) {
       return {'success': false, 'message': e.toString()};

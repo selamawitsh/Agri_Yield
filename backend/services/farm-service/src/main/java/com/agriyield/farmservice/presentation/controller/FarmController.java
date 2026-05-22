@@ -33,16 +33,10 @@ public class FarmController {
             @Valid @RequestBody RegisterFarmRequest request) {
 
         UUID farmerId = jwtUtils.extractUserId(authHeader);
-        log.info("POST /api/v1/farms — farmer: {}", farmerId);
-
         Farm farm = farmService.registerFarm(
-            farmerId,
-            request.getFarmName(),
-            request.getCropType(),
-            request.getKebeleCode(),
-            request.getRegion(),
-            request.getExpectedHarvestDate(),
-            request.getGeoJsonPolygon());
+            farmerId, request.getFarmName(), request.getCropType(),
+            request.getKebeleCode(), request.getRegion(),
+            request.getExpectedHarvestDate(), request.getGeoJsonPolygon());
 
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success("Farm registered successfully",
@@ -66,7 +60,6 @@ public class FarmController {
                 toPhotoResponse(farmPhoto)));
     }
 
-    // No cropCycleId needed — auto-fetched from active crop cycle
     @PostMapping("/{farmId}/input-needs")
     public ResponseEntity<ApiResponse<InputNeedResponse>> submitInputNeeds(
             @RequestHeader("Authorization") String authHeader,
@@ -74,18 +67,12 @@ public class FarmController {
             @Valid @RequestBody InputNeedRequest request) {
 
         UUID farmerId = jwtUtils.extractUserId(authHeader);
-        log.info("POST /api/v1/farms/{}/input-needs — farmer: {}",
-            farmId, farmerId);
-
         List<FarmServicePort.InputNeedItemRequest> items = request.getItems()
             .stream()
             .map(item -> new FarmServicePort.InputNeedItemRequest(
-                item.getProductCategory(),
-                item.getProductName(),
-                item.getQuantity(),
-                item.getUnit(),
-                item.getEstimatedPriceEtb(),
-                item.getSequenceOrder()))
+                item.getProductCategory(), item.getProductName(),
+                item.getQuantity(), item.getUnit(),
+                item.getEstimatedPriceEtb(), item.getSequenceOrder()))
             .collect(Collectors.toList());
 
         InputNeed inputNeed = farmService.submitInputNeeds(
@@ -94,6 +81,20 @@ public class FarmController {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success("Input needs submitted successfully",
                 toInputNeedResponse(inputNeed)));
+    }
+
+    // NEW — GET /api/v1/farms/{farmId}/input-needs
+    @GetMapping("/{farmId}/input-needs")
+    public ResponseEntity<ApiResponse<List<InputNeedResponse>>> getInputNeeds(
+            @PathVariable UUID farmId) {
+
+        log.info("GET /api/v1/farms/{}/input-needs", farmId);
+        List<InputNeed> inputNeeds = farmService.getInputNeeds(farmId);
+        List<InputNeedResponse> responses = inputNeeds.stream()
+            .map(this::toInputNeedResponse)
+            .collect(Collectors.toList());
+
+        return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
     @GetMapping("/{farmId}")
@@ -116,8 +117,7 @@ public class FarmController {
     public ResponseEntity<ApiResponse<DigitalTwinResponse>> getDigitalTwin(
             @PathVariable UUID farmId) {
         FarmDocument doc = farmService.getDigitalTwin(farmId);
-        return ResponseEntity.ok(ApiResponse.success(
-            toDigitalTwinResponse(doc)));
+        return ResponseEntity.ok(ApiResponse.success(toDigitalTwinResponse(doc)));
     }
 
     @PostMapping("/{farmId}/confirm-planting")
@@ -139,10 +139,10 @@ public class FarmController {
     public ResponseEntity<ApiResponse<AgriScoreResponse>> getAgriScore(
             @PathVariable UUID farmId) {
         AgriScore score = farmService.getAgriScore(farmId);
-        return ResponseEntity.ok(ApiResponse.success(
-            toAgriScoreResponse(score)));
+        return ResponseEntity.ok(ApiResponse.success(toAgriScoreResponse(score)));
     }
 
+    // Mappers
     private FarmResponse toFarmResponse(Farm farm) {
         return FarmResponse.builder()
             .id(farm.getId()).farmerId(farm.getFarmerId())

@@ -23,10 +23,12 @@ public interface FarmServicePort {
                           MultipartFile photo,
                           String photoType);
 
-    // cropCycleId removed — auto-fetched from active crop cycle
     InputNeed submitInputNeeds(UUID farmId,
                                UUID farmerId,
                                List<InputNeedItemRequest> items);
+
+    // NEW — view submitted input needs
+    List<InputNeed> getInputNeeds(UUID farmId);
 
     Farm getFarmById(UUID farmId);
 
