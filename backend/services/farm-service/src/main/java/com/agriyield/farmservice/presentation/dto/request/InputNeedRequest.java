@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.UUID;
 
 @Data
 @Builder
@@ -17,8 +16,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class InputNeedRequest {
 
-    @NotNull(message = "Crop cycle ID is required")
-    private UUID cropCycleId;
+    // cropCycleId removed — auto-fetched from active crop cycle
+    // Farmers should never need to enter an ID
 
     @NotNull(message = "Items list is required")
     @Size(min = 1, message = "At least one input need item is required")
@@ -45,7 +44,7 @@ public class InputNeedRequest {
         private String unit;
 
         @NotNull(message = "Estimated price is required")
-        @DecimalMin(value = "0.01", message = "Estimated price must be greater than 0")
+        @DecimalMin(value = "0.01", message = "Price must be greater than 0")
         private BigDecimal estimatedPriceEtb;
 
         @NotNull(message = "Sequence order is required")

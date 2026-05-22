@@ -27,7 +27,6 @@ public class FarmController {
     private final FarmServicePort farmService;
     private final JwtUtils jwtUtils;
 
-    // SRS Page 22 — POST /api/v1/farms
     @PostMapping
     public ResponseEntity<ApiResponse<FarmResponse>> registerFarm(
             @RequestHeader("Authorization") String authHeader,
@@ -43,15 +42,13 @@ public class FarmController {
             request.getKebeleCode(),
             request.getRegion(),
             request.getExpectedHarvestDate(),
-            request.getGeoJsonPolygon()
-        );
+            request.getGeoJsonPolygon());
 
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success("Farm registered successfully",
                 toFarmResponse(farm)));
     }
 
-    // SRS Page 22 — POST /api/v1/farms/{farm_id}/photos
     @PostMapping(value = "/{farmId}/photos",
                  consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<FarmPhotoResponse>> uploadPhoto(
@@ -61,8 +58,6 @@ public class FarmController {
             @RequestParam("photo_type") String photoType) {
 
         UUID farmerId = jwtUtils.extractUserId(authHeader);
-        log.info("POST /api/v1/farms/{}/photos — farmer: {}", farmId, farmerId);
-
         FarmPhoto farmPhoto = farmService.uploadPhoto(
             farmId, farmerId, photo, photoType);
 
@@ -71,7 +66,7 @@ public class FarmController {
                 toPhotoResponse(farmPhoto)));
     }
 
-    // SRS Page 22 — POST /api/v1/farms/{farm_id}/input-needs
+    // No cropCycleId needed — auto-fetched from active crop cycle
     @PostMapping("/{farmId}/input-needs")
     public ResponseEntity<ApiResponse<InputNeedResponse>> submitInputNeeds(
             @RequestHeader("Authorization") String authHeader,
@@ -79,64 +74,52 @@ public class FarmController {
             @Valid @RequestBody InputNeedRequest request) {
 
         UUID farmerId = jwtUtils.extractUserId(authHeader);
-        log.info("POST /api/v1/farms/{}/input-needs — farmer: {}", farmId, farmerId);
+        log.info("POST /api/v1/farms/{}/input-needs — farmer: {}",
+            farmId, farmerId);
 
-        List<FarmServicePort.InputNeedItemRequest> items = request.getItems().stream()
+        List<FarmServicePort.InputNeedItemRequest> items = request.getItems()
+            .stream()
             .map(item -> new FarmServicePort.InputNeedItemRequest(
                 item.getProductCategory(),
                 item.getProductName(),
                 item.getQuantity(),
                 item.getUnit(),
                 item.getEstimatedPriceEtb(),
-                item.getSequenceOrder()
-            ))
+                item.getSequenceOrder()))
             .collect(Collectors.toList());
 
         InputNeed inputNeed = farmService.submitInputNeeds(
-            farmId, farmerId, request.getCropCycleId(), items);
+            farmId, farmerId, items);
 
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success("Input needs submitted successfully",
                 toInputNeedResponse(inputNeed)));
     }
 
-    // SRS Page 22 — GET /api/v1/farms/{farm_id}
     @GetMapping("/{farmId}")
     public ResponseEntity<ApiResponse<FarmResponse>> getFarmById(
             @PathVariable UUID farmId) {
-
-        log.info("GET /api/v1/farms/{}", farmId);
         Farm farm = farmService.getFarmById(farmId);
         return ResponseEntity.ok(ApiResponse.success(toFarmResponse(farm)));
     }
 
-    // SRS Page 22 — GET /api/v1/farms/my
     @GetMapping("/my")
     public ResponseEntity<ApiResponse<List<FarmResponse>>> getMyFarms(
             @RequestHeader("Authorization") String authHeader) {
-
         UUID farmerId = jwtUtils.extractUserId(authHeader);
-        log.info("GET /api/v1/farms/my — farmer: {}", farmerId);
-
-        List<Farm> farms = farmService.getMyFarms(farmerId);
-        List<FarmResponse> responses = farms.stream()
-            .map(this::toFarmResponse)
-            .collect(Collectors.toList());
-
+        List<FarmResponse> responses = farmService.getMyFarms(farmerId)
+            .stream().map(this::toFarmResponse).collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
-    // SRS Page 22 — GET /api/v1/farms/{farm_id}/digital-twin
     @GetMapping("/{farmId}/digital-twin")
     public ResponseEntity<ApiResponse<DigitalTwinResponse>> getDigitalTwin(
             @PathVariable UUID farmId) {
-
-        log.info("GET /api/v1/farms/{}/digital-twin", farmId);
         FarmDocument doc = farmService.getDigitalTwin(farmId);
-        return ResponseEntity.ok(ApiResponse.success(toDigitalTwinResponse(doc)));
+        return ResponseEntity.ok(ApiResponse.success(
+            toDigitalTwinResponse(doc)));
     }
 
-    // SRS Page 22 — POST /api/v1/farms/{farm_id}/confirm-planting
     @PostMapping("/{farmId}/confirm-planting")
     public ResponseEntity<ApiResponse<CropCycleResponse>> confirmPlanting(
             @RequestHeader("Authorization") String authHeader,
@@ -144,58 +127,46 @@ public class FarmController {
             @Valid @RequestBody ConfirmPlantingRequest request) {
 
         UUID farmerId = jwtUtils.extractUserId(authHeader);
-        log.info("POST /api/v1/farms/{}/confirm-planting — farmer: {}",
-            farmId, farmerId);
-
         CropCycle cropCycle = farmService.confirmPlanting(
             farmId, farmerId, request.getPlantingDate());
 
-        return ResponseEntity.ok(
-            ApiResponse.success("Planting confirmed successfully",
-                toCropCycleResponse(cropCycle)));
+        return ResponseEntity.ok(ApiResponse.success(
+            "Planting confirmed successfully",
+            toCropCycleResponse(cropCycle)));
     }
 
-    // SRS Page 22 — GET /api/v1/farms/{farm_id}/agri-score
     @GetMapping("/{farmId}/agri-score")
     public ResponseEntity<ApiResponse<AgriScoreResponse>> getAgriScore(
             @PathVariable UUID farmId) {
-
-        log.info("GET /api/v1/farms/{}/agri-score", farmId);
         AgriScore score = farmService.getAgriScore(farmId);
-        return ResponseEntity.ok(ApiResponse.success(toAgriScoreResponse(score)));
+        return ResponseEntity.ok(ApiResponse.success(
+            toAgriScoreResponse(score)));
     }
 
-    // Mappers
     private FarmResponse toFarmResponse(Farm farm) {
         return FarmResponse.builder()
-            .id(farm.getId())
-            .farmerId(farm.getFarmerId())
+            .id(farm.getId()).farmerId(farm.getFarmerId())
             .farmName(farm.getFarmName())
             .cropType(farm.getCropType().getValue())
             .areaHectares(farm.getAreaHectares())
             .status(farm.getStatus().getValue())
-            .kebeleCode(farm.getKebeleCode())
-            .region(farm.getRegion())
+            .kebeleCode(farm.getKebeleCode()).region(farm.getRegion())
             .gpsCentroidLat(farm.getGpsCentroidLat())
             .gpsCentroidLng(farm.getGpsCentroidLng())
             .satelliteVerified(farm.getSatelliteVerified())
             .satelliteVerifiedAt(farm.getSatelliteVerifiedAt())
-            .createdAt(farm.getCreatedAt())
-            .updatedAt(farm.getUpdatedAt())
+            .createdAt(farm.getCreatedAt()).updatedAt(farm.getUpdatedAt())
             .build();
     }
 
     private FarmPhotoResponse toPhotoResponse(FarmPhoto photo) {
         return FarmPhotoResponse.builder()
-            .id(photo.getId())
-            .farmId(photo.getFarmId())
+            .id(photo.getId()).farmId(photo.getFarmId())
             .photoUrl(photo.getPhotoUrl())
-            .gpsLat(photo.getGpsLat())
-            .gpsLng(photo.getGpsLng())
+            .gpsLat(photo.getGpsLat()).gpsLng(photo.getGpsLng())
             .photoType(photo.getPhotoType().getValue())
             .gpsVerified(photo.getGpsVerified())
-            .uploadedAt(photo.getUploadedAt())
-            .build();
+            .uploadedAt(photo.getUploadedAt()).build();
     }
 
     private InputNeedResponse toInputNeedResponse(InputNeed inputNeed) {
@@ -209,50 +180,41 @@ public class FarmController {
                         .quantity(item.getQuantity())
                         .unit(item.getUnit())
                         .estimatedPriceEtb(item.getEstimatedPriceEtb())
-                        .sequenceOrder(item.getSequenceOrder())
-                        .build())
+                        .sequenceOrder(item.getSequenceOrder()).build())
                     .collect(Collectors.toList())
                 : List.of();
 
         return InputNeedResponse.builder()
-            .id(inputNeed.getId())
-            .farmId(inputNeed.getFarmId())
+            .id(inputNeed.getId()).farmId(inputNeed.getFarmId())
             .cropCycleId(inputNeed.getCropCycleId())
             .totalAmountEtb(inputNeed.getTotalAmountEtb())
             .fundedAmountEtb(inputNeed.getFundedAmountEtb())
             .status(inputNeed.getStatus().getValue())
-            .createdAt(inputNeed.getCreatedAt())
-            .items(itemResponses)
-            .build();
+            .createdAt(inputNeed.getCreatedAt()).items(itemResponses).build();
     }
 
-    private CropCycleResponse toCropCycleResponse(CropCycle cropCycle) {
+    private CropCycleResponse toCropCycleResponse(CropCycle c) {
         return CropCycleResponse.builder()
-            .id(cropCycle.getId())
-            .farmId(cropCycle.getFarmId())
-            .seasonName(cropCycle.getSeasonName())
-            .plantingDate(cropCycle.getPlantingDate())
-            .expectedHarvestDate(cropCycle.getExpectedHarvestDate())
-            .actualHarvestDate(cropCycle.getActualHarvestDate())
-            .status(cropCycle.getStatus().getValue())
-            .createdAt(cropCycle.getCreatedAt())
-            .build();
+            .id(c.getId()).farmId(c.getFarmId())
+            .seasonName(c.getSeasonName())
+            .plantingDate(c.getPlantingDate())
+            .expectedHarvestDate(c.getExpectedHarvestDate())
+            .actualHarvestDate(c.getActualHarvestDate())
+            .status(c.getStatus().getValue())
+            .createdAt(c.getCreatedAt()).build();
     }
 
-    private AgriScoreResponse toAgriScoreResponse(AgriScore score) {
+    private AgriScoreResponse toAgriScoreResponse(AgriScore s) {
         return AgriScoreResponse.builder()
-            .id(score.getId())
-            .farmerId(score.getFarmerId())
-            .cropCycleId(score.getCropCycleId())
-            .score(score.getScore())
-            .voucherDisciplinePts(score.getVoucherDisciplinePts())
-            .yieldAccuracyPts(score.getYieldAccuracyPts())
-            .contractFulfillmentPts(score.getContractFulfillmentPts())
-            .repaymentCompletionPts(score.getRepaymentCompletionPts())
-            .seasonCompletionPts(score.getSeasonCompletionPts())
-            .agronomistAssessmentPts(score.getAgronomistAssessmentPts())
-            .calculatedAt(score.getCalculatedAt())
-            .build();
+            .id(s.getId()).farmerId(s.getFarmerId())
+            .cropCycleId(s.getCropCycleId()).score(s.getScore())
+            .voucherDisciplinePts(s.getVoucherDisciplinePts())
+            .yieldAccuracyPts(s.getYieldAccuracyPts())
+            .contractFulfillmentPts(s.getContractFulfillmentPts())
+            .repaymentCompletionPts(s.getRepaymentCompletionPts())
+            .seasonCompletionPts(s.getSeasonCompletionPts())
+            .agronomistAssessmentPts(s.getAgronomistAssessmentPts())
+            .calculatedAt(s.getCalculatedAt()).build();
     }
 
     private DigitalTwinResponse toDigitalTwinResponse(FarmDocument doc) {
