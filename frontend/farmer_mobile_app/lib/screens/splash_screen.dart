@@ -18,7 +18,7 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkLogin() async {
     final authService = AuthService();
     final isLoggedIn = await authService.isLoggedIn();
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(milliseconds: 1800));
     if (mounted) {
       Navigator.pushReplacementNamed(context, isLoggedIn ? '/home' : '/login');
     }
@@ -27,21 +27,23 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: LinearGradient(colors: [Colors.green, Colors.greenAccent])),
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.agriculture, size: 100, color: Colors.white),
-              SizedBox(height: 16),
-              Text('Agri-Yield', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
-              SizedBox(height: 8),
-              Text('Empowering Ethiopian Farmers', style: TextStyle(color: Colors.white70)),
-              SizedBox(height: 40),
-              CircularProgressIndicator(color: Colors.white),
-            ],
-          ),
+      backgroundColor: const Color(0xFF1B4332), // Custom Earth Forest Core Theme Color
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), shape: BoxShape.circle),
+              child: const Icon(Icons.wb_twilight_rounded, size: 84, color: Colors.white),
+            ),
+            const SizedBox(height: 24),
+            const Text('Agri-Yield', style: TextStyle(fontSize: 38, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -1.5)),
+            const SizedBox(height: 4),
+            Text('Empowering Ethiopian Farmers'.toUpperCase(), style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+            const SizedBox(height: 60),
+            const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)),
+          ],
         ),
       ),
     );
