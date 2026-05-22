@@ -6,7 +6,6 @@ import '../models/input_need_model.dart';
 class FarmService {
   final ApiService _api = ApiService();
 
-  // SRS Page 22 — POST /api/v1/farms
   Future<Map<String, dynamic>> registerFarm({
     required String cropType,
     required String kebeleCode,
@@ -24,12 +23,8 @@ class FarmService {
         'expectedHarvestDate': expectedHarvestDate,
         'geoJsonPolygon': geoJsonPolygon,
       });
-
       if (response['success'] == true) {
-        return {
-          'success': true,
-          'farm': FarmModel.fromJson(response['data']),
-        };
+        return {'success': true, 'farm': FarmModel.fromJson(response['data'])};
       }
       return {
         'success': false,
@@ -40,7 +35,6 @@ class FarmService {
     }
   }
 
-  // SRS Page 22 — GET /api/v1/farms/my
   Future<Map<String, dynamic>> getMyFarms() async {
     try {
       final response = await _api.get('/farms/my');
@@ -60,15 +54,11 @@ class FarmService {
     }
   }
 
-  // SRS Page 22 — GET /api/v1/farms/{farm_id}
   Future<Map<String, dynamic>> getFarmById(String farmId) async {
     try {
       final response = await _api.get('/farms/$farmId');
       if (response['success'] == true) {
-        return {
-          'success': true,
-          'farm': FarmModel.fromJson(response['data']),
-        };
+        return {'success': true, 'farm': FarmModel.fromJson(response['data'])};
       }
       return {
         'success': false,
@@ -79,15 +69,11 @@ class FarmService {
     }
   }
 
-  // SRS Page 22 — GET /api/v1/farms/{farm_id}/digital-twin
   Future<Map<String, dynamic>> getDigitalTwin(String farmId) async {
     try {
       final response = await _api.get('/farms/$farmId/digital-twin');
       if (response['success'] == true) {
-        return {
-          'success': true,
-          'digitalTwin': response['data'],
-        };
+        return {'success': true, 'digitalTwin': response['data']};
       }
       return {
         'success': false,
@@ -98,7 +84,6 @@ class FarmService {
     }
   }
 
-  // SRS Page 22 — POST /api/v1/farms/{farm_id}/confirm-planting
   Future<Map<String, dynamic>> confirmPlanting({
     required String farmId,
     required String plantingDate,
@@ -123,15 +108,13 @@ class FarmService {
     }
   }
 
-  // SRS Page 22 — POST /api/v1/farms/{farm_id}/input-needs
+  // No cropCycleId needed — backend auto-fetches it
   Future<Map<String, dynamic>> submitInputNeeds({
     required String farmId,
-    required String cropCycleId,
     required List<Map<String, dynamic>> items,
   }) async {
     try {
       final response = await _api.post('/farms/$farmId/input-needs', {
-        'cropCycleId': cropCycleId,
         'items': items,
       });
       if (response['success'] == true) {
@@ -149,7 +132,6 @@ class FarmService {
     }
   }
 
-  // SRS Page 22 — POST /api/v1/farms/{farm_id}/photos
   Future<Map<String, dynamic>> uploadPhoto({
     required String farmId,
     required String photoType,
@@ -174,7 +156,6 @@ class FarmService {
     }
   }
 
-  // SRS Page 22 — GET /api/v1/farms/{farm_id}/agri-score
   Future<Map<String, dynamic>> getAgriScore(String farmId) async {
     try {
       final response = await _api.get('/farms/$farmId/agri-score');

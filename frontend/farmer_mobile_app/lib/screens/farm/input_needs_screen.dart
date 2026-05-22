@@ -12,10 +12,8 @@ class InputNeedsScreen extends StatefulWidget {
 
 class _InputNeedsScreenState extends State<InputNeedsScreen> {
   final _farmService = FarmService();
-  final _cropCycleIdController = TextEditingController();
   bool _isLoading = false;
   String? _error;
-  String? _successMessage;
 
   final List<Map<String, dynamic>> _items = [];
 
@@ -23,15 +21,7 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
     'SEED', 'FERTILIZER', 'PESTICIDE', 'TOOL', 'OTHER'
   ];
 
-  final List<String> _units = [
-    'kg', 'litre', 'bag', 'piece'
-  ];
-
-  @override
-  void dispose() {
-    _cropCycleIdController.dispose();
-    super.dispose();
-  }
+  final List<String> _units = ['kg', 'litre', 'bag', 'piece'];
 
   void _addItem() {
     setState(() {
@@ -49,7 +39,6 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
   void _removeItem(int index) {
     setState(() {
       _items.removeAt(index);
-      // Reorder sequence
       for (int i = 0; i < _items.length; i++) {
         _items[i]['sequenceOrder'] = i + 1;
       }
@@ -57,10 +46,6 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
   }
 
   bool _validateForm() {
-    if (_cropCycleIdController.text.trim().isEmpty) {
-      _showError('Please enter the Crop Cycle ID');
-      return false;
-    }
     if (_items.isEmpty) {
       _showError('Please add at least one input item');
       return false;
@@ -76,7 +61,7 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
         return false;
       }
       if ((item['estimatedPriceEtb'] as String).trim().isEmpty) {
-        _showError('Item ${i + 1}: Estimated price is required');
+        _showError('Item ${i + 1}: Price is required');
         return false;
       }
     }
@@ -95,7 +80,6 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
     setState(() {
       _isLoading = true;
       _error = null;
-      _successMessage = null;
     });
 
     final formattedItems = _items.map((item) => {
@@ -109,15 +93,12 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
 
     final result = await _farmService.submitInputNeeds(
       farmId: widget.farmId,
-      cropCycleId: _cropCycleIdController.text.trim(),
       items: formattedItems,
     );
 
     if (mounted) {
       setState(() => _isLoading = false);
-
       if (result['success'] == true) {
-        setState(() => _successMessage = 'Input needs submitted successfully!');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Input needs submitted successfully!'),
@@ -144,7 +125,6 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Info banner
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -159,7 +139,7 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
                   Expanded(
                     child: Text(
                       'List all agricultural inputs you need for this season. '
-                      'Investors will fund these inputs and vouchers will be generated.',
+                      'Investors will fund these and vouchers will be generated.',
                       style: TextStyle(color: Colors.green, fontSize: 13),
                     ),
                   ),
@@ -168,29 +148,12 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Crop Cycle ID
-            TextField(
-              controller: _cropCycleIdController,
-              decoration: const InputDecoration(
-                labelText: 'Crop Cycle ID *',
-                hintText: 'Enter your crop cycle UUID',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.loop),
-                helperText: 'Found in your farm details',
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Items header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   'Input Items',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 ElevatedButton.icon(
                   onPressed: _addItem,
@@ -200,16 +163,13 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
+                        horizontal: 12, vertical: 8),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // Items list
             if (_items.isEmpty)
               Container(
                 width: double.infinity,
@@ -224,10 +184,8 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
                     Icon(Icons.add_box_outlined,
                         size: 48, color: Colors.grey.shade400),
                     const SizedBox(height: 8),
-                    Text(
-                      'No items added yet',
-                      style: TextStyle(color: Colors.grey.shade500),
-                    ),
+                    Text('No items added yet',
+                        style: TextStyle(color: Colors.grey.shade500)),
                     const SizedBox(height: 4),
                     Text(
                       'Tap "Add Item" to add seeds, fertilizers, etc.',
@@ -238,10 +196,8 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
                 ),
               ),
 
-            ...List.generate(_items.length, (index) {
-              final item = _items[index];
-              return _buildItemCard(index, item);
-            }),
+            ...List.generate(_items.length,
+                (index) => _buildItemCard(index, _items[index])),
 
             if (_error != null) ...[
               const SizedBox(height: 16),
@@ -257,10 +213,8 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
                     const Icon(Icons.error_outline, color: Colors.red),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
+                      child: Text(_error!,
+                          style: const TextStyle(color: Colors.red)),
                     ),
                   ],
                 ),
@@ -269,22 +223,18 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
 
             const SizedBox(height: 24),
 
-            // Total calculation
             if (_items.isNotEmpty) ...[
               Card(
                 color: Colors.green.shade50,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                    borderRadius: BorderRadius.circular(8)),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Total Estimated Amount',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      const Text('Total Estimated Amount',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       Text(
                         'ETB ${_calculateTotal().toStringAsFixed(2)}',
                         style: const TextStyle(
@@ -300,7 +250,6 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
               const SizedBox(height: 16),
             ],
 
-            // Submit button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -310,22 +259,16 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 child: _isLoading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'Submit Input Needs',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                            color: Colors.white, strokeWidth: 2))
+                    : const Text('Submit Input Needs',
+                        style: TextStyle(fontSize: 16)),
               ),
             ),
             const SizedBox(height: 32),
@@ -347,13 +290,9 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Item ${index + 1}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
+                Text('Item ${index + 1}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16)),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () => _removeItem(index),
@@ -362,7 +301,6 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
             ),
             const SizedBox(height: 8),
 
-            // Product category
             DropdownButtonFormField<String>(
               value: item['productCategory'],
               decoration: const InputDecoration(
@@ -378,7 +316,6 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Product name
             TextField(
               decoration: const InputDecoration(
                 labelText: 'Product Name *',
@@ -390,7 +327,6 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Quantity and unit in a row
             Row(
               children: [
                 Expanded(
@@ -415,17 +351,16 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
                       isDense: true,
                     ),
                     items: _units
-                        .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                        .map((u) =>
+                            DropdownMenuItem(value: u, child: Text(u)))
                         .toList(),
-                    onChanged: (val) =>
-                        setState(() => item['unit'] = val!),
+                    onChanged: (val) => setState(() => item['unit'] = val!),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
 
-            // Price
             TextField(
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
@@ -438,7 +373,6 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
             ),
             const SizedBox(height: 8),
 
-            // Sequence order display
             Text(
               'Redemption order: ${item['sequenceOrder']}',
               style: TextStyle(
@@ -456,8 +390,7 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
   double _calculateTotal() {
     double total = 0;
     for (final item in _items) {
-      final price = double.tryParse(item['estimatedPriceEtb'] ?? '') ?? 0;
-      total += price;
+      total += double.tryParse(item['estimatedPriceEtb'] ?? '') ?? 0;
     }
     return total;
   }
