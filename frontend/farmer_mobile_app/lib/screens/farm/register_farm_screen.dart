@@ -20,7 +20,7 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
   String _selectedCropType = 'WHEAT';
   DateTime _expectedHarvestDate = DateTime.now().add(const Duration(days: 120));
 
-  // Step 2 — simplified polygon input
+  // Step 2 polygon input
   final _polygonController = TextEditingController();
 
   bool _isLoading = false;
@@ -98,8 +98,6 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
       _error = null;
     });
 
-    // Build a simple GeoJSON polygon from the input
-    // In production this comes from GPS polygon mapping on a map
     final geoJson = _polygonController.text.trim().isNotEmpty
         ? _polygonController.text.trim()
         : '{"type":"Polygon","coordinates":[[[38.74,9.03],[38.75,9.03],[38.75,9.04],[38.74,9.03],[38.74,9.03]]]}';
@@ -176,18 +174,18 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
                   backgroundColor: isDone
                       ? Colors.green
                       : isActive
-                          ? Colors.green
-                          : Colors.grey.shade300,
+                      ? Colors.green
+                      : Colors.grey.shade300,
                   child: isDone
                       ? const Icon(Icons.check, color: Colors.white, size: 16)
                       : Text(
-                          '${index + 1}',
-                          style: TextStyle(
-                            color: isActive ? Colors.white : Colors.grey,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
+                    '${index + 1}',
+                    style: TextStyle(
+                      color: isActive ? Colors.white : Colors.grey,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -234,7 +232,6 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Farm name (optional)
           TextField(
             controller: _farmNameController,
             decoration: const InputDecoration(
@@ -246,7 +243,6 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Crop type
           DropdownButtonFormField<String>(
             value: _selectedCropType,
             decoration: const InputDecoration(
@@ -261,7 +257,6 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Kebele code
           TextField(
             controller: _kebeleCodeController,
             decoration: const InputDecoration(
@@ -273,7 +268,6 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Region
           Autocomplete<String>(
             optionsBuilder: (textEditingValue) {
               if (textEditingValue.text.isEmpty) return _ethiopianRegions;
@@ -282,7 +276,11 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
             },
             onSelected: (value) => _regionController.text = value,
             fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-              _regionController.text = controller.text;
+              // Sync autocomplete local text state with our main controller
+              controller.text = _regionController.text;
+              controller.addListener(() {
+                _regionController.text = controller.text;
+              });
               return TextField(
                 controller: controller,
                 focusNode: focusNode,
@@ -297,7 +295,6 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Expected harvest date
           InkWell(
             onTap: () async {
               final date = await showDatePicker(
@@ -318,8 +315,8 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
               ),
               child: Text(
                 '${_expectedHarvestDate.year}-'
-                '${_expectedHarvestDate.month.toString().padLeft(2, '0')}-'
-                '${_expectedHarvestDate.day.toString().padLeft(2, '0')}',
+                    '${_expectedHarvestDate.month.toString().padLeft(2, '0')}-'
+                    '${_expectedHarvestDate.day.toString().padLeft(2, '0')}',
               ),
             ),
           ),
@@ -376,7 +373,7 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
                 Expanded(
                   child: Text(
                     'GPS boundary will be verified by satellite after registration. '
-                    'Area will be calculated automatically.',
+                        'Area will be calculated automatically.',
                     style: TextStyle(color: Colors.blue, fontSize: 13),
                   ),
                 ),
@@ -388,23 +385,22 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
           TextField(
             controller: _polygonController,
             maxLines: 6,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               labelText: 'GeoJSON Polygon',
               hintText: '{"type":"Polygon","coordinates":[[[38.74,9.03],'
                   '[38.75,9.03],[38.75,9.04],[38.74,9.03],[38.74,9.03]]]}',
-              border: const OutlineInputBorder(),
-              prefixIcon: const Icon(Icons.satellite_alt),
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.satellite_alt),
               helperText: 'Paste GeoJSON coordinates of your farm boundary',
               helperMaxLines: 2,
             ),
           ),
           const SizedBox(height: 12),
 
-          // Use default placeholder button
           OutlinedButton.icon(
             onPressed: () {
               _polygonController.text =
-                  '{"type":"Polygon","coordinates":[[[38.74,9.03],'
+              '{"type":"Polygon","coordinates":[[[38.74,9.03],'
                   '[38.75,9.03],[38.75,9.04],[38.74,9.03],[38.74,9.03]]]}';
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -414,6 +410,10 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
                 ),
               );
             },
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Colors.green),
+              foregroundColor: Colors.green,
+            ),
             icon: const Icon(Icons.my_location),
             label: const Text('Use Sample Coordinates'),
           ),
@@ -493,13 +493,13 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
                   _buildReviewRow(
                     'Expected Harvest',
                     '${_expectedHarvestDate.year}-'
-                    '${_expectedHarvestDate.month.toString().padLeft(2, '0')}-'
-                    '${_expectedHarvestDate.day.toString().padLeft(2, '0')}',
+                        '${_expectedHarvestDate.month.toString().padLeft(2, '0')}-'
+                        '${_expectedHarvestDate.day.toString().padLeft(2, '0')}',
                   ),
                   _buildReviewRow(
                     'GPS Polygon',
                     _polygonController.text.isNotEmpty
-                        ? 'Provided ✓'
+                        ? 'Provided'
                         : 'Sample coordinates',
                   ),
                 ],
@@ -562,13 +562,13 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
                   ),
                   child: _isLoading
                       ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
                       : const Text('Register Farm', style: TextStyle(fontSize: 16)),
                 ),
               ),

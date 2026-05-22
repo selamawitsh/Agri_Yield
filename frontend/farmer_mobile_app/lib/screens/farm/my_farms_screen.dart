@@ -108,6 +108,10 @@ class _MyFarmsScreenState extends State<MyFarmsScreen> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadFarms,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Retry'),
             ),
           ],
@@ -190,7 +194,7 @@ class _MyFarmsScreenState extends State<MyFarmsScreen> {
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                        horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -211,7 +215,7 @@ class _MyFarmsScreenState extends State<MyFarmsScreen> {
               Row(
                 children: [
                   _buildInfoChip(Icons.grass, farm.cropType),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 16),
                   _buildInfoChip(Icons.location_on, farm.region),
                 ],
               ),
@@ -222,7 +226,7 @@ class _MyFarmsScreenState extends State<MyFarmsScreen> {
                     Icons.straighten,
                     '${farm.areaHectares.toStringAsFixed(2)} ha',
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 16),
                   if (farm.satelliteVerified)
                     _buildInfoChip(Icons.satellite_alt, 'Satellite Verified',
                         color: Colors.blue),
@@ -239,6 +243,7 @@ class _MyFarmsScreenState extends State<MyFarmsScreen> {
                       fontSize: 12,
                     ),
                   ),
+                  const SizedBox(width: 4),
                   const Icon(Icons.arrow_forward_ios,
                       size: 12, color: Colors.grey),
                 ],

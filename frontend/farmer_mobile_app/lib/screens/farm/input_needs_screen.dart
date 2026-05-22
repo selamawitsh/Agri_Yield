@@ -27,10 +27,10 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
     setState(() {
       _items.add({
         'productCategory': 'SEED',
-        'productName': '',
-        'quantity': '',
+        'nameController': TextEditingController(),
+        'quantityController': TextEditingController(),
         'unit': 'kg',
-        'estimatedPriceEtb': '',
+        'priceController': TextEditingController(),
         'sequenceOrder': _items.length + 1,
       });
     });
@@ -38,6 +38,11 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
 
   void _removeItem(int index) {
     setState(() {
+      // Properly dispose controllers to prevent memory leaks
+      _items[index]['nameController']?.dispose();
+      _items[index]['quantityController']?.dispose();
+      _items[index]['priceController']?.dispose();
+
       _items.removeAt(index);
       for (int i = 0; i < _items.length; i++) {
         _items[i]['sequenceOrder'] = i + 1;
@@ -52,16 +57,20 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
     }
     for (int i = 0; i < _items.length; i++) {
       final item = _items[i];
-      if ((item['productName'] as String).trim().isEmpty) {
+      final name = (item['nameController'] as TextEditingController).text;
+      final qty = (item['quantityController'] as TextEditingController).text;
+      final price = (item['priceController'] as TextEditingController).text;
+
+      if (name.trim().isEmpty) {
         _showError('Item ${i + 1}: Product name is required');
         return false;
       }
-      if ((item['quantity'] as String).trim().isEmpty) {
-        _showError('Item ${i + 1}: Quantity is required');
+      if (qty.trim().isEmpty || double.tryParse(qty) == null) {
+        _showError('Item ${i + 1}: Enter a valid quantity');
         return false;
       }
-      if ((item['estimatedPriceEtb'] as String).trim().isEmpty) {
-        _showError('Item ${i + 1}: Price is required');
+      if (price.trim().isEmpty || double.tryParse(price) == null) {
+        _showError('Item ${i + 1}: Enter a valid price');
         return false;
       }
     }
@@ -82,13 +91,19 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
       _error = null;
     });
 
-    final formattedItems = _items.map((item) => {
-      'productCategory': item['productCategory'],
-      'productName': item['productName'],
-      'quantity': double.tryParse(item['quantity']) ?? 0,
-      'unit': item['unit'],
-      'estimatedPriceEtb': double.tryParse(item['estimatedPriceEtb']) ?? 0,
-      'sequenceOrder': item['sequenceOrder'],
+    final formattedItems = _items.map((item) {
+      final name = (item['nameController'] as TextEditingController).text;
+      final qty = (item['quantityController'] as TextEditingController).text;
+      final price = (item['priceController'] as TextEditingController).text;
+
+      return {
+        'productCategory': item['productCategory'],
+        'productName': name,
+        'quantity': double.tryParse(qty) ?? 0.0,
+        'unit': item['unit'],
+        'estimatedPriceEtb': double.tryParse(price) ?? 0.0,
+        'sequenceOrder': item['sequenceOrder'],
+      };
     }).toList();
 
     final result = await _farmService.submitInputNeeds(
@@ -110,6 +125,26 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
         setState(() => _error = result['message']);
       }
     }
+  }
+
+  double _calculateTotal() {
+    double total = 0;
+    for (final item in _items) {
+      final priceStr = (item['priceController'] as TextEditingController?)?.text ?? '';
+      total += double.tryParse(priceStr) ?? 0.0;
+    }
+    return total;
+  }
+
+  @override
+  void dispose() {
+    // Clean up all controllers instantiated in state
+    for (final item in _items) {
+      item['nameController']?.dispose();
+      item['quantityController']?.dispose();
+      item['priceController']?.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -139,7 +174,7 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
                   Expanded(
                     child: Text(
                       'List all agricultural inputs you need for this season. '
-                      'Investors will fund these and vouchers will be generated.',
+                          'Investors will fund these and vouchers will be generated.',
                       style: TextStyle(color: Colors.green, fontSize: 13),
                     ),
                   ),
@@ -197,7 +232,7 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
               ),
 
             ...List.generate(_items.length,
-                (index) => _buildItemCard(index, _items[index])),
+                    (index) => _buildItemCard(index, _items[index])),
 
             if (_error != null) ...[
               const SizedBox(height: 16),
@@ -263,12 +298,12 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
                 ),
                 child: _isLoading
                     ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2))
                     : const Text('Submit Input Needs',
-                        style: TextStyle(fontSize: 16)),
+                    style: TextStyle(fontSize: 16)),
               ),
             ),
             const SizedBox(height: 32),
@@ -316,14 +351,14 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
             ),
             const SizedBox(height: 10),
 
-            TextField(
+            TextFormField(
+              controller: item['nameController'] as TextEditingController,
               decoration: const InputDecoration(
                 labelText: 'Product Name *',
                 hintText: 'e.g. Kakaba Wheat Seed',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
-              onChanged: (val) => item['productName'] = val,
             ),
             const SizedBox(height: 10),
 
@@ -331,14 +366,14 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
               children: [
                 Expanded(
                   flex: 2,
-                  child: TextField(
-                    keyboardType: TextInputType.number,
+                  child: TextFormField(
+                    controller: item['quantityController'] as TextEditingController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
                       labelText: 'Quantity *',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
-                    onChanged: (val) => item['quantity'] = val,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -352,7 +387,7 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
                     ),
                     items: _units
                         .map((u) =>
-                            DropdownMenuItem(value: u, child: Text(u)))
+                        DropdownMenuItem(value: u, child: Text(u)))
                         .toList(),
                     onChanged: (val) => setState(() => item['unit'] = val!),
                   ),
@@ -361,15 +396,19 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
             ),
             const SizedBox(height: 10),
 
-            TextField(
-              keyboardType: TextInputType.number,
+            TextFormField(
+              controller: item['priceController'] as TextEditingController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
                 labelText: 'Estimated Price (ETB) *',
                 border: OutlineInputBorder(),
                 isDense: true,
                 prefixText: 'ETB ',
               ),
-              onChanged: (val) => item['estimatedPriceEtb'] = val,
+              onChanged: (_) {
+                // Instantly re-calculate bottom aggregate estimation summary layout container card UI metrics frame values upon typed values
+                setState(() {});
+              },
             ),
             const SizedBox(height: 8),
 
@@ -385,13 +424,5 @@ class _InputNeedsScreenState extends State<InputNeedsScreen> {
         ),
       ),
     );
-  }
-
-  double _calculateTotal() {
-    double total = 0;
-    for (final item in _items) {
-      total += double.tryParse(item['estimatedPriceEtb'] ?? '') ?? 0;
-    }
-    return total;
   }
 }

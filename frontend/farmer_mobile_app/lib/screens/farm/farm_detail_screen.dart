@@ -140,31 +140,32 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Colors.green))
+          child: CircularProgressIndicator(color: Colors.green))
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          size: 64, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(_error!),
-                      ElevatedButton(
-                        onPressed: _loadFarmData,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildOverviewTab(),
-                    _buildDigitalTwinTab(),
-                    _buildAgriScoreTab(),
-                  ],
-                ),
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline,
+                size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(_error!),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadFarmData,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      )
+          : TabBarView(
+        controller: _tabController,
+        children: [
+          _buildOverviewTab(),
+          _buildDigitalTwinTab(),
+          _buildAgriScoreTab(),
+        ],
+      ),
     );
   }
 
@@ -256,11 +257,11 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
                   _buildDetailRow(
                     'GPS Center',
                     '${farm.gpsCentroidLat.toStringAsFixed(4)}, '
-                    '${farm.gpsCentroidLng.toStringAsFixed(4)}',
+                        '${farm.gpsCentroidLng.toStringAsFixed(4)}',
                   ),
                   _buildDetailRow(
                     'Satellite Verified',
-                    farm.satelliteVerified ? 'Yes ✓' : 'Pending',
+                    farm.satelliteVerified ? 'Yes' : 'Pending',
                   ),
                 ],
               ),
@@ -367,15 +368,15 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
                     )
                   else
                     ...ndviHistory.map((reading) => ListTile(
-                          leading: const Icon(Icons.bar_chart,
-                              color: Colors.green),
-                          title: Text('NDVI: ${reading['ndvi']}'),
-                          subtitle: Text(reading['date'] ?? ''),
-                          trailing: Text(
-                            '${reading['cloudCoverage']}% cloud',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        )),
+                      leading: const Icon(Icons.bar_chart,
+                          color: Colors.green),
+                      title: Text('NDVI: ${reading['ndvi']}'),
+                      subtitle: Text(reading['date'] ?? ''),
+                      trailing: Text(
+                        '${reading['cloudCoverage']}% cloud',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    )),
                 ],
               ),
             ),
@@ -406,11 +407,11 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
                     )
                   else
                     ...photoHistory.map((photo) => ListTile(
-                          leading:
-                              const Icon(Icons.photo, color: Colors.blue),
-                          title: Text(photo['type'] ?? ''),
-                          subtitle: Text(photo['uploadedAt'] ?? ''),
-                        )),
+                      leading:
+                      const Icon(Icons.photo, color: Colors.blue),
+                      title: Text(photo['type'] ?? ''),
+                      subtitle: Text(photo['uploadedAt'] ?? ''),
+                    )),
                 ],
               ),
             ),
@@ -440,7 +441,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
     }
 
     final score = _agriScore!['score'] ?? 0;
-    final maxScore = 900;
+    const maxScore = 900;
     final percentage = (score / maxScore).clamp(0.0, 1.0);
 
     return SingleChildScrollView(
@@ -475,11 +476,12 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
                           color: percentage > 0.6
                               ? Colors.green
                               : percentage > 0.3
-                                  ? Colors.orange
-                                  : Colors.red,
+                              ? Colors.orange
+                              : Colors.red,
                         ),
                       ),
                       Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             '$score',
