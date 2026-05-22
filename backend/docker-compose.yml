@@ -2,8 +2,9 @@ version: '3.8'
 
 services:
 
-
+  # =========================
   # PostgreSQL Database
+  # =========================
   postgres:
     image: postgres:15-alpine
     container_name: agriyield-postgres
@@ -23,7 +24,9 @@ services:
       timeout: 5s
       retries: 5
 
+  # =========================
   # MongoDB
+  # =========================
   mongodb:
     image: mongo:7-jammy
     container_name: agriyield-mongodb
@@ -38,7 +41,9 @@ services:
     networks:
       - agriyield-net
 
-  # Redis Cache
+  # =========================
+  # Redis
+  # =========================
   redis:
     image: redis:7-alpine
     container_name: agriyield-redis
@@ -55,7 +60,9 @@ services:
       timeout: 5s
       retries: 5
 
+  # =========================
   # RabbitMQ
+  # =========================
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: agriyield-rabbitmq
@@ -75,7 +82,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # Neo4j (for fraud detection - will be used by fraud-service)
+  # =========================
+  # Neo4j
+  # =========================
   neo4j:
     image: neo4j:5-community
     container_name: agriyield-neo4j
@@ -90,7 +99,9 @@ services:
     networks:
       - agriyield-net
 
-  # MinIO (S3-compatible storage)
+  # =========================
+  # MinIO
+  # =========================
   minio:
     image: minio/minio
     container_name: agriyield-minio
@@ -111,7 +122,9 @@ services:
       timeout: 20s
       retries: 3
 
-  # Zipkin for distributed tracing
+  # =========================
+  # Zipkin
+  # =========================
   zipkin:
     image: openzipkin/zipkin
     container_name: agriyield-zipkin
@@ -120,7 +133,9 @@ services:
     networks:
       - agriyield-net
 
-  # TimescaleDB (PostgreSQL with time-series extension)
+  # =========================
+  # TimescaleDB
+  # =========================
   timescaledb:
     image: timescale/timescaledb:latest-pg15
     container_name: agriyield-timescaledb
@@ -132,6 +147,38 @@ services:
       - "5433:5432"
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
+    networks:
+      - agriyield-net
+
+  # =========================
+  # Escrow Service
+  # =========================
+  escrow-service:
+    build:
+      context: .                                    # Build from backend root
+      dockerfile: services/escrow-service/Dockerfile # Dockerfile path from root
+    container_name: agriyield-escrow-service
+    ports:
+      - "8084:8084"
+      - "9084:9084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agriyield_escrow_db
+      SPRING_DATASOURCE_USERNAME: agriyield
+      SPRING_DATASOURCE_PASSWORD: agriyield123
+
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: agriyield
+      SPRING_RABBITMQ_PASSWORD: agriyield123
+
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://host.docker.internal:8761/eureka/
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
     networks:
       - agriyield-net
 
