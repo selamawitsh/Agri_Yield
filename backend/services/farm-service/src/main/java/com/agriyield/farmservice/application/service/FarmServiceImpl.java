@@ -51,7 +51,7 @@ public class FarmServiceImpl implements FarmServicePort {
 
         boolean farmerExists = userServicePort.verifyFarmerExists(farmerId);
         if (!farmerExists) {
-            log.warn("Farmer not found via gRPC, proceeding (gRPC stub mode)");
+            log.warn("Farmer not found via gRPC, proceeding (stub mode)");
         }
 
         if (geoJsonPolygon == null || geoJsonPolygon.isBlank()) {
@@ -79,8 +79,9 @@ public class FarmServiceImpl implements FarmServicePort {
             .build();
 
         Farm savedFarm = farmRepository.save(farm);
-        log.info("Farm saved with ID: {}", savedFarm.getId());
+        log.info("Farm saved: {}", savedFarm.getId());
 
+        // Auto-create first crop cycle during registration
         CropCycle cropCycle = CropCycle.builder()
             .id(UUID.randomUUID())
             .farmId(savedFarm.getId())
@@ -98,7 +99,6 @@ public class FarmServiceImpl implements FarmServicePort {
             .build();
 
         farmDocumentRepository.save(farmDocument);
-
         eventPublisher.publishFarmRegistered(savedFarm);
 
         return savedFarm;
@@ -122,7 +122,6 @@ public class FarmServiceImpl implements FarmServicePort {
 
         BigDecimal gpsLat = farm.getGpsCentroidLat();
         BigDecimal gpsLng = farm.getGpsCentroidLng();
-
         String photoUrl = photoStoragePort.uploadPhoto(farmId, photoType, photo);
 
         FarmPhoto farmPhoto = FarmPhoto.builder()
@@ -150,15 +149,12 @@ public class FarmServiceImpl implements FarmServicePort {
         farmDocumentRepository.appendPhotoRecord(farmId.toString(),
             FarmDocument.PhotoRecord.builder()
                 .photoId(savedPhoto.getId().toString())
-                .type(photoType)
-                .url(photoUrl)
-                .lat(gpsLat.doubleValue())
-                .lng(gpsLng.doubleValue())
+                .type(photoType).url(photoUrl)
+                .lat(gpsLat.doubleValue()).lng(gpsLng.doubleValue())
                 .uploadedAt(savedPhoto.getUploadedAt().toString())
                 .build());
 
         eventPublisher.publishCropPhotoUploaded(savedPhoto, farm);
-
         return savedPhoto;
     }
 
@@ -179,7 +175,7 @@ public class FarmServiceImpl implements FarmServicePort {
 
         CropCycle cropCycle = cropCycleRepository.findActiveByFarmId(farmId)
             .orElseThrow(() -> new BusinessException(
-                "No active crop cycle found. Please register the farm first.",
+                "No active crop cycle found. Register the farm first.",
                 "NO_ACTIVE_CROP_CYCLE"));
 
         if (items == null || items.isEmpty()) {
@@ -205,16 +201,15 @@ public class FarmServiceImpl implements FarmServicePort {
         InputNeed savedInputNeed = inputNeedRepository.save(inputNeed);
 
         List<InputNeedItem> savedItems = items.stream()
-            .map(itemReq -> InputNeedItem.builder()
+            .map(i -> InputNeedItem.builder()
                 .id(UUID.randomUUID())
                 .inputNeedId(savedInputNeed.getId())
-                .productCategory(ProductCategory.fromValue(
-                    itemReq.productCategory()))
-                .productName(itemReq.productName())
-                .quantity(itemReq.quantity())
-                .unit(itemReq.unit())
-                .estimatedPriceEtb(itemReq.estimatedPriceEtb())
-                .sequenceOrder(itemReq.sequenceOrder())
+                .productCategory(ProductCategory.fromValue(i.productCategory()))
+                .productName(i.productName())
+                .quantity(i.quantity())
+                .unit(i.unit())
+                .estimatedPriceEtb(i.estimatedPriceEtb())
+                .sequenceOrder(i.sequenceOrder())
                 .build())
             .collect(Collectors.toList());
 
@@ -225,28 +220,20 @@ public class FarmServiceImpl implements FarmServicePort {
             savedItems.size(), totalAmount);
 
         eventPublisher.publishInputNeedsCreated(farm, savedInputNeed);
-
         return savedInputNeed;
     }
 
-    // NEW — get all input needs for a farm with their items
     @Override
     @Transactional(readOnly = true)
     public List<InputNeed> getInputNeeds(UUID farmId) {
-        log.info("Getting input needs for farm: {}", farmId);
-
         farmRepository.findById(farmId)
             .orElseThrow(() -> new FarmNotFoundException(farmId.toString()));
 
         List<InputNeed> inputNeeds = inputNeedRepository.findAllByFarmId(farmId);
-
-        // Load items for each input need
         for (InputNeed inputNeed : inputNeeds) {
-            List<InputNeedItem> items = inputNeedItemRepository
-                .findAllByInputNeedId(inputNeed.getId());
-            inputNeed.setItems(items);
+            inputNeed.setItems(
+                inputNeedItemRepository.findAllByInputNeedId(inputNeed.getId()));
         }
-
         return inputNeeds;
     }
 
@@ -261,6 +248,71 @@ public class FarmServiceImpl implements FarmServicePort {
     @Transactional(readOnly = true)
     public List<Farm> getMyFarms(UUID farmerId) {
         return farmRepository.findByFarmerId(farmerId);
+    }
+
+    // FS-05 — Create new crop cycle for a new season
+    @Override
+    @Transactional
+    public CropCycle createCropCycle(UUID farmId,
+                                     UUID farmerId,
+                                     String seasonName,
+                                     LocalDate expectedHarvestDate) {
+
+        log.info("Creating new crop cycle for farm: {}", farmId);
+
+        Farm farm = farmRepository.findById(farmId)
+            .orElseThrow(() -> new FarmNotFoundException(farmId.toString()));
+
+        if (!farm.getFarmerId().equals(farmerId)) {
+            throw new BusinessException(
+                "Farm does not belong to this farmer",
+                "UNAUTHORIZED_FARM_ACCESS");
+        }
+
+        // Check no active cycle already running
+        cropCycleRepository.findActiveByFarmId(farmId).ifPresent(existing -> {
+            if (existing.getStatus() == com.agriyield.farmservice.domain.enums
+                    .CropCycleStatus.PLANNING ||
+                existing.getStatus() == com.agriyield.farmservice.domain.enums
+                    .CropCycleStatus.FUNDED ||
+                existing.getStatus() == com.agriyield.farmservice.domain.enums
+                    .CropCycleStatus.PLANTED ||
+                existing.getStatus() == com.agriyield.farmservice.domain.enums
+                    .CropCycleStatus.GROWING) {
+                throw new BusinessException(
+                    "An active crop cycle already exists for this farm. " +
+                    "Complete or close the current season first.",
+                    "ACTIVE_CYCLE_EXISTS");
+            }
+        });
+
+        // Use auto-generated season name if not provided
+        String resolvedSeasonName = (seasonName != null && !seasonName.isBlank())
+            ? seasonName
+            : generateSeasonName();
+
+        CropCycle cropCycle = CropCycle.builder()
+            .id(UUID.randomUUID())
+            .farmId(farmId)
+            .seasonName(resolvedSeasonName)
+            .expectedHarvestDate(expectedHarvestDate)
+            .status(CropCycleStatus.PLANNING)
+            .createdAt(LocalDateTime.now())
+            .build();
+
+        CropCycle saved = cropCycleRepository.save(cropCycle);
+        log.info("Crop cycle created: {} for farm: {}", saved.getId(), farmId);
+
+        return saved;
+    }
+
+    // FS-05 — Get all crop cycles for a farm (full history)
+    @Override
+    @Transactional(readOnly = true)
+    public List<CropCycle> getCropCycles(UUID farmId) {
+        farmRepository.findById(farmId)
+            .orElseThrow(() -> new FarmNotFoundException(farmId.toString()));
+        return cropCycleRepository.findAllByFarmId(farmId);
     }
 
     @Override
@@ -302,7 +354,6 @@ public class FarmServiceImpl implements FarmServicePort {
         farmRepository.save(farm);
 
         log.info("Planting confirmed for farm: {}", farmId);
-
         return savedCycle;
     }
 
@@ -314,8 +365,22 @@ public class FarmServiceImpl implements FarmServicePort {
 
         return agriScoreRepository.findLatestByFarmerId(farm.getFarmerId())
             .orElseThrow(() -> new BusinessException(
-                "No agri-score yet. Complete your first season to earn a score.",
+                "No agri-score yet. Complete your first season to earn one.",
                 "AGRI_SCORE_NOT_FOUND"));
+    }
+
+    // FS-11 — Search farms by region, crop type, status
+    @Override
+    @Transactional(readOnly = true)
+    public List<Farm> searchFarms(String region,
+                                   String cropType,
+                                   String status) {
+        log.info("Searching farms — region: {}, cropType: {}, status: {}",
+            region, cropType, status);
+        return farmRepository.searchFarms(
+            region != null && region.isBlank() ? null : region,
+            cropType != null && cropType.isBlank() ? null : cropType,
+            status != null && status.isBlank() ? null : status);
     }
 
     private BigDecimal[] calculateCentroid(String geoJsonPolygon) {
