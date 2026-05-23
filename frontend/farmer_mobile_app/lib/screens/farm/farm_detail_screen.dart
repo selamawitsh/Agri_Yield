@@ -3,6 +3,8 @@ import '../../models/farm_model.dart';
 import '../../models/input_need_model.dart';
 import '../../services/farm_service.dart';
 import 'input_needs_screen.dart';
+import 'upload_photo_screen.dart';
+import 'crop_cycle_screen.dart';
 
 class FarmDetailScreen extends StatefulWidget {
   final String farmId;
@@ -39,10 +41,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
   }
 
   Future<void> _loadFarmData() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    setState(() { _isLoading = true; _error = null; });
 
     final farmResult = await _farmService.getFarmById(widget.farmId);
     final twinResult = await _farmService.getDigitalTwin(widget.farmId);
@@ -79,7 +78,6 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
       firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now(),
     );
-
     if (date == null || !mounted) return;
 
     final dateStr =
@@ -87,62 +85,39 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
         '${date.day.toString().padLeft(2, '0')}';
 
     final result = await _farmService.confirmPlanting(
-      farmId: widget.farmId,
-      plantingDate: dateStr,
-    );
+      farmId: widget.farmId, plantingDate: dateStr);
 
     if (mounted) {
-      if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Planting confirmed!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        _loadFarmData();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(result['message'] ?? 'Failed to confirm planting'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result['success'] == true
+            ? 'Planting confirmed!'
+            : result['message'] ?? 'Failed'),
+        backgroundColor:
+            result['success'] == true ? Colors.green : Colors.red,
+      ));
+      if (result['success'] == true) _loadFarmData();
     }
   }
 
   Color _statusColor(String status) {
     switch (status) {
-      case 'PENDING_VERIFICATION':
-        return Colors.orange;
-      case 'VERIFIED':
-        return Colors.blue;
-      case 'ACTIVE':
-        return Colors.green;
-      case 'GROWING':
-        return Colors.green.shade700;
-      case 'HARVESTED':
-        return Colors.teal;
-      case 'FAILED':
-        return Colors.red;
-      default:
-        return Colors.grey;
+      case 'PENDING_VERIFICATION': return Colors.orange;
+      case 'VERIFIED': return Colors.blue;
+      case 'ACTIVE': return Colors.green;
+      case 'GROWING': return Colors.green.shade700;
+      case 'HARVESTED': return Colors.teal;
+      case 'FAILED': return Colors.red;
+      default: return Colors.grey;
     }
   }
 
   Color _inputNeedStatusColor(String status) {
     switch (status) {
-      case 'OPEN':
-        return Colors.orange;
-      case 'PARTIALLY_FUNDED':
-        return Colors.blue;
-      case 'FULLY_FUNDED':
-        return Colors.green;
-      case 'CANCELLED':
-        return Colors.red;
-      default:
-        return Colors.grey;
+      case 'OPEN': return Colors.orange;
+      case 'PARTIALLY_FUNDED': return Colors.blue;
+      case 'FULLY_FUNDED': return Colors.green;
+      case 'CANCELLED': return Colors.red;
+      default: return Colors.grey;
     }
   }
 
@@ -154,6 +129,33 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         actions: [
+          // Photo upload shortcut
+          IconButton(
+            icon: const Icon(Icons.add_a_photo),
+            tooltip: 'Upload Photo',
+            onPressed: () async {
+              final uploaded = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      UploadPhotoScreen(farmId: widget.farmId),
+                ),
+              );
+              if (uploaded == true) _loadFarmData();
+            },
+          ),
+          // Seasons shortcut
+          IconButton(
+            icon: const Icon(Icons.loop),
+            tooltip: 'Crop Seasons',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    CropCycleScreen(farmId: widget.farmId),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadFarmData,
@@ -205,7 +207,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
     );
   }
 
-  // ── Tab 1: Overview ──────────────────────────────────────────────────────
+  // ── Tab 1: Overview ──────────────────────────────────────────────
   Widget _buildOverviewTab() {
     if (_farm == null) return const SizedBox();
     final farm = _farm!;
@@ -216,6 +218,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Status card
           Card(
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12)),
@@ -232,13 +235,10 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          farm.displayName,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        Text(farm.displayName,
+                            style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -266,6 +266,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
           ),
           const SizedBox(height: 16),
 
+          // Details card
           Card(
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12)),
@@ -274,33 +275,78 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Farm Details',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+                  const Text('Farm Details',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
                   const Divider(),
                   _buildDetailRow('Crop Type', farm.cropType),
                   _buildDetailRow('Region', farm.region),
                   _buildDetailRow('Kebele', farm.kebeleCode),
-                  _buildDetailRow(
-                    'Area',
-                    '${farm.areaHectares.toStringAsFixed(4)} hectares',
-                  ),
+                  _buildDetailRow('Area',
+                      '${farm.areaHectares.toStringAsFixed(4)} hectares'),
                   _buildDetailRow(
                     'GPS Center',
                     '${farm.gpsCentroidLat.toStringAsFixed(4)}, '
                         '${farm.gpsCentroidLng.toStringAsFixed(4)}',
                   ),
-                  _buildDetailRow(
-                    'Satellite Verified',
-                    farm.satelliteVerified ? 'Yes ✓' : 'Pending',
-                  ),
+                  _buildDetailRow('Satellite Verified',
+                      farm.satelliteVerified ? 'Yes ✓' : 'Pending'),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
+
+          // Quick action buttons
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final uploaded = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            UploadPhotoScreen(farmId: widget.farmId),
+                      ),
+                    );
+                    if (uploaded == true) _loadFarmData();
+                  },
+                  icon: const Icon(Icons.add_a_photo, color: Colors.green),
+                  label: const Text('Upload Photo',
+                      style: TextStyle(color: Colors.green)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(color: Colors.green),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          CropCycleScreen(farmId: widget.farmId),
+                    ),
+                  ),
+                  icon: const Icon(Icons.loop, color: Colors.blue),
+                  label: const Text('Seasons',
+                      style: TextStyle(color: Colors.blue)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(color: Colors.blue),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
 
           if (farm.status == 'ACTIVE' || farm.status == 'VERIFIED') ...[
             SizedBox(
@@ -318,7 +364,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
           ],
 
           SizedBox(
@@ -338,10 +384,8 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
                 }
               },
               icon: const Icon(Icons.list_alt, color: Colors.green),
-              label: const Text(
-                'Submit Input Needs',
-                style: TextStyle(color: Colors.green),
-              ),
+              label: const Text('Submit Input Needs',
+                  style: TextStyle(color: Colors.green)),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 side: const BorderSide(color: Colors.green),
@@ -355,7 +399,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
     );
   }
 
-  // ── Tab 2: Input Needs ───────────────────────────────────────────────────
+  // ── Tab 2: Input Needs ────────────────────────────────────────────
   Widget _buildInputNeedsTab() {
     return Scaffold(
       body: _inputNeeds.isEmpty
@@ -366,11 +410,9 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
                   Icon(Icons.inventory_2_outlined,
                       size: 64, color: Colors.grey.shade400),
                   const SizedBox(height: 16),
-                  const Text(
-                    'No input needs submitted yet',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+                  const Text('No input needs submitted yet',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Text(
                     'Submit your seeds, fertilizers and tools\nto attract investors',
@@ -434,30 +476,24 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
 
   Widget _buildInputNeedCard(InputNeedModel inputNeed) {
     final statusColor = _inputNeedStatusColor(inputNeed.status);
-
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12)),
       elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row
             Row(
               children: [
                 const Icon(Icons.inventory_2, color: Colors.green),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Season Input Package',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                const Expanded(
+                  child: Text('Season Input Package',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -479,8 +515,6 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
               ],
             ),
             const SizedBox(height: 12),
-
-            // Funding progress
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -511,15 +545,9 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
               borderRadius: BorderRadius.circular(4),
             ),
             const SizedBox(height: 16),
-
-            // Items list
-            const Text(
-              'Items',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
+            const Text('Items',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 14)),
             const SizedBox(height: 8),
             ...inputNeed.items.map((item) => _buildItemRow(item)),
           ],
@@ -529,14 +557,13 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
   }
 
   Widget _buildItemRow(InputNeedItemModel item) {
-    final categoryIcons = {
+    final icons = {
       'SEED': Icons.grass,
       'FERTILIZER': Icons.science,
       'PESTICIDE': Icons.bug_report,
       'TOOL': Icons.build,
       'OTHER': Icons.category,
     };
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -548,9 +575,8 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
               borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(
-              categoryIcons[item.productCategory] ?? Icons.category,
-              size: 18,
-              color: Colors.green,
+              icons[item.productCategory] ?? Icons.category,
+              size: 18, color: Colors.green,
             ),
           ),
           const SizedBox(width: 10),
@@ -558,17 +584,14 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.productName,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
+                Text(item.productName,
+                    style:
+                        const TextStyle(fontWeight: FontWeight.w500)),
                 Text(
                   '${item.quantity.toStringAsFixed(1)} ${item.unit} '
                   '· ${item.productCategory}',
                   style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 12,
-                  ),
+                      color: Colors.grey.shade600, fontSize: 12),
                 ),
               ],
             ),
@@ -579,16 +602,12 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
               Text(
                 'ETB ${item.estimatedPriceEtb.toStringAsFixed(0)}',
                 style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
+                    fontWeight: FontWeight.bold, color: Colors.green),
               ),
               Text(
                 'Order #${item.sequenceOrder}',
                 style: TextStyle(
-                  color: Colors.grey.shade500,
-                  fontSize: 11,
-                ),
+                    color: Colors.grey.shade500, fontSize: 11),
               ),
             ],
           ),
@@ -597,14 +616,15 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
     );
   }
 
-  // ── Tab 3: Digital Twin ──────────────────────────────────────────────────
+  // ── Tab 3: Digital Twin ───────────────────────────────────────────
   Widget _buildDigitalTwinTab() {
     if (_digitalTwin == null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.satellite_alt, size: 64, color: Colors.grey.shade400),
+            Icon(Icons.satellite_alt,
+                size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             const Text('Digital twin not available yet'),
             Text(
@@ -623,7 +643,6 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Card(
             shape: RoundedRectangleBorder(
@@ -633,11 +652,9 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'NDVI History',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+                  const Text('NDVI History',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   if (ndviHistory.isEmpty)
                     Text('No NDVI readings yet',
@@ -657,7 +674,6 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
             ),
           ),
           const SizedBox(height: 16),
-
           Card(
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12)),
@@ -666,19 +682,39 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Photo History',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Photo History',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      TextButton.icon(
+                        onPressed: () async {
+                          final uploaded = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => UploadPhotoScreen(
+                                  farmId: widget.farmId),
+                            ),
+                          );
+                          if (uploaded == true) _loadFarmData();
+                        },
+                        icon: const Icon(Icons.add_a_photo,
+                            size: 16, color: Colors.green),
+                        label: const Text('Add Photo',
+                            style: TextStyle(color: Colors.green)),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   if (photoHistory.isEmpty)
                     Text('No photos uploaded yet',
-                        style: TextStyle(color: Colors.grey.shade500))
+                        style:
+                            TextStyle(color: Colors.grey.shade500))
                   else
                     ...photoHistory.map((p) => ListTile(
-                          leading:
-                              const Icon(Icons.photo, color: Colors.blue),
+                          leading: const Icon(Icons.photo,
+                              color: Colors.blue),
                           title: Text(p['type'] ?? ''),
                           subtitle: Text(p['uploadedAt'] ?? ''),
                         )),
@@ -691,7 +727,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
     );
   }
 
-  // ── Tab 4: Agri-Score ────────────────────────────────────────────────────
+  // ── Tab 4: Agri-Score ─────────────────────────────────────────────
   Widget _buildAgriScoreTab() {
     if (_agriScore == null) {
       return Center(
@@ -717,54 +753,46 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
 
     final score = _agriScore!['score'] ?? 0;
     const maxScore = 900;
-    final percentage = (score / maxScore).clamp(0.0, 1.0);
+    final pct = (score / maxScore).clamp(0.0, 1.0);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Card(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12)),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              const Text(
-                'Current Agri-Score',
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
+              const Text('Current Agri-Score',
+                  style:
+                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               Stack(
                 alignment: Alignment.center,
                 children: [
                   SizedBox(
-                    height: 120,
-                    width: 120,
+                    height: 120, width: 120,
                     child: CircularProgressIndicator(
-                      value: percentage,
+                      value: pct,
                       strokeWidth: 12,
                       backgroundColor: Colors.grey.shade200,
-                      color: percentage > 0.6
+                      color: pct > 0.6
                           ? Colors.green
-                          : percentage > 0.3
+                          : pct > 0.3
                               ? Colors.orange
                               : Colors.red,
                     ),
                   ),
                   Column(
                     children: [
-                      Text(
-                        '$score',
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        '/ $maxScore',
-                        style:
-                            TextStyle(color: Colors.grey.shade500),
-                      ),
+                      Text('$score',
+                          style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold)),
+                      Text('/ $maxScore',
+                          style: TextStyle(
+                              color: Colors.grey.shade500)),
                     ],
                   ),
                 ],
@@ -829,13 +857,10 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
         children: [
           SizedBox(
             width: 130,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            child: Text(label,
+                style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500)),
           ),
           Expanded(
             child: Text(value,
