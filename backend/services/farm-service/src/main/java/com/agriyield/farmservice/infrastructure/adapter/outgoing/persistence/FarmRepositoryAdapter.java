@@ -45,4 +45,10 @@ public class FarmRepositoryAdapter implements FarmRepositoryPort {
         return jpaFarmRepository.findAllActive()
             .stream().map(mapper::toDomain).collect(Collectors.toList());
     }
+
+    @Override
+    public List<Farm> searchFarms(String region, String cropType, String status) {
+        return jpaFarmRepository.searchFarms(region, cropType, status)
+            .stream().map(mapper::toDomain).collect(Collectors.toList());
+    }
 }
