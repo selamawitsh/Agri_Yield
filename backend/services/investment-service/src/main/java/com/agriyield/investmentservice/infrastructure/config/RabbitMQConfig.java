@@ -1,6 +1,6 @@
 package com.agriyield.investmentservice.infrastructure.config;
 
-import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
@@ -10,15 +10,45 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
-    public static final String INVESTMENT_EXCHANGE           = "investment.exchange";
-    public static final String INVESTMENT_PLACED_KEY         = "investment.placed";
-    public static final String INVESTMENT_ESCROW_LOCKED_KEY  = "investment.escrow.locked";
-    public static final String INVESTMENT_CANCELLED_KEY      = "investment.cancelled";
-    public static final String INVESTMENT_COMPLETED_KEY      = "investment.completed";
+    // Exchanges this service publishes to
+    public static final String INVESTMENT_EXCHANGE          = "investment.exchange";
+    public static final String INVESTMENT_PLACED_KEY        = "investment.placed";
+    public static final String INVESTMENT_ESCROW_LOCKED_KEY = "investment.escrow.locked";
+    public static final String INVESTMENT_CANCELLED_KEY     = "investment.cancelled";
+    public static final String INVESTMENT_COMPLETED_KEY     = "investment.completed";
+    public static final String LISTING_CREATED_KEY          = "listing.created";
+    public static final String LISTING_FULLY_FUNDED_KEY     = "listing.fully.funded";
+    public static final String LISTING_FUNDING_FAILED_KEY   = "listing.funding.failed";
+
+    // Farm exchange this service listens to
+    public static final String FARM_EXCHANGE                = "farm.exchange";
+    public static final String INPUT_NEEDS_QUEUE            = "investment.input-needs.queue";
+    public static final String INPUT_NEEDS_ROUTING_KEY      = "input.needs.created";
 
     @Bean
     public TopicExchange investmentExchange() {
         return new TopicExchange(INVESTMENT_EXCHANGE, true, false);
+    }
+
+    // Declare farm exchange reference (owned by farm-service)
+    @Bean
+    public TopicExchange farmExchange() {
+        return new TopicExchange(FARM_EXCHANGE, true, false);
+    }
+
+    // Queue for consuming input.needs.created from farm-service
+    @Bean
+    public Queue inputNeedsQueue() {
+        return QueueBuilder.durable(INPUT_NEEDS_QUEUE).build();
+    }
+
+    @Bean
+    public Binding inputNeedsBinding(Queue inputNeedsQueue,
+                                     TopicExchange farmExchange) {
+        return BindingBuilder
+            .bind(inputNeedsQueue)
+            .to(farmExchange)
+            .with(INPUT_NEEDS_ROUTING_KEY);
     }
 
     @Bean
