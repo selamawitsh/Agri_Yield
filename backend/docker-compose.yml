@@ -153,34 +153,34 @@ services:
   # =========================
   # Escrow Service
   # =========================
-  escrow-service:
-    build:
-      context: .                                    # Build from backend root
-      dockerfile: services/escrow-service/Dockerfile # Dockerfile path from root
-    container_name: agriyield-escrow-service
-    ports:
-      - "8084:8084"
-      - "9084:9084"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agriyield_escrow_db
-      SPRING_DATASOURCE_USERNAME: agriyield
-      SPRING_DATASOURCE_PASSWORD: agriyield123
-
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: agriyield
-      SPRING_RABBITMQ_PASSWORD: agriyield123
-
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://host.docker.internal:8761/eureka/
-
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-    networks:
-      - agriyield-net
+#  escrow-service:
+#    build:
+#      context: .                                    # Build from backend root
+#      dockerfile: services/escrow-service/Dockerfile # Dockerfile path from root
+#    container_name: agriyield-escrow-service
+#    ports:
+#      - "8084:8084"
+#      - "9084:9084"
+#    environment:
+#      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agriyield_escrow_db
+#      SPRING_DATASOURCE_USERNAME: agriyield
+#      SPRING_DATASOURCE_PASSWORD: agriyield123
+#
+#      SPRING_RABBITMQ_HOST: rabbitmq
+#      SPRING_RABBITMQ_PORT: 5672
+#      SPRING_RABBITMQ_USERNAME: agriyield
+#      SPRING_RABBITMQ_PASSWORD: agriyield123
+#
+#      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://host.docker.internal:8761/eureka/
+#
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
+#      rabbitmq:
+#        condition: service_healthy
+#
+#    networks:
+#      - agriyield-net
 
 volumes:
   postgres_data:
