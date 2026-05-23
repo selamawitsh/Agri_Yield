@@ -6,17 +6,17 @@ import { Toaster } from 'react-hot-toast';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Agri-Yield Investor Portal',
-  description: 'Invest in Ethiopian agriculture',
+    title: 'Agri-Yield Investor Portal',
+    description: 'Invest in Ethiopian agriculture',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <body className={inter.className}>
+    return (
+        <html lang="en">
+        <body className={inter.className}>
         {children}
         <Toaster position="top-right" />
-      </body>
-    </html>
-  );
+        </body>
+        </html>
+    );
 }

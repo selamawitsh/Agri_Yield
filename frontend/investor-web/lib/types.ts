@@ -7,41 +7,74 @@ export interface User {
   kycStatus: string;
   accountStatus: string;
   preferredLanguage: string;
+  riskTolerance?: string;
+  investmentGoal?: string;
+  agriScore?: number;
+  totalInvestedEtb?: number;
+  totalReturnedEtb?: number;
+  totalSeasonsCompleted?: number;
 }
 
 export interface FarmListing {
   id: string;
   farmId: string;
-  farmName: string;
+  farmerId: string;
+  inputNeedId: string;
+  cropCycleId: string;
   cropType: string;
   region: string;
-  totalAmount: number;
-  amountRaised: number;
-  baseApr: number;
+  kebeleCode: string;
+  seasonName: string;
+  totalAmountEtb: number;
+  fundedAmountEtb: number;
+  fundingPct: number;
   currentApr: number;
+  baseApr: number;
+  agriScore: number;
   status: string;
-  ndviScore?: number;
-  yieldPrediction?: number;
-  farmerAgriScore: number;
+  fundingDeadline: string;
+  fullyFundedAt?: string;
+  createdAt: string;
 }
 
 export interface Investment {
   id: string;
-  listingId: string;
-  farmName: string;
-  cropType: string;
-  amount: number;
-  investmentPct: number;
+  investorId: string;
+  farmId: string;
+  farmerId: string;
+  inputNeedId: string;
+  cropCycleId: string;
+  amountEtb: number;
   status: string;
-  currentApr: number;
-  expectedReturn: number;
+  cropType: string;
+  region: string;
+  seasonName: string;
+  expectedReturnPct: number;
+  actualReturnPct?: number;
+  notes?: string;
+  cancelledReason?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
-export interface PortfolioSummary {
+export interface PayoutRecord {
+  id: string;
+  investmentId: string;
+  farmId: string;
+  listingId: string;
+  principalEtb: number;
+  returnEtb: number;
+  totalEtb: number;
+  actualApr: number;
+  payoutReason: string;
+  paidAt: string;
+}
+
+export interface PortfolioStats {
   totalInvested: number;
   totalReturned: number;
   activeInvestments: number;
   completedInvestments: number;
+  cancelledInvestments: number;
   averageApr: number;
 }

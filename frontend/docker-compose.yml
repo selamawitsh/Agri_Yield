@@ -1,0 +1,21 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  admin-dashboard:
+    build:
+      context: ./admin-dashboard
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # This mirrors your local folder into the container
+      - ./admin-dashboard:/app
+      # This protects the container's node_modules from your local Linux environment
+      - /app/node_modules
+      # Next.js specific folder protection
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      # Forces Webpack to constantly check for file changes (crucial for Linux/Docker)
+      - WATCHPACK_POLLING=true
