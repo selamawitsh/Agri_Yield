@@ -27,6 +27,7 @@ public class FarmController {
     private final FarmServicePort farmService;
     private final JwtUtils jwtUtils;
 
+    // FS-01 — Register farm
     @PostMapping
     public ResponseEntity<ApiResponse<FarmResponse>> registerFarm(
             @RequestHeader("Authorization") String authHeader,
@@ -43,6 +44,7 @@ public class FarmController {
                 toFarmResponse(farm)));
     }
 
+    // FS-04 — Upload photo
     @PostMapping(value = "/{farmId}/photos",
                  consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<FarmPhotoResponse>> uploadPhoto(
@@ -60,6 +62,40 @@ public class FarmController {
                 toPhotoResponse(farmPhoto)));
     }
 
+    // FS-05 — Create new crop cycle for new season
+    @PostMapping("/{farmId}/crop-cycles")
+    public ResponseEntity<ApiResponse<CropCycleResponse>> createCropCycle(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable UUID farmId,
+            @Valid @RequestBody CreateCropCycleRequest request) {
+
+        UUID farmerId = jwtUtils.extractUserId(authHeader);
+        log.info("POST /api/v1/farms/{}/crop-cycles — farmer: {}",
+            farmId, farmerId);
+
+        CropCycle cropCycle = farmService.createCropCycle(
+            farmId, farmerId,
+            request.getSeasonName(),
+            request.getExpectedHarvestDate());
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.success("Crop cycle created successfully",
+                toCropCycleResponse(cropCycle)));
+    }
+
+    // FS-05 — Get all crop cycles for a farm
+    @GetMapping("/{farmId}/crop-cycles")
+    public ResponseEntity<ApiResponse<List<CropCycleResponse>>> getCropCycles(
+            @PathVariable UUID farmId) {
+
+        log.info("GET /api/v1/farms/{}/crop-cycles", farmId);
+        List<CropCycleResponse> responses = farmService.getCropCycles(farmId)
+            .stream().map(this::toCropCycleResponse).collect(Collectors.toList());
+
+        return ResponseEntity.ok(ApiResponse.success(responses));
+    }
+
+    // FS-06 — Submit input needs
     @PostMapping("/{farmId}/input-needs")
     public ResponseEntity<ApiResponse<InputNeedResponse>> submitInputNeeds(
             @RequestHeader("Authorization") String authHeader,
@@ -83,20 +119,19 @@ public class FarmController {
                 toInputNeedResponse(inputNeed)));
     }
 
-    // NEW — GET /api/v1/farms/{farmId}/input-needs
+    // View input needs
     @GetMapping("/{farmId}/input-needs")
     public ResponseEntity<ApiResponse<List<InputNeedResponse>>> getInputNeeds(
             @PathVariable UUID farmId) {
 
-        log.info("GET /api/v1/farms/{}/input-needs", farmId);
         List<InputNeed> inputNeeds = farmService.getInputNeeds(farmId);
         List<InputNeedResponse> responses = inputNeeds.stream()
-            .map(this::toInputNeedResponse)
-            .collect(Collectors.toList());
+            .map(this::toInputNeedResponse).collect(Collectors.toList());
 
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
+    // FS-02 — Get farm by ID
     @GetMapping("/{farmId}")
     public ResponseEntity<ApiResponse<FarmResponse>> getFarmById(
             @PathVariable UUID farmId) {
@@ -104,6 +139,7 @@ public class FarmController {
         return ResponseEntity.ok(ApiResponse.success(toFarmResponse(farm)));
     }
 
+    // FS-03 — Get my farms
     @GetMapping("/my")
     public ResponseEntity<ApiResponse<List<FarmResponse>>> getMyFarms(
             @RequestHeader("Authorization") String authHeader) {
@@ -113,6 +149,24 @@ public class FarmController {
         return ResponseEntity.ok(ApiResponse.success(responses));
     }
 
+    // FS-11 — Search farms by region/crop/status
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<FarmResponse>>> searchFarms(
+            @RequestParam(required = false) String region,
+            @RequestParam(required = false) String cropType,
+            @RequestParam(required = false) String status) {
+
+        log.info("GET /api/v1/farms/search — region: {}, cropType: {}, status: {}",
+            region, cropType, status);
+
+        List<FarmResponse> responses = farmService.searchFarms(
+                region, cropType, status)
+            .stream().map(this::toFarmResponse).collect(Collectors.toList());
+
+        return ResponseEntity.ok(ApiResponse.success(responses));
+    }
+
+    // FS-08 — Digital twin
     @GetMapping("/{farmId}/digital-twin")
     public ResponseEntity<ApiResponse<DigitalTwinResponse>> getDigitalTwin(
             @PathVariable UUID farmId) {
@@ -120,6 +174,7 @@ public class FarmController {
         return ResponseEntity.ok(ApiResponse.success(toDigitalTwinResponse(doc)));
     }
 
+    // FS-07 — Confirm planting
     @PostMapping("/{farmId}/confirm-planting")
     public ResponseEntity<ApiResponse<CropCycleResponse>> confirmPlanting(
             @RequestHeader("Authorization") String authHeader,
@@ -135,6 +190,7 @@ public class FarmController {
             toCropCycleResponse(cropCycle)));
     }
 
+    // FS-09 — Agri-score
     @GetMapping("/{farmId}/agri-score")
     public ResponseEntity<ApiResponse<AgriScoreResponse>> getAgriScore(
             @PathVariable UUID farmId) {
