@@ -17,4 +17,7 @@ public interface FarmRepositoryPort {
     boolean existsById(UUID farmId);
 
     List<Farm> findAllActive();
+
+    // FS-11 — search with optional filters
+    List<Farm> searchFarms(String region, String cropType, String status);
 }

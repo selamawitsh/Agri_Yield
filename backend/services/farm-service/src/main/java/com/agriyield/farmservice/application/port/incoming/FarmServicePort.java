@@ -27,12 +27,20 @@ public interface FarmServicePort {
                                UUID farmerId,
                                List<InputNeedItemRequest> items);
 
-    // NEW — view submitted input needs
     List<InputNeed> getInputNeeds(UUID farmId);
 
     Farm getFarmById(UUID farmId);
 
     List<Farm> getMyFarms(UUID farmerId);
+
+    // FS-05 — Create new crop cycle for existing farm (new season)
+    CropCycle createCropCycle(UUID farmId,
+                              UUID farmerId,
+                              String seasonName,
+                              LocalDate expectedHarvestDate);
+
+    // FS-05 — Get all crop cycles for a farm
+    List<CropCycle> getCropCycles(UUID farmId);
 
     FarmDocument getDigitalTwin(UUID farmId);
 
@@ -41,6 +49,11 @@ public interface FarmServicePort {
                               LocalDate plantingDate);
 
     AgriScore getAgriScore(UUID farmId);
+
+    // FS-11 — Search farms by region and/or crop type
+    List<Farm> searchFarms(String region,
+                           String cropType,
+                           String status);
 
     record InputNeedItemRequest(
             String productCategory,
