@@ -28,7 +28,7 @@ public class PortfolioController {
     /** IS-07: View investor portfolio */
     @GetMapping
     public ResponseEntity<ApiResponse<List<InvestmentResponse>>> getPortfolio(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
 
         UUID investorId = jwtUtils.extractUserId(authHeader);
         log.info("GET /api/v1/portfolio — investor: {}", investorId);
@@ -42,8 +42,10 @@ public class PortfolioController {
     /** IS-08: View investment details */
     @GetMapping("/{investmentId}")
     public ResponseEntity<ApiResponse<InvestmentResponse>> getInvestmentDetails(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @PathVariable UUID investmentId) {
 
+        jwtUtils.extractUserId(authHeader); // validate token
         log.info("GET /api/v1/portfolio/{}", investmentId);
         Investment investment = listingService.getInvestmentDetails(investmentId);
         return ResponseEntity.ok(ApiResponse.success(toResponse(investment)));
@@ -52,7 +54,7 @@ public class PortfolioController {
     /** IS-12: Payout history */
     @GetMapping("/payouts")
     public ResponseEntity<ApiResponse<List<PayoutRecordResponse>>> getPayouts(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
 
         UUID investorId = jwtUtils.extractUserId(authHeader);
         log.info("GET /api/v1/portfolio/payouts — investor: {}", investorId);
