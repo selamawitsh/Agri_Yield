@@ -29,7 +29,7 @@ public class ListingController {
     private final ListingServicePort listingService;
     private final JwtUtils jwtUtils;
 
-    /** IS-01/02: Browse and filter farm listings */
+    /** IS-01/02: Browse and filter farm listings — no auth required to view */
     @GetMapping
     public ResponseEntity<ApiResponse<List<FarmListingResponse>>> getListings(
             @RequestParam(required = false) String cropType,
@@ -37,25 +37,30 @@ public class ListingController {
             @RequestParam(required = false) BigDecimal minApr,
             @RequestParam(required = false) BigDecimal maxApr) {
 
-        log.info("GET /api/v1/listings — cropType={}, region={}", cropType, region);
+        log.info("GET /api/v1/listings — cropType={}, region={}, minApr={}, maxApr={}",
+            cropType, region, minApr, maxApr);
+
+        // Treat blank strings as null
+        String crop   = (cropType != null && !cropType.isBlank()) ? cropType : null;
+        String reg    = (region   != null && !region.isBlank())   ? region   : null;
+
         List<FarmListingResponse> listings = listingService
-            .getActiveListings(cropType, region, minApr, maxApr)
+            .getActiveListings(crop, reg, minApr, maxApr)
             .stream().map(this::toListingResponse).collect(Collectors.toList());
 
         return ResponseEntity.ok(ApiResponse.success(listings));
     }
 
-    /** IS-03: View listing details */
+    /** IS-03: View listing details — no auth required */
     @GetMapping("/{listingId}")
     public ResponseEntity<ApiResponse<FarmListingResponse>> getListingById(
             @PathVariable UUID listingId) {
-
         log.info("GET /api/v1/listings/{}", listingId);
         FarmListing listing = listingService.getListingById(listingId);
         return ResponseEntity.ok(ApiResponse.success(toListingResponse(listing)));
     }
 
-    /** IS-05: Invest in a listing */
+    /** IS-05: Invest in a listing — auth required */
     @PostMapping("/{listingId}/invest")
     public ResponseEntity<ApiResponse<InvestmentResponse>> invest(
             @RequestHeader("Authorization") String authHeader,
@@ -73,11 +78,10 @@ public class ListingController {
                 toInvestmentResponse(investment)));
     }
 
-    /** IS-09: NDVI history for a listing */
+    /** IS-09: NDVI history */
     @GetMapping("/{listingId}/ndvi-history")
     public ResponseEntity<ApiResponse<Object>> getNdviHistory(
             @PathVariable UUID listingId) {
-
         log.info("GET /api/v1/listings/{}/ndvi-history", listingId);
         Object history = listingService.getNdviHistory(listingId);
         return ResponseEntity.ok(ApiResponse.success(history));
