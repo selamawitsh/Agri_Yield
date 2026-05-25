@@ -1,6 +1,6 @@
 -- SRS Page 12: Users table specification
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     phone VARCHAR(20) NOT NULL UNIQUE,
     email VARCHAR(255) UNIQUE,
     fayda_id VARCHAR(50) NOT NULL UNIQUE,
@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     fayda_verified_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
+    );
 
 CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_users_fayda_id ON users(fayda_id);
