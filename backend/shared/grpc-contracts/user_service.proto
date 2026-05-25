@@ -7,12 +7,27 @@ option java_outer_classname = "UserServiceProto";
 option java_multiple_files = false;
 
 service UserService {
-    rpc GetUserById (UserIdRequest) returns (UserResponse);
-    rpc GetFarmerProfile (UserIdRequest) returns (FarmerProfileResponse);
-    rpc GetInvestorProfile (UserIdRequest) returns (InvestorProfileResponse);
-    rpc GetMerchantProfile (UserIdRequest) returns (MerchantProfileResponse);
-    rpc VerifyUserExists (PhoneRequest) returns (ExistsResponse);
-    rpc UpdateAgriScore (UpdateAgriScoreRequest) returns (EmptyResponse);
+
+    rpc GetUserById (UserIdRequest)
+        returns (UserResponse);
+
+    rpc GetFarmerProfile (UserIdRequest)
+        returns (FarmerProfileResponse);
+
+    rpc GetInvestorProfile (UserIdRequest)
+        returns (InvestorProfileResponse);
+
+    rpc GetMerchantProfile (UserIdRequest)
+        returns (MerchantProfileResponse);
+
+    rpc VerifyUserExists (PhoneRequest)
+        returns (ExistsResponse);
+
+    rpc UpdateAgriScore (UpdateAgriScoreRequest)
+        returns (EmptyResponse);
+
+    rpc GetMerchantIdsByKebele (KebeleRequest)
+        returns (MerchantIdsResponse);
 }
 
 message UserIdRequest {
@@ -77,4 +92,12 @@ message MerchantProfileResponse {
     string subscription_tier = 4;
     bool is_physically_verified = 5;
     bool is_premium = 6;
+}
+
+message KebeleRequest {
+    string kebele_code = 1;
+}
+
+message MerchantIdsResponse {
+    repeated string merchant_ids = 1;
 }
