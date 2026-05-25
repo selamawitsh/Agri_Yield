@@ -6,21 +6,23 @@ import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/scanner_screen.dart';
+import 'screens/products_screen.dart';
+import 'screens/analytics_screen.dart';
+import 'screens/transaction_history_screen.dart';
+import 'screens/price_transparency_screen.dart';
+import 'screens/wallet_screen.dart';
+import 'screens/profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
   final apiService = ApiService();
   await apiService.init();
-  
-  final authService = AuthService();
-  
-  runApp(MyApp(authService: authService));
+  runApp(MyApp(authService: AuthService()));
 }
 
 class MyApp extends StatelessWidget {
   final AuthService authService;
-  
   const MyApp({super.key, required this.authService});
 
   @override
@@ -28,14 +30,33 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Agri-Yield Merchant',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.orange, useMaterial3: true),
-      supportedLocales: const [Locale('am'), Locale('en')],
-      localizationsDelegates: const [GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate],
-      home: SplashScreen(),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.orange,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+      ),
+      supportedLocales: const [Locale('am'), Locale('om'), Locale('en')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: const SplashScreen(),
       routes: {
-        '/login': (context) => LoginScreen(),
-        '/register': (context) => RegisterScreen(),
-        '/home': (context) => HomeScreen(),
+        '/login':               (_) => const LoginScreen(),
+        '/register':            (_) => const RegisterScreen(),
+        '/home':                (_) => const HomeScreen(),
+        '/scanner':             (_) => const ScannerScreen(),
+        '/products':            (_) => const ProductsScreen(),
+        '/analytics':           (_) => const AnalyticsScreen(),
+        '/history':             (_) => const TransactionHistoryScreen(),
+        '/prices':              (_) => const PriceTransparencyScreen(),
+        '/wallet':              (_) => const WalletScreen(),
+        '/profile':             (_) => const ProfileScreen(),
       },
     );
   }
