@@ -1,5 +1,6 @@
 package com.agriyield.investmentservice.infrastructure.config;
 
+import com.agriyield.investmentservice.domain.exception.BusinessException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -23,6 +24,9 @@ public class JwtUtils {
     }
 
     public UUID extractUserId(String bearerToken) {
+        if (bearerToken == null || bearerToken.isBlank()) {
+            throw new BusinessException("Authorization token is required", "UNAUTHORIZED");
+        }
         try {
             String token = bearerToken.startsWith("Bearer ")
                 ? bearerToken.substring(7) : bearerToken;
@@ -32,11 +36,14 @@ public class JwtUtils {
             return UUID.fromString(claims.getSubject());
         } catch (Exception e) {
             log.error("Failed to extract user ID from JWT: {}", e.getMessage());
-            throw new RuntimeException("Invalid or expired token");
+            throw new BusinessException("Invalid or expired token", "UNAUTHORIZED");
         }
     }
 
     public String extractRole(String bearerToken) {
+        if (bearerToken == null || bearerToken.isBlank()) {
+            throw new BusinessException("Authorization token is required", "UNAUTHORIZED");
+        }
         try {
             String token = bearerToken.startsWith("Bearer ")
                 ? bearerToken.substring(7) : bearerToken;
@@ -46,7 +53,7 @@ public class JwtUtils {
             return claims.get("role", String.class);
         } catch (Exception e) {
             log.error("Failed to extract role from JWT: {}", e.getMessage());
-            throw new RuntimeException("Invalid or expired token");
+            throw new BusinessException("Invalid or expired token", "UNAUTHORIZED");
         }
     }
 }

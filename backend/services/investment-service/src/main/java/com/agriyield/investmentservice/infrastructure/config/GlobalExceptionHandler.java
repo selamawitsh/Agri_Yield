@@ -24,7 +24,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, Object>> handleBusiness(BusinessException ex) {
-        return buildError(HttpStatus.BAD_REQUEST, ex.getMessage(), ex.getErrorCode());
+        HttpStatus status = "UNAUTHORIZED".equals(ex.getErrorCode())
+            ? HttpStatus.UNAUTHORIZED : HttpStatus.BAD_REQUEST;
+        return buildError(status, ex.getMessage(), ex.getErrorCode());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
