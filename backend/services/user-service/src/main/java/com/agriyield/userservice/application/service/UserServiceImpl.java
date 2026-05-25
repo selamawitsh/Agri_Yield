@@ -1,20 +1,19 @@
 package com.agriyield.userservice.application.service;
 
-import com.agriyield.userservice.core.domain.enums.PreferredLanguage;
-import com.agriyield.userservice.core.domain.exceptions.BusinessException;
-import com.agriyield.userservice.core.domain.exceptions.ResourceNotFoundException;
-import com.agriyield.userservice.core.domain.model.User;
-import com.agriyield.userservice.core.port.incoming.UserServicePort;
-import com.agriyield.userservice.core.port.outgoing.CachePort;
-import com.agriyield.userservice.core.port.outgoing.InvestorProfileRepositoryPort;
-import com.agriyield.userservice.core.port.outgoing.NotificationPort;
-import com.agriyield.userservice.core.port.outgoing.UserRepositoryPort;
+import com.agriyield.userservice.application.port.incoming.UserServicePort;
+import com.agriyield.userservice.application.port.outgoing.*;
+import com.agriyield.userservice.domain.enums.PreferredLanguage;
+import com.agriyield.userservice.domain.exception.BusinessException;
+import com.agriyield.userservice.domain.exception.ResourceNotFoundException;
+import com.agriyield.userservice.domain.model.BankAccount;
+import com.agriyield.userservice.domain.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -24,112 +23,170 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserServiceImpl implements UserServicePort {
-    
+
     private final UserRepositoryPort userRepository;
+    private final BankAccountRepositoryPort bankAccountRepository;
+    private final InvestorProfileRepositoryPort investorProfileRepository;
     private final CachePort cachePort;
     private final NotificationPort notificationPort;
-    private final InvestorProfileRepositoryPort investorProfileRepository;
-    
-    @Override
-    public User getUserById(UUID userId) {
-        String cacheKey = "user:" + userId;
-        
-        var cachedUser = cachePort.get(cacheKey);
-        if (cachedUser.isPresent() && cachedUser.get() instanceof User) {
-            return (User) cachedUser.get();
-        }
-        
-        User user = userRepository.findById(userId)
-            .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-        
-        cachePort.set(cacheKey, user, 5, TimeUnit.MINUTES);
-        
-        return user;
-    }
-    
-    @Override
-    public User getUserByPhone(String phone) {
-        return userRepository.findByPhone(phone)
-            .orElseThrow(() -> new ResourceNotFoundException("User", "phone", phone));
-    }
-    
+
+    // US-06
     @Override
     public User getCurrentUser(UUID userId) {
         return getUserById(userId);
     }
-    
+
+    // US-07
     @Override
     @Transactional
-    public User updateUserProfile(UUID userId, Map<String, Object> updates) {
-        log.info("Updating user profile for: {}", userId);
-        
+    public User updateProfile(UUID userId, Map<String, Object> updates) {
+        log.info("Updating profile for user: {}", userId);
         User user = getUserById(userId);
-        
-        // Update allowed fields
-        if (updates.containsKey("preferredLanguage")) {
-            user.setPreferredLanguage(PreferredLanguage.fromCode((String) updates.get("preferredLanguage")));
-        }
+
         if (updates.containsKey("email")) {
             user.setEmail((String) updates.get("email"));
         }
+        if (updates.containsKey("preferredLanguage")) {
+            user.setPreferredLanguage(
+                PreferredLanguage.fromCode(
+                    (String) updates.get("preferredLanguage")));
+        }
         if (updates.containsKey("riskTolerance")) {
             user.setRiskTolerance((String) updates.get("riskTolerance"));
-            // Also update investor profile if exists
             try {
-                investorProfileRepository.updateRiskTolerance(userId, (String) updates.get("riskTolerance"));
+                investorProfileRepository.updateRiskTolerance(
+                    userId, (String) updates.get("riskTolerance"));
             } catch (Exception e) {
-                log.warn("Could not update investor profile: {}", e.getMessage());
+                log.warn("Could not update investor risk tolerance: {}",
+                    e.getMessage());
             }
         }
         if (updates.containsKey("investmentGoal")) {
             user.setInvestmentGoal((String) updates.get("investmentGoal"));
             try {
-                investorProfileRepository.updateInvestmentGoal(userId, (String) updates.get("investmentGoal"));
+                investorProfileRepository.updateInvestmentGoal(
+                    userId, (String) updates.get("investmentGoal"));
             } catch (Exception e) {
-                log.warn("Could not update investor profile: {}", e.getMessage());
+                log.warn("Could not update investor goal: {}",
+                    e.getMessage());
             }
         }
-        
+
         user.setUpdatedAt(LocalDateTime.now());
-        User updatedUser = userRepository.save(user);
-        
-        // Invalidate cache
+        User saved = userRepository.save(user);
         cachePort.delete("user:" + userId);
-        
-        log.info("User profile updated successfully: {}", userId);
-        return updatedUser;
+        return saved;
     }
-    
+
+    // US-08 — Add bank account
     @Override
     @Transactional
-    public void linkBankAccount(UUID userId, String telebirrAccount, String cbeAccount) {
-        log.info("Linking bank account for user: {}", userId);
-        
-        User user = getUserById(userId);
-        
-        log.info("Bank account linked - Telebirr: {}, CBE: {} for user: {}", 
-                 telebirrAccount, cbeAccount, userId);
-        
-        notificationPort.sendSms(user.getPhone(), 
-            "Agri-Yield: Your bank account has been linked successfully.");
+    public BankAccount addBankAccount(UUID userId, String accountType,
+                                      String accountNumber,
+                                      String holderName) {
+        log.info("Adding bank account for user: {}, type: {}",
+            userId, accountType);
+
+        getUserById(userId); // verify user exists
+
+        BankAccount account = BankAccount.builder()
+            .id(UUID.randomUUID())
+            .userId(userId)
+            .accountType(accountType.toUpperCase())
+            .accountNumber(accountNumber)
+            .accountHolderName(holderName)
+            .isVerified(false)
+            .isDefault(false)
+            .createdAt(LocalDateTime.now())
+            .build();
+
+        BankAccount saved = bankAccountRepository.save(account);
+
+        // Send 1 ETB test deposit — stubbed, real impl via Telebirr/CBE API
+        notificationPort.sendSms(accountNumber,
+            "Agri-Yield: Verification code ETB1 sent to your account.");
+
+        return saved;
     }
-    
+
+    // US-08 — Verify bank account
     @Override
     @Transactional
-    public void updatePreferredLanguage(UUID userId, String languageCode) {
-        log.info("Updating preferred language for user: {} to {}", userId, languageCode);
-        
-        User user = getUserById(userId);
-        user.setPreferredLanguage(PreferredLanguage.fromCode(languageCode));
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
-        
-        cachePort.delete("user:" + userId);
+    public BankAccount verifyBankAccount(UUID userId, UUID accountId,
+                                         String verificationCode) {
+        BankAccount account = bankAccountRepository.findById(accountId)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "BankAccount", "id", accountId));
+
+        if (!account.getUserId().equals(userId)) {
+            throw new BusinessException(
+                "Account does not belong to this user",
+                "UNAUTHORIZED_ACCOUNT");
+        }
+
+        // SRS: verification code is ETB1 (stub for development)
+        if (!"ETB1".equals(verificationCode)) {
+            throw new BusinessException(
+                "Invalid verification code", "INVALID_VERIFICATION_CODE");
+        }
+
+        account.setIsVerified(true);
+        account.setVerifiedAt(LocalDateTime.now());
+        return bankAccountRepository.save(account);
     }
-    
+
+    // US-08 — Set default bank account
     @Override
-    public User getUserByFaydaId(String faydaId) {
-        return userRepository.findByFaydaId(faydaId)
-            .orElseThrow(() -> new ResourceNotFoundException("User", "faydaId", faydaId));
+    @Transactional
+    public BankAccount setDefaultBankAccount(UUID userId, UUID accountId) {
+        BankAccount account = bankAccountRepository.findById(accountId)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "BankAccount", "id", accountId));
+
+        if (!account.getUserId().equals(userId)) {
+            throw new BusinessException(
+                "Account does not belong to this user",
+                "UNAUTHORIZED_ACCOUNT");
+        }
+
+        bankAccountRepository.clearDefaultForUser(userId);
+        account.setIsDefault(true);
+        return bankAccountRepository.save(account);
+    }
+
+    // US-08 — List bank accounts
+    @Override
+    public List<BankAccount> getBankAccounts(UUID userId) {
+        return bankAccountRepository.findByUserId(userId);
+    }
+
+    // US-08 — Delete bank account
+    @Override
+    @Transactional
+    public void deleteBankAccount(UUID userId, UUID accountId) {
+        BankAccount account = bankAccountRepository.findById(accountId)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "BankAccount", "id", accountId));
+        if (!account.getUserId().equals(userId)) {
+            throw new BusinessException(
+                "Account does not belong to this user",
+                "UNAUTHORIZED_ACCOUNT");
+        }
+        bankAccountRepository.deleteById(accountId);
+    }
+
+    // US-09
+    @Override
+    public User getUserById(UUID userId) {
+        String cacheKey = "user:" + userId;
+        var cached = cachePort.get(cacheKey);
+        if (cached.isPresent() && cached.get() instanceof User) {
+            return (User) cached.get();
+        }
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "User", "id", userId));
+        cachePort.set(cacheKey, user, 5, TimeUnit.MINUTES);
+        return user;
     }
 }

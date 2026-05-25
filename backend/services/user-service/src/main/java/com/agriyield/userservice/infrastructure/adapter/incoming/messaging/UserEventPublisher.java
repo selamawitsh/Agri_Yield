@@ -1,6 +1,6 @@
 package com.agriyield.userservice.infrastructure.adapter.incoming.messaging;
 
-import com.agriyield.userservice.core.domain.model.User;
+import com.agriyield.userservice.domain.model.User;
 import com.agriyield.userservice.infrastructure.config.RabbitMQConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,15 +29,11 @@ public class UserEventPublisher {
         event.put("kyc_status", user.getKycStatus().getValue());
         event.put("timestamp", LocalDateTime.now().toString());
 
-        log.info("Publishing user.pre_registered event for user: {}", user.getId());
         rabbitTemplate.convertAndSend(
-            RabbitMQConfig.USER_EXCHANGE,
-            "user.pre_registered",
-            event
-        );
+            RabbitMQConfig.USER_EXCHANGE, "user.pre_registered", event);
+        log.info("Published user.pre_registered for: {}", user.getId());
     }
 
-    // SRS Section 3.2.4 — full_name is required in this payload
     public void publishUserRegistered(User user, String fullName) {
         Map<String, Object> event = new HashMap<>();
         event.put("event_type", "user.registered");
@@ -47,15 +43,14 @@ public class UserEventPublisher {
         event.put("fayda_id", user.getFaydaId());
         event.put("role", user.getRole().getValue());
         event.put("full_name", fullName != null ? fullName : "");
-        event.put("preferred_language", user.getPreferredLanguage().getCode());
+        event.put("preferred_language",
+            user.getPreferredLanguage().getCode());
         event.put("timestamp", LocalDateTime.now().toString());
 
-        log.info("Publishing user.registered event for user: {}", user.getId());
         rabbitTemplate.convertAndSend(
             RabbitMQConfig.USER_EXCHANGE,
-            RabbitMQConfig.USER_REGISTERED_KEY,
-            event
-        );
+            RabbitMQConfig.USER_REGISTERED_KEY, event);
+        log.info("Published user.registered for: {}", user.getId());
     }
 
     public void publishUserKycVerified(User user) {
@@ -66,15 +61,14 @@ public class UserEventPublisher {
         event.put("kyc_status", "VERIFIED");
         event.put("timestamp", LocalDateTime.now().toString());
 
-        log.info("Publishing user.kyc.verified event for user: {}", user.getId());
         rabbitTemplate.convertAndSend(
             RabbitMQConfig.USER_EXCHANGE,
-            RabbitMQConfig.USER_KYC_VERIFIED_KEY,
-            event
-        );
+            RabbitMQConfig.USER_KYC_VERIFIED_KEY, event);
+        log.info("Published user.kyc.verified for: {}", user.getId());
     }
 
-    public void publishUserSuspended(User user, UUID adminId, String reason) {
+    public void publishUserSuspended(User user, UUID adminId,
+                                     String reason) {
         Map<String, Object> event = new HashMap<>();
         event.put("event_type", "user.suspended");
         event.put("user_id", user.getId().toString());
@@ -82,12 +76,10 @@ public class UserEventPublisher {
         event.put("suspended_by_admin_id", adminId.toString());
         event.put("timestamp", LocalDateTime.now().toString());
 
-        log.info("Publishing user.suspended event for user: {}", user.getId());
         rabbitTemplate.convertAndSend(
             RabbitMQConfig.USER_EXCHANGE,
-            RabbitMQConfig.USER_SUSPENDED_KEY,
-            event
-        );
+            RabbitMQConfig.USER_SUSPENDED_KEY, event);
+        log.info("Published user.suspended for: {}", user.getId());
     }
 
     public void publishUserReactivated(User user, UUID adminId) {
@@ -97,11 +89,9 @@ public class UserEventPublisher {
         event.put("reactivated_by_admin_id", adminId.toString());
         event.put("timestamp", LocalDateTime.now().toString());
 
-        log.info("Publishing user.reactivated event for user: {}", user.getId());
         rabbitTemplate.convertAndSend(
             RabbitMQConfig.USER_EXCHANGE,
-            RabbitMQConfig.USER_REACTIVATED_KEY,
-            event
-        );
+            RabbitMQConfig.USER_REACTIVATED_KEY, event);
+        log.info("Published user.reactivated for: {}", user.getId());
     }
 }

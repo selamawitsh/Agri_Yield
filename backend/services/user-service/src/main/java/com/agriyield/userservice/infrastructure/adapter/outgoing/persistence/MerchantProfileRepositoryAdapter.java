@@ -1,33 +1,34 @@
 package com.agriyield.userservice.infrastructure.adapter.outgoing.persistence;
 
-import com.agriyield.userservice.core.port.outgoing.MerchantProfileRepositoryPort;
+import com.agriyield.userservice.application.port.outgoing.MerchantProfileRepositoryPort;
 import com.agriyield.userservice.infrastructure.adapter.outgoing.persistence.entity.MerchantProfileEntity;
 import com.agriyield.userservice.infrastructure.repository.JpaMerchantProfileRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.util.UUID;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
-public class MerchantProfileRepositoryAdapter implements MerchantProfileRepositoryPort {
-    
-    private final JpaMerchantProfileRepository jpaRepository;
-    
+public class MerchantProfileRepositoryAdapter
+        implements MerchantProfileRepositoryPort {
+
+    private final JpaMerchantProfileRepository jpaRepo;
+
     @Override
     public void createDefaultProfile(UUID userId) {
         MerchantProfileEntity profile = MerchantProfileEntity.builder()
             .id(UUID.randomUUID())
             .userId(userId)
-            .businessName("Pending Setup")
-            .businessLicenseNumber("PENDING_" + UUID.randomUUID().toString().substring(0, 8))
-            .storeGpsLat(BigDecimal.ZERO)
-            .storeGpsLng(BigDecimal.ZERO)
+            .businessName("")
+            .businessLicenseNumber("")
             .isPhysicallyVerified(false)
             .subscriptionTier("BASIC")
-            .isPremium(false)
+            .telebirrAccount("")
             .build();
-        jpaRepository.save(profile);
+        jpaRepo.save(profile);
+        log.info("Created merchant profile for: {}", userId);
     }
 }

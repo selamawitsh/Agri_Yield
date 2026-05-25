@@ -1,16 +1,15 @@
 package com.agriyield.userservice.infrastructure.config;
 
-import com.agriyield.userservice.core.domain.exceptions.BusinessException;
-import com.agriyield.userservice.core.domain.exceptions.ResourceNotFoundException;
-import com.agriyield.userservice.infrastructure.adapter.incoming.rest.dto.response.ApiResponse;
+import com.agriyield.userservice.domain.exception.BusinessException;
+import com.agriyield.userservice.domain.exception.ResourceNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -18,74 +17,53 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
-        log.warn("Business exception: {}", ex.getMessage());
-        
-        ApiResponse<Void> response = ApiResponse.error(
-            ex.getMessage(),
-            ex.getErrorCode()
-        );
-        
-        HttpStatus status = determineHttpStatus(ex.getErrorCode());
-        return ResponseEntity.status(status).body(response);
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(
+            ResourceNotFoundException ex) {
+        return buildError(HttpStatus.NOT_FOUND,
+            ex.getMessage(), ex.getErrorCode());
     }
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleResourceNotFoundException(ResourceNotFoundException ex) {
-        log.warn("Resource not found: {}", ex.getMessage());
-        
-        ApiResponse<Void> response = ApiResponse.error(
-            ex.getMessage(),
-            ex.getErrorCode()
-        );
-        
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<Map<String, Object>> handleBusiness(
+            BusinessException ex) {
+        return buildError(HttpStatus.BAD_REQUEST,
+            ex.getMessage(), ex.getErrorCode());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationExceptions(
+    public ResponseEntity<Map<String, Object>> handleValidation(
             MethodArgumentNotValidException ex) {
-        
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach((error) -> {
-            String fieldName = ((FieldError) error).getField();
-            String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage);
-        });
-        
-        log.warn("Validation errors: {}", errors);
-        
-        ApiResponse<Map<String, String>> response = ApiResponse.error(
-            "Validation failed",
-            "VALIDATION_ERROR"
-        );
-        response.setData(errors);
-        
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        String message = ex.getBindingResult().getFieldErrors()
+            .stream()
+            .map(e -> e.getField() + ": " + e.getDefaultMessage())
+            .findFirst().orElse("Validation failed");
+        return buildError(HttpStatus.BAD_REQUEST, message,
+            "VALIDATION_ERROR");
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArg(
+            IllegalArgumentException ex) {
+        return buildError(HttpStatus.BAD_REQUEST,
+            ex.getMessage(), "INVALID_REQUEST");
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
-        log.error("Unexpected error occurred", ex);
-        
-        ApiResponse<Void> response = ApiResponse.error(
-            "An unexpected error occurred. Please try again later.",
-            "INTERNAL_SERVER_ERROR"
-        );
-        
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    public ResponseEntity<Map<String, Object>> handleGeneral(
+            Exception ex) {
+        log.error("Unhandled exception: {}", ex.getMessage(), ex);
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR,
+            "An unexpected error occurred", "INTERNAL_ERROR");
     }
-    
-    private HttpStatus determineHttpStatus(String errorCode) {
-        return switch (errorCode) {
-            case "INVALID_PHONE", "INVALID_OTP", "OTP_EXPIRED", "INVALID_PASSWORD", 
-                 "WEAK_PASSWORD", "VALIDATION_ERROR" -> HttpStatus.BAD_REQUEST;
-            case "AUTH_FAILED", "INVALID_REFRESH_TOKEN" -> HttpStatus.UNAUTHORIZED;
-            case "ACCOUNT_SUSPENDED", "ACCOUNT_LOCKED" -> HttpStatus.FORBIDDEN;
-            case "DUPLICATE_PHONE", "DUPLICATE_FAYDA_ID" -> HttpStatus.CONFLICT;
-            case "RESOURCE_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            default -> HttpStatus.BAD_REQUEST;
-        };
+
+    private ResponseEntity<Map<String, Object>> buildError(
+            HttpStatus status, String message, String errorCode) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("message", message);
+        body.put("error_code", errorCode);
+        body.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(status).body(body);
     }
 }

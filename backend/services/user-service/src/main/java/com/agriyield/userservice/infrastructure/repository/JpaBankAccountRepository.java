@@ -12,17 +12,15 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface JpaBankAccountRepository extends JpaRepository<BankAccountEntity, UUID> {
-    
+public interface JpaBankAccountRepository
+        extends JpaRepository<BankAccountEntity, UUID> {
+
     List<BankAccountEntity> findByUserId(UUID userId);
-    
-    Optional<BankAccountEntity> findByUserIdAndAccountType(UUID userId, String accountType);
-    
+
     Optional<BankAccountEntity> findByUserIdAndIsDefaultTrue(UUID userId);
-    
+
     @Modifying
-    @Query("UPDATE BankAccountEntity b SET b.isDefault = false WHERE b.userId = :userId")
-    void clearDefaultFlag(@Param("userId") UUID userId);
-    
-    long countByUserIdAndIsVerifiedTrue(UUID userId);
+    @Query("UPDATE BankAccountEntity b SET b.isDefault = false " +
+           "WHERE b.userId = :userId")
+    void clearDefaultForUser(@Param("userId") UUID userId);
 }
