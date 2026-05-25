@@ -37,7 +37,13 @@ public class InvestmentRepositoryAdapter implements InvestmentRepositoryPort {
 
     @Override
     public Optional<Investment> findByFarmId(UUID farmId) {
-        return jpaRepository.findByFarmId(farmId).map(mapper::toDomain);
+        return jpaRepository.findFirstByFarmId(farmId).map(mapper::toDomain);
+    }
+
+    @Override
+    public List<Investment> findAllByFarmId(UUID farmId) {
+        return jpaRepository.findAllByFarmId(farmId)
+            .stream().map(mapper::toDomain).collect(Collectors.toList());
     }
 
     @Override

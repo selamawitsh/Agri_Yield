@@ -16,5 +16,7 @@ public interface InvestmentRepositoryPort {
 
     Optional<Investment> findByFarmId(UUID farmId);
 
+    List<Investment> findAllByFarmId(UUID farmId);
+
     boolean existsByInvestorIdAndFarmId(UUID investorId, UUID farmId);
 }

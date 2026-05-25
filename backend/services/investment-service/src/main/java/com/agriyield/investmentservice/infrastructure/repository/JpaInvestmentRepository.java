@@ -11,7 +11,9 @@ public interface JpaInvestmentRepository extends JpaRepository<InvestmentEntity,
 
     List<InvestmentEntity> findByInvestorId(UUID investorId);
 
-    Optional<InvestmentEntity> findByFarmId(UUID farmId);
+    Optional<InvestmentEntity> findFirstByFarmId(UUID farmId);
+
+    List<InvestmentEntity> findAllByFarmId(UUID farmId);
 
     boolean existsByInvestorIdAndFarmId(UUID investorId, UUID farmId);
 }
