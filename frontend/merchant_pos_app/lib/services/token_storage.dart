@@ -13,7 +13,12 @@ class TokenStorage {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_accessTokenKey);
   }
-  
+
+  static Future<String?> getRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_refreshTokenKey);
+  }
+
   static Future<void> saveRefreshToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_refreshTokenKey, token);
