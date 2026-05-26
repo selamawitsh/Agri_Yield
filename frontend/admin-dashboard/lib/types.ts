@@ -7,9 +7,12 @@ export interface User {
   kycStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
   accountStatus: 'ACTIVE' | 'SUSPENDED' | 'PENDING_VERIFICATION';
   preferredLanguage: string;
+  riskTolerance?: string;
+  investmentGoal?: string;
+  agriScore?: number;
   createdAt: string;
-  updatedAt: string;
-  lastLoginAt: string | null;
+  updatedAt?: string;
+  faydaVerifiedAt?: string;
 }
 
 export interface UserStats {
@@ -25,9 +28,18 @@ export interface UserStats {
   suspendedUsers: number;
 }
 
+export interface PagedResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   message?: string;
   data: T;
-  timestamp: number;
 }
