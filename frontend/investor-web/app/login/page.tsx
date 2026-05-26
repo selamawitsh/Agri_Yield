@@ -1,119 +1,87 @@
 'use client';
-
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import toast from 'react-hot-toast';
-import api from '@/lib/api';
+import { login } from '@/lib/api';
+import { saveTokens } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (token && token.includes('.') && token.split('.').length === 3) {
-      router.push('/dashboard');
-    }
-  }, []);
-
-  const handleLogin = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError('');
     setLoading(true);
-
     try {
-      const response = await api.post('/auth/login', { phone, password });
-
-      if (response.data.success) {
-        const accessToken = response.data.data.accessToken;
-        const refreshToken = response.data.data.refreshToken;
-
-        if (accessToken && accessToken.includes('.') && accessToken.split('.').length === 3) {
-          localStorage.setItem('access_token', accessToken);
-          localStorage.setItem('refresh_token', refreshToken);
-          toast.success('Login successful!');
-          router.push('/dashboard');
-        } else {
-          toast.error('Invalid token received');
-        }
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Login failed');
+      const res = await login({ phone, password });
+      saveTokens(res.data.accessToken, res.data.refreshToken);
+      router.push('/dashboard');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
-      <div className="min-h-screen flex items-center justify-center bg-emerald-950 relative overflow-hidden">
-        {/* Background Image overlay to match app's organic feel */}
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1586771107445-d3ca888129ff?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-30 mix-blend-overlay"></div>
-
-        <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md relative z-10 m-4">
-          <div className="text-center mb-10">
-            <div className="w-16 h-16 bg-lime-200 rounded-[1.25rem] mx-auto flex items-center justify-center text-3xl mb-4 shadow-sm">
-              🌱
-            </div>
-            <h1 className="text-3xl font-black text-emerald-950 tracking-tight">Agri-Yield</h1>
-            <p className="text-gray-500 font-medium mt-2">Welcome back, Investor.</p>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-white text-2xl">🌾</span>
           </div>
-
-          <form onSubmit={handleLogin}>
-            <div className="mb-5">
-              <label className="block text-emerald-950 text-sm font-bold mb-2 ml-2">
-                Phone Number
-              </label>
-              <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:bg-white transition text-emerald-950 font-semibold placeholder-gray-400"
-                  placeholder="+251 912 345 678"
-                  required
-              />
-            </div>
-
-            <div className="mb-8">
-              <label className="block text-emerald-950 text-sm font-bold mb-2 ml-2">
-                Password
-              </label>
-              <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:bg-white transition text-emerald-950 font-semibold placeholder-gray-400"
-                  placeholder="••••••••"
-                  required
-              />
-            </div>
-
-            <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-emerald-950 text-white py-4 rounded-full text-lg font-bold hover:bg-emerald-900 transition duration-200 shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
-            >
-              {loading ? 'Authenticating...' : 'Sign In'}
-            </button>
-          </form>
-
-          <div className="mt-8 text-center">
-            <Link href="/register" className="text-emerald-700 hover:text-emerald-900 font-bold text-sm transition">
-              Create an account
-            </Link>
-          </div>
-
-          {/* Demo credentials */}
-          <div className="mt-8 p-4 bg-lime-50 rounded-3xl text-center border border-lime-100">
-            <p className="text-xs font-bold text-emerald-900 uppercase tracking-wide mb-2">Demo Account</p>
-            <div className="flex justify-center gap-4 text-xs font-medium text-emerald-800">
-              <span>+251900000001</span>
-              <span className="w-1 h-1 bg-emerald-300 rounded-full my-auto"></span>
-              <span>Debug@1234</span>
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Agri-Yield Investor</h1>
+          <p className="text-gray-500 mt-1">Sign in to your account</p>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="+251912345678"
+              required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" className="text-green-600 font-semibold hover:underline">
+            Register
+          </Link>
+        </p>
       </div>
+    </div>
   );
 }

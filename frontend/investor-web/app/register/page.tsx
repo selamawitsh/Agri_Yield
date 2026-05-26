@@ -1,237 +1,172 @@
 'use client';
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
-import api from '@/lib/api';
+import Link from 'next/link';
+import { register, verifyOtp } from '@/lib/api';
+
+const RISK_OPTIONS = ['LOW', 'MODERATE', 'HIGH'];
+const GOAL_OPTIONS = [
+  'Agricultural impact investing',
+  'Diversified portfolio returns',
+  'Supporting Ethiopian farmers',
+  'Inflation hedge',
+  'Long-term wealth building',
+];
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState<'form' | 'otp'>('form');
   const [loading, setLoading] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [error, setError] = useState('');
+
+  // Form fields
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [faydaId, setFaydaId] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [riskTolerance, setRiskTolerance] = useState('MODERATE');
+  const [investmentGoal, setInvestmentGoal] = useState(GOAL_OPTIONS[0]);
 
-  const [formData, setFormData] = useState({
-    phone: '',
-    faydaId: '',
-    password: '',
-    confirmPassword: '',
-    fullName: '',
-  });
+  // OTP
+  const [otp, setOtp] = useState('');
 
-  const [riskProfile, setRiskProfile] = useState({
-    riskTolerance: '',
-    investmentGoal: '',
-  });
-
-  const [otpCode, setOtpCode] = useState('');
-
-  const handleRegister = async (e: React.FormEvent) => {
+  async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
+    setError('');
+    if (password !== confirm) { setError('Passwords do not match'); return; }
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
     setLoading(true);
     try {
-      const response = await api.post('/auth/register', {
-        phone: formData.phone,
-        faydaId: formData.faydaId,
-        password: formData.password,
-        role: 'INVESTOR',
-        fullName: formData.fullName,
-      });
-
-      if (response.data.success) {
-        setPhoneNumber(formData.phone);
-        setPassword(formData.password);
-        toast.success('OTP sent! Check backend terminal for code');
-        setStep(2);
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+      await register({ phone, faydaId, password, fullName, role: 'INVESTOR' });
+      setStep('otp');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const verifyOtp = async (e: React.FormEvent) => {
+  async function handleOtp(e: React.FormEvent) {
     e.preventDefault();
+    setError('');
     setLoading(true);
     try {
-      const response = await api.post('/auth/otp/verify', {
-        phone: phoneNumber,
-        otpCode: otpCode,
-        purpose: 'REGISTRATION',
-      });
-
-      if (response.data.success) {
-        toast.success('Phone verified! Complete your profile');
-        setStep(3);
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Invalid OTP');
+      await verifyOtp({ phone, otpCode: otp, purpose: 'REGISTRATION' });
+      router.push('/login?registered=true');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'OTP verification failed');
     } finally {
       setLoading(false);
     }
-  };
-
-  const saveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!riskProfile.riskTolerance) {
-      toast.error('Please select risk tolerance');
-      return;
-    }
-    if (!riskProfile.investmentGoal) {
-      toast.error('Please enter investment goal');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // First, login to get the JWT token
-      const loginResponse = await api.post('/auth/login', {
-        phone: phoneNumber,
-        password: password,
-      });
-
-      if (loginResponse.data.success) {
-        const jwtToken = loginResponse.data.data.accessToken;
-        localStorage.setItem('access_token', jwtToken);
-        localStorage.setItem('refresh_token', loginResponse.data.data.refreshToken);
-
-        // Update profile
-        const updateData = {
-          riskTolerance: riskProfile.riskTolerance,
-          investmentGoal: riskProfile.investmentGoal
-        };
-
-        const profileResponse = await api.patch('/users/me', updateData);
-
-        if (profileResponse.data.success) {
-          toast.success('Registration complete!');
-          router.push('/dashboard');
-        }
-      }
-    } catch (error: any) {
-      console.error('Error:', error);
-      toast.error(error.response?.data?.message || 'Failed to save profile');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }
 
   return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="container mx-auto max-w-2xl px-4">
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-green-600">Agri-Yield</h1>
-              <p className="text-gray-600 mt-2">Investor Registration</p>
-              <div className="flex justify-center gap-2 mt-4">
-                {[1, 2, 3].map((s) => (
-                    <div key={s} className={`w-3 h-3 rounded-full ${s === step ? 'bg-green-600' : 'bg-gray-300'}`} />
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-white text-2xl">🌾</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {step === 'form' ? 'Create Investor Account' : 'Verify Your Phone'}
+          </h1>
+          <p className="text-gray-500 mt-1">
+            {step === 'form'
+              ? 'Join Agri-Yield and invest in Ethiopian agriculture'
+              : `Enter the 6-digit OTP sent to ${phone}`}
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
+            {error}
+          </div>
+        )}
+
+        {step === 'form' ? (
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+251912345678" required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fayda National ID</label>
+                <input type="text" value={faydaId} onChange={e => setFaydaId(e.target.value)} required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Risk Tolerance</label>
+              <div className="grid grid-cols-3 gap-2">
+                {RISK_OPTIONS.map(r => (
+                  <button key={r} type="button" onClick={() => setRiskTolerance(r)}
+                    className={`py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                      riskTolerance === r
+                        ? 'bg-green-600 text-white border-green-600'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-green-400'
+                    }`}>
+                    {r}
+                  </button>
                 ))}
               </div>
             </div>
 
-            {step === 1 && (
-                <form onSubmit={handleRegister}>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-gray-700 mb-2">Full Name</label>
-                      <input type="text" required value={formData.fullName}
-                             onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-                             className="w-full px-3 py-2 border rounded-lg" />
-                    </div>
-                    <div>
-                      <label className="block text-gray-700 mb-2">Phone Number</label>
-                      <input type="tel" required placeholder="+251912345678"
-                             value={formData.phone}
-                             onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                             className="w-full px-3 py-2 border rounded-lg" />
-                    </div>
-                    <div>
-                      <label className="block text-gray-700 mb-2">Fayda National ID</label>
-                      <input type="text" required
-                             value={formData.faydaId}
-                             onChange={(e) => setFormData({...formData, faydaId: e.target.value})}
-                             className="w-full px-3 py-2 border rounded-lg" />
-                    </div>
-                    <div>
-                      <label className="block text-gray-700 mb-2">Password</label>
-                      <input type="password" required
-                             value={formData.password}
-                             onChange={(e) => setFormData({...formData, password: e.target.value})}
-                             className="w-full px-3 py-2 border rounded-lg" />
-                    </div>
-                    <div>
-                      <label className="block text-gray-700 mb-2">Confirm Password</label>
-                      <input type="password" required
-                             value={formData.confirmPassword}
-                             onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
-                             className="w-full px-3 py-2 border rounded-lg" />
-                    </div>
-                  </div>
-                  <button type="submit" disabled={loading}
-                          className="w-full mt-6 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50">
-                    {loading ? 'Sending OTP...' : 'Register'}
-                  </button>
-                </form>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Investment Goal</label>
+              <select value={investmentGoal} onChange={e => setInvestmentGoal(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none">
+                {GOAL_OPTIONS.map(g => <option key={g}>{g}</option>)}
+              </select>
+            </div>
 
-            {step === 2 && (
-                <form onSubmit={verifyOtp}>
-                  <div>
-                    <label className="block text-gray-700 mb-2">Enter OTP</label>
-                    <p className="text-sm text-gray-500 mb-2">Check backend terminal for the OTP code</p>
-                    <input type="text" required placeholder="123456"
-                           value={otpCode} onChange={(e) => setOtpCode(e.target.value)}
-                           className="w-full px-3 py-2 border rounded-lg" />
-                  </div>
-                  <button type="submit" disabled={loading}
-                          className="w-full mt-6 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50">
-                    {loading ? 'Verifying...' : 'Verify OTP'}
-                  </button>
-                </form>
-            )}
+            <button type="submit" disabled={loading}
+              className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors">
+              {loading ? 'Creating account...' : 'Create Account'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleOtp} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">6-Digit OTP</label>
+              <input type="text" value={otp} onChange={e => setOtp(e.target.value)}
+                maxLength={6} placeholder="000000" required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-center text-2xl tracking-widest font-mono" />
+            </div>
+            <button type="submit" disabled={loading}
+              className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors">
+              {loading ? 'Verifying...' : 'Verify OTP'}
+            </button>
+            <button type="button" onClick={() => setStep('form')}
+              className="w-full text-gray-500 text-sm hover:text-gray-700">
+              ← Back to registration
+            </button>
+          </form>
+        )}
 
-            {step === 3 && (
-                <form onSubmit={saveProfile}>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-gray-700 mb-2">Risk Tolerance</label>
-                      <select
-                          required
-                          value={riskProfile.riskTolerance}
-                          onChange={(e) => setRiskProfile({...riskProfile, riskTolerance: e.target.value})}
-                          className="w-full px-3 py-2 border rounded-lg">
-                        <option value="">Select...</option>
-                        <option value="LOW">Low - Prefer stable, lower returns</option>
-                        <option value="MODERATE">Moderate - Balanced risk/return</option>
-                        <option value="HIGH">High - Willing to accept volatility</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-gray-700 mb-2">Investment Goal</label>
-                      <input type="text" required
-                             value={riskProfile.investmentGoal}
-                             onChange={(e) => setRiskProfile({...riskProfile, investmentGoal: e.target.value})}
-                             placeholder="e.g., Retirement, Wealth growth, Income"
-                             className="w-full px-3 py-2 border rounded-lg" />
-                    </div>
-                  </div>
-                  <button type="submit" disabled={loading}
-                          className="w-full mt-6 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50">
-                    {loading ? 'Completing Registration...' : 'Complete Registration'}
-                  </button>
-                </form>
-            )}
-          </div>
-        </div>
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Already have an account?{' '}
+          <Link href="/login" className="text-green-600 font-semibold hover:underline">Sign in</Link>
+        </p>
       </div>
+    </div>
   );
 }
