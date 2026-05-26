@@ -2,7 +2,9 @@ package com.agriyield.userservice.presentation.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
@@ -24,4 +26,13 @@ public class RegisterRequest {
 
     @NotBlank(message = "Full name is required")
     private String fullName;
+
+    // Merchant-only fields — all optional at validation level
+    // AuthServiceImpl validates them when role == MERCHANT
+    private String businessName;
+    private String businessLicenseNumber;
+    private Double storeGpsLat;
+    private Double storeGpsLng;
+    private String telebirrAccount;
+    private String kebeleCode;
 }

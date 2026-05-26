@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.math.BigDecimal;
 
 @Slf4j
 @Service
@@ -43,8 +44,18 @@ public class AuthServiceImpl implements AuthServicePort {
     // US-01
     @Override
     @Transactional
-    public User register(String phone, String faydaId, String password,
-                         String role, String fullName) {
+    public User register(
+            String phone,
+            String faydaId,
+            String password,
+            String role,
+            String fullName,
+            String businessName,
+            String businessLicenseNumber,
+            Double storeGpsLat,
+            Double storeGpsLng,
+            String telebirrAccount,
+            String kebeleCode) {
         log.info("Registering user phone: {}, role: {}", phone, role);
 
         if (!phone.matches("^\\+251[0-9]{9}$")) {
@@ -86,9 +97,20 @@ public class AuthServiceImpl implements AuthServicePort {
         User saved = userRepository.save(user);
 
         if (saved.getRole() == UserRole.INVESTOR) {
+
             investorProfileRepository.createDefaultProfile(saved.getId());
+
         } else if (saved.getRole() == UserRole.MERCHANT) {
-            merchantProfileRepository.createDefaultProfile(saved.getId());
+
+            merchantProfileRepository.createMerchantProfile(
+                    saved.getId(),
+                    businessName,
+                    businessLicenseNumber,
+                    storeGpsLat != null ? BigDecimal.valueOf(storeGpsLat) : null,
+                    storeGpsLng != null ? BigDecimal.valueOf(storeGpsLng) : null,
+                    telebirrAccount,
+                    kebeleCode
+            );
         }
 
         cachePort.set("user:fullname:" + saved.getId(),

@@ -25,17 +25,28 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<String>> register(
             @Valid @RequestBody RegisterRequest request) {
-        log.info("POST /auth/register — phone: {}", request.getPhone());
-        var user = authService.register(
-            request.getPhone(), request.getFaydaId(),
-            request.getPassword(), request.getRole(),
-            request.getFullName());
-        return ResponseEntity.status(HttpStatus.CREATED)
-            .body(ApiResponse.success(
-                "OTP sent. Please verify to complete registration.",
-                user.getId().toString()));
-    }
 
+        log.info("POST /auth/register ? phone: {}", request.getPhone());
+
+        var user = authService.register(
+                request.getPhone(),
+                request.getFaydaId(),
+                request.getPassword(),
+                request.getRole(),
+                request.getFullName(),
+                request.getBusinessName(),
+                request.getBusinessLicenseNumber(),
+                request.getStoreGpsLat(),
+                request.getStoreGpsLng(),
+                request.getTelebirrAccount(),
+                request.getKebeleCode()
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(
+                        "OTP sent. Please verify to complete registration.",
+                        user.getId().toString()));
+    }
     // US-02
     @PostMapping("/otp/verify")
     public ResponseEntity<ApiResponse<String>> verifyOtp(

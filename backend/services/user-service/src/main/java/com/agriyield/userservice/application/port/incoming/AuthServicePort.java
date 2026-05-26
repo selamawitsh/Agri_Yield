@@ -8,8 +8,19 @@ import java.util.UUID;
 public interface AuthServicePort {
 
     // US-01 — Register new user
-    User register(String phone, String faydaId, String password,
-                  String role, String fullName);
+    User register(
+            String phone,
+            String faydaId,
+            String password,
+            String role,
+            String fullName,
+            String businessName,
+            String businessLicenseNumber,
+            Double storeGpsLat,
+            Double storeGpsLng,
+            String telebirrAccount,
+            String kebeleCode
+    );
 
     // US-02 — Verify OTP
     String verifyOtp(String phone, String otpCode, String purpose);
