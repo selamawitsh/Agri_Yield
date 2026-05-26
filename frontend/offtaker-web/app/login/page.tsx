@@ -1,77 +1,61 @@
 'use client';
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import toast from 'react-hot-toast';
-import api from '@/lib/api';
+import { login } from '@/lib/api';
+import { saveTokens } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
+    setError(''); setLoading(true);
     try {
-      const response = await api.post('/auth/login', { phone, password });
-      if (response.data.success) {
-        localStorage.setItem('access_token', response.data.data.accessToken);
-        localStorage.setItem('refresh_token', response.data.data.refreshToken);
-        toast.success('Login successful!');
-        router.push('/dashboard');
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
+      const res = await login({ phone, password });
+      saveTokens(res.data.accessToken, res.data.refreshToken);
+      router.push('/dashboard');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally { setLoading(false); }
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-teal-500 to-cyan-600">
-      <div className="bg-white p-8 rounded-lg shadow-xl w-96">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Agri-Yield</h1>
-          <p className="text-gray-500 mt-2">Off-Taker Portal</p>
+          <div className="w-16 h-16 bg-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-white text-2xl">🚛</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Agri-Yield Off-Taker</h1>
+          <p className="text-gray-500 mt-1">Sign in to your procurement portal</p>
         </div>
-        <form onSubmit={handleLogin}>
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2">Phone Number</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-              placeholder="+251912345678"
-              required
-            />
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">{error}</div>}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+              placeholder="+251912345678" required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>
-          <div className="mb-6">
-            <label className="block text-gray-700 text-sm font-bold mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500"
-              required
-            />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-teal-600 text-white py-2 rounded-lg hover:bg-teal-700"
-          >
-            {loading ? 'Logging in...' : 'Login'}
+          <button type="submit" disabled={loading}
+            className="w-full bg-blue-700 text-white py-3 rounded-lg font-semibold hover:bg-blue-800 disabled:opacity-50 transition-colors">
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <div className="mt-6 text-center">
-          <Link href="/register" className="text-teal-600 hover:text-teal-700 text-sm">
-            Don't have an account? Register here
-          </Link>
-        </div>
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" className="text-blue-700 font-semibold hover:underline">Register</Link>
+        </p>
       </div>
     </div>
   );
