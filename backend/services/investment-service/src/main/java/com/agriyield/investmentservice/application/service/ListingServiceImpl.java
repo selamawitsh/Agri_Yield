@@ -34,6 +34,7 @@ public class ListingServiceImpl implements ListingServicePort {
     private final InvestmentRepositoryPort investmentRepository;
     private final PayoutRecordRepositoryPort payoutRepository;
     private final EscrowServicePort escrowServicePort;
+    private final GeospatialServicePort geospatialServicePort;
     private final EventPublisherPort eventPublisher;
 
     // @Lazy breaks the circular dependency:
@@ -181,10 +182,16 @@ public class ListingServiceImpl implements ListingServicePort {
     @Override
     @Transactional(readOnly = true)
     public Object getNdviHistory(UUID listingId) {
-        listingRepository.findById(listingId)
+        FarmListing listing = listingRepository.findById(listingId)
             .orElseThrow(() -> new BusinessException(
                 "Listing not found: " + listingId, "LISTING_NOT_FOUND"));
-        return java.util.List.of();
+        try {
+            return geospatialServicePort.getNdviTimeSeries(listing.getFarmId(), 90);
+        } catch (Exception e) {
+            log.warn("Could not fetch NDVI history for listing {}: {}",
+                listingId, e.getMessage());
+            return java.util.List.of();
+        }
     }
 
     @Override
