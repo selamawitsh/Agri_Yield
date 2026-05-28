@@ -32,6 +32,8 @@ public class FarmEventPublisher implements EventPublisherPort {
         event.put("area_hectares", farm.getAreaHectares());
         event.put("gps_centroid_lat", farm.getGpsCentroidLat());
         event.put("gps_centroid_lng", farm.getGpsCentroidLng());
+        event.put("geo_json_polygon", farm.getGeoJsonPolygon());
+        event.put("area_hectares", farm.getAreaHectares());
         event.put("kebele_code", farm.getKebeleCode());
         event.put("region", farm.getRegion());
         event.put("timestamp", LocalDateTime.now().toString());
