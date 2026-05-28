@@ -205,6 +205,12 @@
                     <protoSourceRoot>
                         ../../shared/grpc-contracts
                     </protoSourceRoot>
+                    <includes>
+                        <include>farm_service.proto</include>
+                        <include>user_service.proto</include>
+                        <include>fraud_service.proto</include>
+                        <include>geospatial_service.proto</include>
+                    </includes>
                 </configuration>
                 <executions>
                     <execution>
