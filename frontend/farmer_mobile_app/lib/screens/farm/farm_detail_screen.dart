@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import '../../models/farm_model.dart';
 import '../../models/input_need_model.dart';
 import '../../services/farm_service.dart';
+import '../../services/geospatial_service.dart';
+import '../../models/ndvi_reading_model.dart';
+import '../../models/yield_prediction_model.dart';
+import '../../models/harvest_readiness_model.dart';
+import '../../models/farm_map_model.dart';
+import '../../widgets/ndvi_history_chart.dart';
 import 'input_needs_screen.dart';
 import 'upload_photo_screen.dart';
 import 'crop_cycle_screen.dart';
@@ -17,11 +23,17 @@ class FarmDetailScreen extends StatefulWidget {
 class _FarmDetailScreenState extends State<FarmDetailScreen>
     with SingleTickerProviderStateMixin {
   final _farmService = FarmService();
+  final _geospatialService = GeospatialService();
 
   FarmModel? _farm;
   Map<String, dynamic>? _digitalTwin;
   Map<String, dynamic>? _agriScore;
   List<InputNeedModel> _inputNeeds = [];
+  NdviReadingModel? _latestNdvi;
+  List<NdviReadingModel> _ndviHistory = [];
+  YieldPredictionModel? _yieldPrediction;
+  HarvestReadinessModel? _harvestReadiness;
+  FarmMapModel? _farmMap;
 
   bool _isLoading = true;
   String? _error;
@@ -30,7 +42,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _loadFarmData();
   }
 
@@ -48,6 +60,14 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
     final scoreResult = await _farmService.getAgriScore(widget.farmId);
     final inputNeedsResult =
         await _farmService.getInputNeeds(widget.farmId);
+
+    final geoResults = await Future.wait([
+      _geospatialService.getLatestNdvi(widget.farmId),
+      _geospatialService.getNdviHistory(widget.farmId),
+      _geospatialService.getYieldPrediction(widget.farmId),
+      _geospatialService.getHarvestReadiness(widget.farmId),
+      _geospatialService.getFarmMap(widget.farmId),
+    ]);
 
     if (mounted) {
       setState(() {
@@ -67,6 +87,11 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
           _inputNeeds =
               inputNeedsResult['inputNeeds'] as List<InputNeedModel>;
         }
+        _latestNdvi = geoResults[0] as NdviReadingModel?;
+        _ndviHistory = geoResults[1] as List<NdviReadingModel>;
+        _yieldPrediction = geoResults[2] as YieldPredictionModel?;
+        _harvestReadiness = geoResults[3] as HarvestReadinessModel?;
+        _farmMap = geoResults[4] as FarmMapModel?;
       });
     }
   }
@@ -169,6 +194,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
           isScrollable: true,
           tabs: const [
             Tab(text: 'Overview'),
+            Tab(text: 'Satellite'),
             Tab(text: 'Input Needs'),
             Tab(text: 'Digital Twin'),
             Tab(text: 'Agri-Score'),
@@ -199,6 +225,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
                   controller: _tabController,
                   children: [
                     _buildOverviewTab(),
+                    _buildSatelliteTab(),
                     _buildInputNeedsTab(),
                     _buildDigitalTwinTab(),
                     _buildAgriScoreTab(),
@@ -296,6 +323,11 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
             ),
           ),
           const SizedBox(height: 16),
+
+          if (_latestNdvi != null) ...[
+            _buildNdviSummaryCard(),
+            const SizedBox(height: 16),
+          ],
 
           // Quick action buttons
           Row(
@@ -399,7 +431,256 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
     );
   }
 
-  // ── Tab 2: Input Needs ────────────────────────────────────────────
+  Widget _buildNdviSummaryCard() {
+    final ndvi = _latestNdvi!;
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () => _tabController.animateTo(1),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ndvi.healthColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.satellite_alt, color: ndvi.healthColor),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Crop health (NDVI)',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text(
+                      '${ndvi.ndviValue.toStringAsFixed(3)} · ${ndvi.healthLabel}',
+                      style: TextStyle(color: ndvi.healthColor, fontSize: 16),
+                    ),
+                    Text('Tap for satellite analytics',
+                        style: TextStyle(
+                            color: Colors.grey.shade500, fontSize: 11)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Tab 2: Satellite & yield ──────────────────────────────────────
+  Widget _buildSatelliteTab() {
+    return RefreshIndicator(
+      onRefresh: _loadFarmData,
+      color: Colors.green,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_latestNdvi != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      _latestNdvi!.healthColor,
+                      _latestNdvi!.healthColor.withOpacity(0.75),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Latest NDVI',
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    Text(
+                      _latestNdvi!.ndviValue.toStringAsFixed(3),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 40,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '${_latestNdvi!.healthLabel} · '
+                      '${_latestNdvi!.cloudCoverage.toStringAsFixed(0)}% cloud cover',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ] else
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(children: [
+                    Icon(Icons.satellite_alt,
+                        size: 40, color: Colors.grey.shade400),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'No NDVI data yet. Satellite sync runs every few days.',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            if (_yieldPrediction != null) ...[
+              Card(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(children: [
+                        Icon(Icons.grass, color: Colors.green),
+                        SizedBox(width: 8),
+                        Text('Yield forecast',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
+                      ]),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_yieldPrediction!.totalYieldMeanQuintals.toStringAsFixed(1)} quintals',
+                        style: const TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Mean yield ${_yieldPrediction!.predictedYieldMean.toStringAsFixed(1)} t/ha · '
+                        '${_yieldPrediction!.confidencePct}% confidence',
+                      ),
+                      if (_yieldPrediction!.weeksToHarvest != null)
+                        Text(
+                            '~${_yieldPrediction!.weeksToHarvest} weeks to harvest',
+                            style: TextStyle(color: Colors.grey.shade600)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (_harvestReadiness != null) ...[
+              Card(
+                color: _harvestReadiness!.ready
+                    ? Colors.teal.shade50
+                    : Colors.blue.shade50,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Icon(
+                          _harvestReadiness!.ready
+                              ? Icons.agriculture
+                              : Icons.timelapse,
+                          color: _harvestReadiness!.ready
+                              ? Colors.teal
+                              : Colors.blue,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _harvestReadiness!.ready
+                              ? 'Harvest window approaching'
+                              : 'Harvest readiness',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ]),
+                      const SizedBox(height: 8),
+                      Text(_harvestReadiness!.signalLabel),
+                      if (_harvestReadiness!.ready &&
+                          _harvestReadiness!.estimatedDateFrom != null)
+                        Text(
+                          'Est. ${_harvestReadiness!.estimatedDateFrom} – '
+                          '${_harvestReadiness!.estimatedDateTo}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (_farmMap != null && _farmMap!.hasPolygon) ...[
+              Card(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Farm boundary',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_farmMap!.areaHectares.toStringAsFixed(2)} ha · '
+                        'Centroid ${_farmMap!.centroidLat.toStringAsFixed(4)}, '
+                        '${_farmMap!.centroidLng.toStringAsFixed(4)}',
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.map, color: Colors.green),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Polygon registered with geospatial service',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            const Text('NDVI history',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: NdviHistoryChart(readings: _ndviHistory),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Tab 3: Input Needs ────────────────────────────────────────────
   Widget _buildInputNeedsTab() {
     return Scaffold(
       body: _inputNeeds.isEmpty
@@ -637,7 +918,20 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
       );
     }
 
-    final ndviHistory = _digitalTwin!['ndviHistory'] as List? ?? [];
+    List<NdviReadingModel> ndviForChart = List.from(_ndviHistory);
+    if (ndviForChart.isEmpty) {
+      final legacy = _digitalTwin!['ndviHistory'] as List? ?? [];
+      for (final r in legacy) {
+        if (r is Map) {
+          ndviForChart.add(NdviReadingModel.fromJson({
+            'ndviValue': r['ndvi'],
+            'cloudCoverage': r['cloudCoverage'] ?? 0,
+            'healthStatus': 'UNKNOWN',
+            'recordedDate': r['date']?.toString() ?? '',
+          }));
+        }
+      }
+    }
     final photoHistory = _digitalTwin!['photoHistory'] as List? ?? [];
 
     return SingleChildScrollView(
@@ -656,19 +950,25 @@ class _FarmDetailScreenState extends State<FarmDetailScreen>
                       style: TextStyle(
                           fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  if (ndviHistory.isEmpty)
+                  if (ndviForChart.isEmpty)
                     Text('No NDVI readings yet',
                         style:
                             TextStyle(color: Colors.grey.shade500))
-                  else
-                    ...ndviHistory.map((r) => ListTile(
-                          leading: const Icon(Icons.bar_chart,
-                              color: Colors.green),
-                          title: Text('NDVI: ${r['ndvi']}'),
-                          subtitle: Text(r['date'] ?? ''),
-                          trailing: Text('${r['cloudCoverage']}% cloud',
-                              style: const TextStyle(fontSize: 12)),
+                  else ...[
+                    NdviHistoryChart(readings: ndviForChart),
+                    const SizedBox(height: 8),
+                    ...ndviForChart.take(5).map((r) => ListTile(
+                          dense: true,
+                          leading: Icon(Icons.bar_chart,
+                              color: r.healthColor, size: 20),
+                          title: Text(
+                              'NDVI ${r.ndviValue.toStringAsFixed(3)}'),
+                          subtitle: Text(r.recordedDate),
+                          trailing: Text(r.healthLabel,
+                              style: TextStyle(
+                                  fontSize: 11, color: r.healthColor)),
                         )),
+                  ],
                 ],
               ),
             ),

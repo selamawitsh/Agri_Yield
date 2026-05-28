@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'api_service.dart';
 import '../models/farm_model.dart';
 import '../models/crop_cycle_model.dart';
@@ -28,9 +29,23 @@ class FarmService {
         return {'success': true, 'farm': FarmModel.fromJson(response['data'])};
       }
       return {'success': false, 'message': response['message'] ?? 'Failed'};
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': _extractErrorMessage(e),
+      };
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
+  }
+
+  String _extractErrorMessage(DioException e) {
+    final data = e.response?.data;
+    if (data is Map) {
+      final msg = data['message']?.toString();
+      if (msg != null && msg.isNotEmpty) return msg;
+    }
+    return e.message ?? 'Request failed';
   }
 
   // FS-03
@@ -147,8 +162,8 @@ class FarmService {
       final response = await _api.postMultipart(
         '/farms/$farmId/photos',
         {'photo_type': photoType},
-        filePath,
         'photo',
+        filePath,
       );
       if (response['success'] == true) {
         return {'success': true, 'photo': response['data']};

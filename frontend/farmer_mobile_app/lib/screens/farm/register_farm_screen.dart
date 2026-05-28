@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import '../../services/farm_service.dart';
 
@@ -78,9 +80,27 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
     return true;
   }
 
+  static const String _samplePolygon =
+      '{"type":"Polygon","coordinates":[[[38.7400,9.0300],[38.7500,9.0300],[38.7500,9.0400],[38.7400,9.0400],[38.7400,9.0300]]]}';
+
+  String? _buildGeoJsonPolygon() {
+    final raw = _polygonController.text.trim().isNotEmpty
+        ? _polygonController.text.trim()
+        : _samplePolygon;
+    try {
+      final json = jsonDecode(raw);
+      if (json is! Map || json['type'] != 'Polygon') return null;
+      final coords = json['coordinates'];
+      if (coords is! List || coords.isEmpty) return null;
+      return raw;
+    } catch (_) {
+      return null;
+    }
+  }
+
   bool _validateStep2() {
-    if (_polygonController.text.trim().isEmpty) {
-      _showError('Please enter farm GPS coordinates');
+    if (_buildGeoJsonPolygon() == null) {
+      _showError('Please enter valid GeoJSON polygon coordinates');
       return false;
     }
     return true;
@@ -98,9 +118,14 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
       _error = null;
     });
 
-    final geoJson = _polygonController.text.trim().isNotEmpty
-        ? _polygonController.text.trim()
-        : '{"type":"Polygon","coordinates":[[[38.74,9.03],[38.75,9.03],[38.75,9.04],[38.74,9.03],[38.74,9.03]]]}';
+    final geoJson = _buildGeoJsonPolygon();
+    if (geoJson == null) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Invalid GeoJSON. Use the sample button or paste valid Polygon JSON.';
+      });
+      return;
+    }
 
     final result = await _farmService.registerFarm(
       farmName: _farmNameController.text.trim().isNotEmpty
@@ -388,7 +413,7 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
             decoration: const InputDecoration(
               labelText: 'GeoJSON Polygon',
               hintText: '{"type":"Polygon","coordinates":[[[38.74,9.03],'
-                  '[38.75,9.03],[38.75,9.04],[38.74,9.03],[38.74,9.03]]]}',
+                  '[38.75,9.03],[38.75,9.04],[38.74,9.04],[38.74,9.03]]]}',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.satellite_alt),
               helperText: 'Paste GeoJSON coordinates of your farm boundary',
@@ -399,9 +424,7 @@ class _RegisterFarmScreenState extends State<RegisterFarmScreen> {
 
           OutlinedButton.icon(
             onPressed: () {
-              _polygonController.text =
-              '{"type":"Polygon","coordinates":[[[38.74,9.03],'
-                  '[38.75,9.03],[38.75,9.04],[38.74,9.03],[38.74,9.03]]]}';
+              _polygonController.text = _samplePolygon;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Sample coordinates loaded. '
