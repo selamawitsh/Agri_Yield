@@ -1,0 +1,107 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "http://localhost:*"
+              - "http://127.0.0.1:*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+            maxAge: 3600
+
+      routes:
+        - id: user-service-auth
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/v1/auth/**
+
+        - id: user-service-users
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/v1/users/**
+
+        - id: user-service-admin
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/v1/admin/**
+
+        - id: user-service-setup
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/v1/setup/**
+
+        - id: user-service-debug
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/v1/debug/**
+
+        - id: farm-service
+          uri: lb://FARM-SERVICE
+          predicates:
+            - Path=/api/v1/farms/**
+
+        - id: investment-service-listings
+          uri: lb://INVESTMENT-SERVICE
+          predicates:
+            - Path=/api/v1/listings/**
+
+        - id: investment-service-investments
+          uri: lb://INVESTMENT-SERVICE
+          predicates:
+            - Path=/api/v1/investments/**
+
+        - id: investment-service-portfolio
+          uri: lb://INVESTMENT-SERVICE
+          predicates:
+            - Path=/api/v1/portfolio/**
+
+        - id: escrow-service
+          uri: lb://ESCROW-SERVICE
+          predicates:
+            - Path=/api/v1/escrow/**
+
+        - id: voucher-service
+          uri: lb://VOUCHER-SERVICE
+          predicates:
+            - Path=/api/v1/vouchers/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+  endpoint:
+    gateway:
+      enabled: true
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
