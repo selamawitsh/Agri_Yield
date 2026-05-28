@@ -9,7 +9,7 @@ import java.util.UUID;
 
 // Stub implementation — fraud-service gRPC will be wired when fraud-service is built
 @Slf4j
-@Component
+// Replaced by GeospatialBoundaryClient — kept for reference only
 public class FraudServiceGrpcClient implements FraudServicePort {
 
     @Override
