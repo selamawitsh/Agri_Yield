@@ -1,14 +1,14 @@
 import 'package:dio/dio.dart';
 import 'token_storage.dart';
 import '../utils/constants.dart';
-
+ 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
-
+ 
   late Dio _dio;
-
+ 
   Future<void> init() async {
     _dio = Dio(BaseOptions(
       baseUrl: Constants.apiBaseUrl,
@@ -16,7 +16,7 @@ class ApiService {
       receiveTimeout: const Duration(seconds: 30),
       headers: {'Content-Type': 'application/json'},
     ));
-
+ 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         final token = await TokenStorage.getAccessToken();
@@ -43,21 +43,18 @@ class ApiService {
       },
     ));
   }
-
+ 
   Future<bool> _tryRefreshToken() async {
     try {
       final refreshToken = await TokenStorage.getRefreshToken();
       if (refreshToken == null) return false;
-
       final response = await Dio().post(
         '${Constants.apiBaseUrl}/auth/refresh',
         data: {'refresh_token': refreshToken},
         options: Options(headers: {'Content-Type': 'application/json'}),
       );
-
       if (response.data['success'] == true) {
-        final newToken = response.data['data']['accessToken'];
-        await TokenStorage.saveAccessToken(newToken);
+        await TokenStorage.saveAccessToken(response.data['data']['accessToken']);
         return true;
       }
       return false;
@@ -66,22 +63,24 @@ class ApiService {
       return false;
     }
   }
-
-  Future<dynamic> get(String endpoint) async {
-    final response = await _dio.get(endpoint);
+ 
+  Future<dynamic> get(String endpoint,
+      {Map<String, dynamic>? queryParameters}) async {
+    final response =
+        await _dio.get(endpoint, queryParameters: queryParameters);
     return response.data;
   }
-
+ 
   Future<dynamic> post(String endpoint, dynamic data) async {
     final response = await _dio.post(endpoint, data: data);
     return response.data;
   }
-
+ 
   Future<dynamic> patch(String endpoint, dynamic data) async {
     final response = await _dio.patch(endpoint, data: data);
     return response.data;
   }
-
+ 
   Future<dynamic> delete(String endpoint) async {
     final response = await _dio.delete(endpoint);
     return response.data;
