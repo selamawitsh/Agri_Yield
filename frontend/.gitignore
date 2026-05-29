@@ -1,0 +1,26 @@
+
+# Sensitive configuration files with API keys
+**/application.yml
+**/application.properties
+**/application-*.yml
+**/application-*.properties
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+
+# Keep example files (these should NOT contain real keys)
+!**/*.example.yml
+!**/*.example.properties
+!**/*.example
+!.env.example
+
+# Other sensitive files
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
