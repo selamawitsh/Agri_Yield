@@ -1,35 +1,116 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+import axios from 'axios';
+
+const BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+
+// ================= API INSTANCE =================
+
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// ================= TOKEN HELPERS =================
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('access_token');
 }
 
-async function request<T>(
-  method: string,
-  endpoint: string,
-  body?: unknown
-): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  const token = getToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+// ================= AXIOS INTERCEPTORS =================
 
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
+api.interceptors.request.use((config) => {
+  const token = getToken();
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+api.interceptors.response.use(
+    (response) => response,
+
+    async (error) => {
+      const originalRequest = error.config;
+
+      // Access token expired
+      if (
+          error.response?.status === 401 &&
+          !originalRequest._retry
+      ) {
+        originalRequest._retry = true;
+
+        try {
+          const refreshToken = localStorage.getItem('refresh_token');
+
+          if (!refreshToken) {
+            throw new Error('No refresh token found');
+          }
+
+          const response = await axios.post(
+              `${BASE_URL}/auth/refresh`,
+              {
+                refresh_token: refreshToken,
+              },
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              }
+          );
+
+          const newAccessToken =
+              response.data.data.accessToken;
+
+          // Save new token
+          localStorage.setItem(
+              'access_token',
+              newAccessToken
+          );
+
+          // Retry original request
+          originalRequest.headers.Authorization =
+              `Bearer ${newAccessToken}`;
+
+          return api(originalRequest);
+        } catch (refreshError) {
+          // Logout user if refresh fails
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+
+          return Promise.reject(refreshError);
+        }
+      }
+
+      return Promise.reject(error);
+    }
+);
+
+// ================= GENERIC REQUEST FUNCTION =================
+
+async function request<T>(
+    method: string,
+    endpoint: string,
+    body?: unknown
+): Promise<T> {
+  const response = await api.request<T>({
     method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
+    url: endpoint,
+    data: body,
   });
 
-  const data = await res.json();
-  if (!res.ok || data.success === false) {
-    throw new Error(data.message || 'Request failed');
-  }
-  return data;
+  return response.data;
 }
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
+// ================= AUTH =================
 
 export async function register(payload: {
   phone: string;
@@ -38,9 +119,11 @@ export async function register(payload: {
   fullName: string;
   role: string;
 }) {
-  return request<{ success: boolean; message: string; data: string }>(
-    'POST', '/auth/register', payload
-  );
+  return request<{
+    success: boolean;
+    message: string;
+    data: string;
+  }>('POST', '/auth/register', payload);
 }
 
 export async function verifyOtp(payload: {
@@ -48,34 +131,53 @@ export async function verifyOtp(payload: {
   otpCode: string;
   purpose: string;
 }) {
-  return request<{ success: boolean; message: string }>(
-    'POST', '/auth/otp/verify', payload
-  );
-}
-
-export async function login(payload: { phone: string; password: string }) {
   return request<{
     success: boolean;
-    data: { accessToken: string; refreshToken: string; expiresIn: number };
+    message: string;
+  }>('POST', '/auth/otp/verify', payload);
+}
+
+export async function login(payload: {
+  phone: string;
+  password: string;
+}) {
+  return request<{
+    success: boolean;
+    data: {
+      accessToken: string;
+      refreshToken: string;
+      expiresIn: number;
+    };
   }>('POST', '/auth/login', payload);
 }
 
-export async function refreshToken(refreshToken: string) {
-  return request<{ success: boolean; data: { accessToken: string } }>(
-    'POST', '/auth/refresh', { refresh_token: refreshToken }
-  );
+export async function refreshAccessToken(
+    refreshTokenValue: string
+) {
+  return request<{
+    success: boolean;
+    data: {
+      accessToken: string;
+    };
+  }>('POST', '/auth/refresh', {
+    refresh_token: refreshTokenValue,
+  });
 }
 
 export async function logout() {
-  return request('POST', '/auth/logout', {});
+  return request<{
+    success: boolean;
+    message?: string;
+  }>('POST', '/auth/logout', {});
 }
 
-// ── User Profile ──────────────────────────────────────────────────────────────
+// ================= USER PROFILE =================
 
 export async function getMyProfile() {
-  return request<{ success: boolean; data: UserProfile }>(
-    'GET', '/users/me'
-  );
+  return request<{
+    success: boolean;
+    data: UserProfile;
+  }>('GET', '/users/me');
 }
 
 export async function updateProfile(payload: {
@@ -84,17 +186,19 @@ export async function updateProfile(payload: {
   riskTolerance?: string;
   investmentGoal?: string;
 }) {
-  return request<{ success: boolean; data: UserProfile }>(
-    'PATCH', '/users/me', payload
-  );
+  return request<{
+    success: boolean;
+    data: UserProfile;
+  }>('PATCH', '/users/me', payload);
 }
 
-// ── Bank Accounts ─────────────────────────────────────────────────────────────
+// ================= BANK ACCOUNTS =================
 
 export async function getBankAccounts() {
-  return request<{ success: boolean; data: BankAccount[] }>(
-    'GET', '/users/me/bank'
-  );
+  return request<{
+    success: boolean;
+    data: BankAccount[];
+  }>('GET', '/users/me/bank');
 }
 
 export async function addBankAccount(payload: {
@@ -102,30 +206,61 @@ export async function addBankAccount(payload: {
   accountNumber: string;
   accountHolderName?: string;
 }) {
-  return request<{ success: boolean; data: BankAccount }>(
-    'POST', '/users/me/bank', payload
-  );
+  return request<{
+    success: boolean;
+    data: BankAccount;
+  }>('POST', '/users/me/bank', payload);
 }
 
-export async function verifyBankAccount(accountId: string, verificationCode: string) {
-  return request<{ success: boolean; data: BankAccount }>(
-    'POST', '/users/me/bank/verify', { account_id: accountId, verification_code: verificationCode }
-  );
+export async function verifyBankAccount(
+    accountId: string,
+    verificationCode: string
+) {
+  return request<{
+    success: boolean;
+    data: BankAccount;
+  }>('POST', '/users/me/bank/verify', {
+    account_id: accountId,
+    verification_code: verificationCode,
+  });
 }
 
-export async function setDefaultBankAccount(accountId: string) {
-  return request<{ success: boolean; data: BankAccount }>(
-    'POST', '/users/me/bank/default', { account_id: accountId }
-  );
+export async function setDefaultBankAccount(
+    accountId: string
+) {
+  return request<{
+    success: boolean;
+    data: BankAccount;
+  }>('POST', '/users/me/bank/default', {
+    account_id: accountId,
+  });
 }
 
-export async function deleteBankAccount(accountId: string) {
-  return request<{ success: boolean }>(
-    'DELETE', `/users/me/bank/${accountId}`
-  );
+export async function deleteBankAccount(
+    accountId: string
+) {
+  return request<{
+    success: boolean;
+  }>('DELETE', `/users/me/bank/${accountId}`);
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ================= VOUCHERS =================
+
+// VS-02: Get all vouchers for a specific farm
+export const getFarmVouchers = (
+    farmId: string
+) => api.get(`/vouchers/farm/${farmId}`);
+
+// VS-03: Get single voucher detail
+export const getVoucherDetail = (
+    voucherId: string
+) => api.get(`/vouchers/${voucherId}`);
+
+// Portfolio voucher overview
+export const getPortfolioVouchers = () =>
+    api.get('/portfolio/vouchers');
+
+// ================= TYPES =================
 
 export interface UserProfile {
   id: string;
@@ -155,55 +290,66 @@ export interface BankAccount {
   createdAt: string;
 }
 
-// US-04: Refresh token — called automatically by fetch interceptor
-export async function refreshAccessToken(refreshTokenValue: string) {
-  const res = await fetch(`${BASE_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshTokenValue }),
-  });
-  const data = await res.json();
-  if (!res.ok || data.success === false) throw new Error('Token refresh failed');
-  return data as { success: boolean; data: { accessToken: string } };
+// ================= EXPORT DEFAULT API =================
+
+export default api;
+// ── Weather Service ───────────────────────────────────────────────────────────
+
+export async function getWeatherCurrent(farmId: string) {
+  return request<{ success: boolean; data: WeatherReading }>('GET', `/weather/current/${farmId}`);
 }
 
-// Default axios instance for pages that use `import api from '@/lib/api'`
-import axios from 'axios';
+export async function getWeatherForecast(farmId: string, days = 7) {
+  return request<{ success: boolean; data: WeatherReading[] }>('GET', `/weather/forecast/${farmId}?days=${days}`);
+}
 
-const _axiosInstance = axios.create({
-  baseURL: BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-});
+export async function getWeatherRisk(farmId: string) {
+  return request<{ success: boolean; data: WeatherRisk }>('GET', `/weather/risk/${farmId}`);
+}
 
-_axiosInstance.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('access_token');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+export async function getDroughtStatus(farmId: string) {
+  return request<{ success: boolean; data: DroughtStatus }>('GET', `/weather/drought/${farmId}`);
+}
 
-_axiosInstance.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
-      original._retry = true;
-      try {
-        const refresh = localStorage.getItem('refresh_token');
-        const res = await axios.post(`${BASE_URL}/auth/refresh`, { refresh_token: refresh });
-        const newToken = res.data.data.accessToken;
-        localStorage.setItem('access_token', newToken);
-        original.headers.Authorization = `Bearer ${newToken}`;
-        return _axiosInstance(original);
-      } catch {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        window.location.href = '/login';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
+export async function getWeatherAlerts(farmId: string) {
+  return request<{ success: boolean; data: WeatherAlert[] }>('GET', `/weather/alerts/${farmId}`);
+}
 
-export default _axiosInstance;
+export interface WeatherReading {
+  id?: string;
+  farmId?: string;
+  temperatureC: number;
+  rainfallMm: number;
+  humidityPct?: number;
+  isDryDay: boolean;
+  forecastType: string;
+  forecastHorizonDays?: number;
+  recordedDate: string;
+}
+
+export interface DroughtStatus {
+  farmId: string;
+  consecutiveDryDays: number;
+  droughtThresholdDays: number;
+  isTriggered: boolean;
+  triggeredAt?: string;
+  lastChecked: string;
+}
+
+export interface WeatherRisk {
+  farmId: string;
+  riskScore: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+}
+
+export interface WeatherAlert {
+  id: string;
+  farmId: string;
+  alertType: string;
+  severity: string;
+  messageEn: string;
+  messageAm?: string;
+  forecastValue?: number;
+  forecastDate?: string;
+  createdAt: string;
+}
