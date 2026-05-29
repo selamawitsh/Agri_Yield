@@ -40,6 +40,9 @@ public class VoucherServiceImpl implements VoucherServicePort {
     @Value("${app.voucher.code-prefix:AGY}")
     private String codePrefix;
 
+    @Value("${app.voucher.skip-investment-verification:false}")
+    private boolean skipInvestmentVerification;
+
     @Override
     @Transactional
     public List<Voucher> generateForInvestment(UUID investmentId,
@@ -56,7 +59,18 @@ public class VoucherServiceImpl implements VoucherServicePort {
             return existing;
         }
 
-        boolean funded = investmentServicePort.verifyInvestmentFunded(investmentId);
+        boolean funded = true;
+        if (!skipInvestmentVerification) {
+            try {
+                funded = investmentServicePort.verifyInvestmentFunded(investmentId);
+            } catch (Exception e) {
+                log.warn("verifyInvestmentFunded gRPC call failed: {} — proceeding as not funded", e.getMessage());
+                funded = false;
+            }
+        } else {
+            log.warn("Skipping investment funded verification due to config app.voucher.skip-investment-verification=true");
+        }
+
         if (!funded) {
             throw new BusinessException(
                 "Investment is not funded — cannot generate vouchers",
