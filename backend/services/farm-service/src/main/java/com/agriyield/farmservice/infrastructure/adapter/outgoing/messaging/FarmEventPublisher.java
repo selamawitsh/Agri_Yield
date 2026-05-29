@@ -46,13 +46,18 @@ public class FarmEventPublisher implements EventPublisherPort {
     }
 
     @Override
-    public void publishInputNeedsCreated(Farm farm, InputNeed inputNeed) {
+    public void publishInputNeedsCreated(Farm farm, InputNeed inputNeed, String seasonName) {
         Map<String, Object> event = new HashMap<>();
         event.put("event_type", "input.needs.created");
         event.put("farm_id", farm.getId().toString());
         event.put("input_need_id", inputNeed.getId().toString());
         event.put("crop_cycle_id", inputNeed.getCropCycleId().toString());
         event.put("total_amount_etb", inputNeed.getTotalAmountEtb());
+        // Include farm metadata so consumers don't need to fetch separately
+        event.put("crop_type", farm.getCropType() != null ? farm.getCropType().getValue() : "UNKNOWN");
+        event.put("region", farm.getRegion() != null ? farm.getRegion() : "UNKNOWN");
+        event.put("kebele_code", farm.getKebeleCode() != null ? farm.getKebeleCode() : "UNKNOWN");
+        event.put("season_name", seasonName != null ? seasonName : "UNKNOWN");
         event.put("items", inputNeed.getItems().stream()
             .map(item -> {
                 Map<String, Object> itemMap = new HashMap<>();

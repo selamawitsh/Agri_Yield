@@ -34,6 +34,7 @@ public class FarmServiceImpl implements FarmServicePort {
     private final FarmDocumentRepositoryPort farmDocumentRepository;
     private final UserServicePort userServicePort;
     private final FraudServicePort fraudServicePort;
+    private final GeospatialServicePort geospatialServicePort;
     private final PhotoStoragePort photoStoragePort;
     private final EventPublisherPort eventPublisher;
 
@@ -59,19 +60,52 @@ public class FarmServiceImpl implements FarmServicePort {
                 "Farm GPS polygon is required", "MISSING_POLYGON");
         }
 
-        BigDecimal[] centroid = calculateCentroid(geoJsonPolygon);
+        GeospatialServicePort.PolygonValidation validation;
+        try {
+            validation = geospatialServicePort.validatePolygon(geoJsonPolygon);
+        } catch (Exception e) {
+            log.error("Geospatial validatePolygon failed: {}", e.getMessage());
+            throw new BusinessException(
+                "Could not validate farm boundary. Is geospatial-service running on port 9089?",
+                "GEOSPATIAL_UNAVAILABLE");
+        }
+        if (!validation.valid()) {
+            log.warn("Farm polygon rejected: {}", validation.message());
+            throw new BusinessException(validation.message(), "INVALID_POLYGON");
+        }
+
+        BigDecimal centroidLat = validation.centroidLat();
+        BigDecimal centroidLng = validation.centroidLng();
+        BigDecimal areaHectares = validation.areaHectares();
+        log.info("Polygon valid — area={} ha, centroid=({}, {})",
+            areaHectares, centroidLat, centroidLng);
+
+        UUID provisionalFarmId = UUID.randomUUID();
+        try {
+            GeospatialServicePort.SpatialOverlap overlap =
+                geospatialServicePort.detectSpatialOverlap(
+                    provisionalFarmId, geoJsonPolygon, centroidLat, centroidLng);
+            if (overlap.hasOverlap()) {
+                log.warn("Spatial overlap detected: {}", overlap.message());
+                throw new BusinessException(overlap.message(), "SPATIAL_OVERLAP");
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("Overlap check skipped (geospatial): {}", e.getMessage());
+        }
 
         Farm farm = Farm.builder()
-            .id(UUID.randomUUID())
+            .id(provisionalFarmId)
             .farmerId(farmerId)
             .farmName(farmName)
             .cropType(CropType.fromValue(cropType))
-            .areaHectares(BigDecimal.ZERO)
+            .areaHectares(areaHectares)
             .status(FarmStatus.PENDING_VERIFICATION)
             .kebeleCode(kebeleCode)
             .region(region)
-            .gpsCentroidLat(centroid[0])
-            .gpsCentroidLng(centroid[1])
+            .gpsCentroidLat(centroidLat)
+            .gpsCentroidLng(centroidLng)
             .geoJsonPolygon(geoJsonPolygon)
             .satelliteVerified(false)
             .createdAt(LocalDateTime.now())
@@ -99,6 +133,19 @@ public class FarmServiceImpl implements FarmServicePort {
             .build();
 
         farmDocumentRepository.save(farmDocument);
+
+        try {
+            geospatialServicePort.registerFarmPolygon(
+                savedFarm.getId(),
+                geoJsonPolygon,
+                centroidLat,
+                centroidLng,
+                areaHectares);
+        } catch (Exception e) {
+            log.warn("Geospatial polygon registration failed (event will retry): {}",
+                e.getMessage());
+        }
+
         eventPublisher.publishFarmRegistered(savedFarm);
 
         return savedFarm;
@@ -219,7 +266,7 @@ public class FarmServiceImpl implements FarmServicePort {
         log.info("Input needs submitted: {} items, total: {} ETB",
             savedItems.size(), totalAmount);
 
-        eventPublisher.publishInputNeedsCreated(farm, savedInputNeed);
+        eventPublisher.publishInputNeedsCreated(farm, savedInputNeed, cropCycle.getSeasonName());
         return savedInputNeed;
     }
 
@@ -381,13 +428,6 @@ public class FarmServiceImpl implements FarmServicePort {
             region != null && region.isBlank() ? null : region,
             cropType != null && cropType.isBlank() ? null : cropType,
             status != null && status.isBlank() ? null : status);
-    }
-
-    private BigDecimal[] calculateCentroid(String geoJsonPolygon) {
-        return new BigDecimal[]{
-            new BigDecimal("9.0300"),
-            new BigDecimal("38.7400")
-        };
     }
 
     private String generateSeasonName() {

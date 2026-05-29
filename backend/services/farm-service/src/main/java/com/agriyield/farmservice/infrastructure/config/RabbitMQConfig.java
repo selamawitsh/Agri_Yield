@@ -20,9 +20,48 @@ public class RabbitMQConfig {
     public static final String FARM_PLANTED_KEY         = "farm.planted";
     public static final String FARM_SATELLITE_VERIFIED_KEY = "farm.satellite.verified";
 
+    // Investment exchange (consumed from investment-service)
+    public static final String INVESTMENT_EXCHANGE = "investment.exchange";
+    public static final String INVESTMENT_ESCROW_LOCKED_KEY = "investment.escrow.locked";
+    public static final String INVESTMENT_CANCELLED_KEY = "investment.cancelled";
+    public static final String LISTING_FULLY_FUNDED_KEY = "listing.fully.funded";
+    public static final String LISTING_FUNDING_FAILED_KEY = "listing.funding.failed";
+    public static final String INVESTMENT_QUEUE = "farm.investment-events.queue";
+
     @Bean
     public TopicExchange farmExchange() {
         return new TopicExchange(FARM_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public TopicExchange investmentExchange() {
+        // Reference investment.exchange so this service can bind a queue to it
+        return new TopicExchange(INVESTMENT_EXCHANGE, true, false);
+    }
+
+    @Bean
+    public Queue investmentQueue() {
+        return QueueBuilder.durable(INVESTMENT_QUEUE).build();
+    }
+
+    @Bean
+    public Binding investmentBindingEscrow(Queue investmentQueue, TopicExchange investmentExchange) {
+        return BindingBuilder.bind(investmentQueue).to(investmentExchange).with(INVESTMENT_ESCROW_LOCKED_KEY);
+    }
+
+    @Bean
+    public Binding investmentBindingCancelled(Queue investmentQueue, TopicExchange investmentExchange) {
+        return BindingBuilder.bind(investmentQueue).to(investmentExchange).with(INVESTMENT_CANCELLED_KEY);
+    }
+
+    @Bean
+    public Binding listingBindingFullyFunded(Queue investmentQueue, TopicExchange investmentExchange) {
+        return BindingBuilder.bind(investmentQueue).to(investmentExchange).with(LISTING_FULLY_FUNDED_KEY);
+    }
+
+    @Bean
+    public Binding listingBindingFundingFailed(Queue investmentQueue, TopicExchange investmentExchange) {
+        return BindingBuilder.bind(investmentQueue).to(investmentExchange).with(LISTING_FUNDING_FAILED_KEY);
     }
 
     @Bean

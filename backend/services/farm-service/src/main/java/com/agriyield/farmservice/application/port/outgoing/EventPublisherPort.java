@@ -10,7 +10,7 @@ public interface EventPublisherPort {
     void publishFarmRegistered(Farm farm);
 
     // SRS Section 5.2 — input.needs.created
-    void publishInputNeedsCreated(Farm farm, InputNeed inputNeed);
+    void publishInputNeedsCreated(Farm farm, InputNeed inputNeed, String seasonName);
 
     // SRS Section 5.2 — crop.photo.uploaded
     void publishCropPhotoUploaded(FarmPhoto photo, Farm farm);
