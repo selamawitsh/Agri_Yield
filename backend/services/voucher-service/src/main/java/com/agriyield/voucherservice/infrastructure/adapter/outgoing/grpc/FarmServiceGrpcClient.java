@@ -18,20 +18,22 @@ public class FarmServiceGrpcClient implements FarmServicePort {
 
     @Override
     public FarmContext getFarmContext(UUID farmId) {
-        log.info("gRPC: getFarmContext: {}", farmId);
+        log.info("gRPC: getFarmContext farmId={}", farmId);
         try {
             FarmServiceProto.FarmContextResponse response = farmStub.getFarmContext(
-                FarmServiceProto.FarmIdRequest.newBuilder()
-                    .setFarmId(farmId.toString())
-                    .build());
+                    FarmServiceProto.FarmIdRequest.newBuilder()
+                            .setFarmId(farmId.toString())
+                            .build());
+
             return new FarmContext(
-                response.getFarmId(),
-                response.getFarmerId(),
-                response.getCropType(),
-                response.getRegion(),
-                response.getCropCycleId(),
-                response.getSeasonName(),
-                response.getCropCycleStatus());
+                    response.getFarmId(),
+                    response.getFarmerId(),
+                    response.getCropType(),
+                    response.getRegion(),
+                    response.getCropCycleId(),
+                    response.getSeasonName(),
+                    response.getCropCycleStatus()
+            );
         } catch (Exception e) {
             log.error("gRPC: getFarmContext failed: {}", e.getMessage());
             throw new RuntimeException("Could not retrieve farm context: " + e.getMessage());
