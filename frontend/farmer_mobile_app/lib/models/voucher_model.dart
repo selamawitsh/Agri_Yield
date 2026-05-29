@@ -1,30 +1,37 @@
+// lib/models/voucher_model.dart
+// Updated to match actual API response from VoucherResponse.java
+
 class VoucherModel {
   final String id;
+  final String voucherCode;       // API: voucherCode (was alphanumericCode)
+  final String investmentId;
   final String farmId;
+  final String farmerId;
+  final String inputNeedId;       // API: inputNeedId (was inputNeedItemId)
   final String cropCycleId;
-  final String inputNeedItemId;
   final double amountEtb;
   final String productCategory;
-  final String productDescription;
-  final int sequenceOrder;
+  final String productName;       // API: productName (was productDescription)
+  final int sequenceOrder;        // not in API — default to 1
   final String status;
-  final String alphanumericCode;
-  final String validUntil;
+  final String validUntil;        // API: expiresAt (was validUntil)
   final String? redeemedAt;
   final String? redeemedMerchantId;
   final String createdAt;
 
   VoucherModel({
     required this.id,
+    required this.voucherCode,
+    required this.investmentId,
     required this.farmId,
+    required this.farmerId,
+    required this.inputNeedId,
     required this.cropCycleId,
-    required this.inputNeedItemId,
     required this.amountEtb,
     required this.productCategory,
-    required this.productDescription,
+    required this.productName,
     required this.sequenceOrder,
     required this.status,
-    required this.alphanumericCode,
     required this.validUntil,
     this.redeemedAt,
     this.redeemedMerchantId,
@@ -33,49 +40,64 @@ class VoucherModel {
 
   factory VoucherModel.fromJson(Map<String, dynamic> json) {
     return VoucherModel(
-      id: json['id'] ?? '',
-      farmId: json['farmId'] ?? '',
-      cropCycleId: json['cropCycleId'] ?? '',
-      inputNeedItemId: json['inputNeedItemId'] ?? '',
-      amountEtb: (json['amountEtb'] ?? 0).toDouble(),
-      productCategory: json['productCategory'] ?? '',
-      productDescription: json['productDescription'] ?? '',
-      sequenceOrder: json['sequenceOrder'] ?? 1,
-      status: json['status'] ?? '',
-      alphanumericCode: json['alphanumericCode'] ?? '',
-      validUntil: json['validUntil'] ?? '',
-      redeemedAt: json['redeemedAt'],
-      redeemedMerchantId: json['redeemedMerchantId'],
-      createdAt: json['createdAt'] ?? '',
+      id:               json['id']?.toString() ?? '',
+      voucherCode:      json['voucherCode']?.toString() ?? '',
+      investmentId:     json['investmentId']?.toString() ?? '',
+      farmId:           json['farmId']?.toString() ?? '',
+      farmerId:         json['farmerId']?.toString() ?? '',
+      inputNeedId:      json['inputNeedId']?.toString() ?? '',
+      cropCycleId:      json['cropCycleId']?.toString() ?? '',
+      amountEtb:        (json['amountEtb'] ?? 0).toDouble(),
+      productCategory:  json['productCategory']?.toString() ?? 'OTHER',
+      productName:      json['productName']?.toString() ?? 'Agricultural Input',
+      // sequenceOrder not in API yet — default 1 until backend adds it
+      sequenceOrder:    json['sequenceOrder'] ?? 1,
+      status:           json['status']?.toString() ?? '',
+      // API uses expiresAt, SRS uses validUntil — handle both
+      validUntil:       json['expiresAt']?.toString()
+          ?? json['validUntil']?.toString()
+          ?? json['valid_until']?.toString()
+          ?? '',
+      redeemedAt:       json['redeemedAt']?.toString(),
+      redeemedMerchantId: json['merchantId']?.toString(),
+      createdAt:        json['createdAt']?.toString() ?? '',
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'farmId': farmId,
-        'cropCycleId': cropCycleId,
-        'inputNeedItemId': inputNeedItemId,
-        'amountEtb': amountEtb,
-        'productCategory': productCategory,
-        'productDescription': productDescription,
-        'sequenceOrder': sequenceOrder,
-        'status': status,
-        'alphanumericCode': alphanumericCode,
-        'validUntil': validUntil,
-        'redeemedAt': redeemedAt,
-        'redeemedMerchantId': redeemedMerchantId,
-        'createdAt': createdAt,
-      };
+    'id':                 id,
+    'voucherCode':        voucherCode,
+    'investmentId':       investmentId,
+    'farmId':             farmId,
+    'farmerId':           farmerId,
+    'inputNeedId':        inputNeedId,
+    'cropCycleId':        cropCycleId,
+    'amountEtb':          amountEtb,
+    'productCategory':    productCategory,
+    'productName':        productName,
+    'sequenceOrder':      sequenceOrder,
+    'status':             status,
+    'expiresAt':          validUntil,
+    'redeemedAt':         redeemedAt,
+    'merchantId':         redeemedMerchantId,
+    'createdAt':          createdAt,
+  };
 
-  // ── Helpers ──────────────────────────────────────────────
-
+  // ── Status helpers ─────────────────────────────────────────────────────────
   bool get isActive    => status == 'ACTIVE';
   bool get isRedeemed  => status == 'REDEEMED';
-  bool get isLocked    => status == 'GENERATED';
+  bool get isLocked    => status == 'GENERATED';   // GENERATED = waiting for sequence
   bool get isExpired   => status == 'EXPIRED';
   bool get isCancelled => status == 'CANCELLED';
+  bool get isUsable    => isActive;
 
-  bool get isUsable => isActive;
+  // ── Display helpers ────────────────────────────────────────────────────────
+
+  /// The code shown in the UI and used for USSD
+  String get alphanumericCode => voucherCode;
+
+  /// The description shown in the card
+  String get productDescription => productName;
 
   String get statusLabel {
     switch (status) {
@@ -139,8 +161,12 @@ class VoucherSummaryModel {
       lockedCount:      vouchers.where((v) => v.isLocked).length,
       expiredCount:     vouchers.where((v) => v.isExpired).length,
       totalValueEtb:    vouchers.fold(0, (s, v) => s + v.amountEtb),
-      redeemedValueEtb: vouchers.where((v) => v.isRedeemed).fold(0, (s, v) => s + v.amountEtb),
-      pendingValueEtb:  vouchers.where((v) => v.isActive || v.isLocked).fold(0, (s, v) => s + v.amountEtb),
+      redeemedValueEtb: vouchers
+          .where((v) => v.isRedeemed)
+          .fold(0, (s, v) => s + v.amountEtb),
+      pendingValueEtb:  vouchers
+          .where((v) => v.isActive || v.isLocked)
+          .fold(0, (s, v) => s + v.amountEtb),
     );
   }
 
