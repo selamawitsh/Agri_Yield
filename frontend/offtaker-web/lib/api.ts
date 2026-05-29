@@ -73,3 +73,31 @@ export async function refreshAccessToken(refreshTokenValue: string) {
   if (!res.ok || data.success === false) throw new Error('Token refresh failed');
   return data as { success: boolean; data: { accessToken: string } };
 }
+
+// ── Weather ───────────────────────────────────────────────────────────────────
+
+export async function getWeatherRisk(farmId: string) {
+  return request<{ success: boolean; data: { farmId: string; riskScore: number; riskLevel: string } }>(
+    'GET', `/weather/risk/${farmId}`);
+}
+
+export async function getDroughtStatus(farmId: string) {
+  return request<{ success: boolean; data: {
+    farmId: string; consecutiveDryDays: number;
+    droughtThresholdDays: number; isTriggered: boolean;
+  } }>('GET', `/weather/drought/${farmId}`);
+}
+
+export async function getWeatherAlerts(farmId: string) {
+  return request<{ success: boolean; data: Array<{
+    id: string; alertType: string; severity: string;
+    messageEn: string; createdAt: string;
+  }> }>('GET', `/weather/alerts/${farmId}`);
+}
+
+export async function getWeatherCurrent(farmId: string) {
+  return request<{ success: boolean; data: {
+    temperatureC: number; rainfallMm: number;
+    isDryDay: boolean; recordedDate: string;
+  } }>('GET', `/weather/current/${farmId}`);
+}
