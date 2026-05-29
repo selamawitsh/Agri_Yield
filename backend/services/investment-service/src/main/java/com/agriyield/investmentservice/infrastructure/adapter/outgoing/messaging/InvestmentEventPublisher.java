@@ -19,6 +19,7 @@ import java.util.Map;
 public class InvestmentEventPublisher implements EventPublisherPort {
 
     private final RabbitTemplate rabbitTemplate;
+    private final com.agriyield.investmentservice.application.port.outgoing.InvestmentRepositoryPort investmentRepository;
 
     @Override
     public void publishInvestmentPlaced(Investment investment) {
@@ -66,6 +67,22 @@ public class InvestmentEventPublisher implements EventPublisherPort {
     public void publishListingFullyFunded(FarmListing listing) {
         Map<String, Object> event = buildListingBase("listing.fully.funded", listing);
         event.put("fully_funded_at", listing.getFullyFundedAt().toString());
+
+        // Include investments for this listing so downstream services can act per investment
+        java.util.List<java.util.Map<String, Object>> investments = investmentRepository.findAllByFarmId(listing.getFarmId())
+            .stream()
+            .filter(inv -> inv.getInputNeedId().equals(listing.getInputNeedId()))
+            .map(inv -> {
+                java.util.Map<String, Object> m = new java.util.HashMap<>();
+                m.put("investment_id", inv.getId().toString());
+                m.put("investor_id", inv.getInvestorId().toString());
+                m.put("amount_etb", inv.getAmountEtb());
+                m.put("status", inv.getStatus().getValue());
+                m.put("input_need_id", inv.getInputNeedId().toString());
+                return m;
+            }).collect(java.util.stream.Collectors.toList());
+        event.put("investments", investments);
+
         rabbitTemplate.convertAndSend(RabbitMQConfig.INVESTMENT_EXCHANGE,
             RabbitMQConfig.LISTING_FULLY_FUNDED_KEY, event);
         log.info("Published listing.fully.funded: {}", listing.getId());
