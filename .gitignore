@@ -1,32 +1,24 @@
-# IntelliJ
-.idea/
-*.iml
+# =========================
+# Sensitive Spring configs
+# =========================
 
-# Maven
-target/
+**/application.yml
+**/application.properties
+**/application-*.yml
+**/application-*.properties
 
-# Logs
-logs/
-*.log
+# =========================
+# Environment files
+# =========================
 
-# Environment
 .env
+.env.*
+*.env
 
-# Node
-node_modules/
+# =========================
+# Allow safe example files
+# =========================
 
-# Flutter
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Build
-dist/
-build/
-
-# Docker
-*.pid
+!**/*.example.yml
+!**/*.example.properties
+!.env.example

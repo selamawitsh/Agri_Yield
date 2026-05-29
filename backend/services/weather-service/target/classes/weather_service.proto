@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package com.agriyield.weatherservice.grpc;
+
+option java_package = "com.agriyield.weatherservice.grpc";
+option java_outer_classname = "WeatherServiceProto";
+option java_multiple_files = false;
+
+service WeatherService {
+    rpc GetCurrentWeather (FarmIdRequest) returns (WeatherResponse);
+    rpc GetForecast (WeatherForecastRequest) returns (ForecastResponse);
+    rpc GetDroughtStatus (FarmIdRequest) returns (DroughtStatusResponse);
+    rpc GetWeatherRisk (FarmIdRequest) returns (WeatherRiskResponse);
+}
+
+message FarmIdRequest {
+    string farm_id = 1;
+}
+
+message WeatherForecastRequest {
+    string farm_id = 1;
+    int32 days = 2;
+}
+
+message WeatherResponse {
+    string farm_id = 1;
+    double temperature_c = 2;
+    double rainfall_mm = 3;
+    double humidity_pct = 4;
+    bool is_dry_day = 5;
+    string recorded_date = 6;
+}
+
+message ForecastResponse {
+    repeated WeatherResponse forecasts = 1;
+}
+
+message DroughtStatusResponse {
+    string farm_id = 1;
+    int32 consecutive_dry_days = 2;
+    int32 drought_threshold_days = 3;
+    bool is_triggered = 4;
+    string triggered_at = 5;
+}
+
+message WeatherRiskResponse {
+    string farm_id = 1;
+    double risk_score = 2;
+    string risk_level = 3;
+}

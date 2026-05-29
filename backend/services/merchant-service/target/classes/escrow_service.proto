@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package com.agriyield.escrowservice.grpc;
+
+option java_package = "com.agriyield.escrowservice.grpc";
+option java_outer_classname = "EscrowServiceProto";
+option java_multiple_files = true;
+
+service EscrowService {
+    rpc CreateAndLock      (CreateEscrowRequest)   returns (EscrowResponse);
+    rpc ReleasePartial     (ReleasePartialRequest) returns (ReleaseResponse);
+    rpc Cancel             (CancelEscrowRequest)   returns (EscrowResponse);
+    rpc GetByInvestmentId  (GetEscrowRequest)       returns (EscrowResponse);
+}
+
+message CreateEscrowRequest {
+    string investment_id = 1;
+    string farmer_id     = 2;
+    string investor_id   = 3;
+    double amount_etb    = 4;
+}
+
+message ReleasePartialRequest {
+    string investment_id  = 1;
+    string voucher_id     = 2;
+    double amount_etb     = 3;
+    string release_reason = 4;
+}
+
+message CancelEscrowRequest {
+    string investment_id = 1;
+}
+
+message GetEscrowRequest {
+    string investment_id = 1;
+}
+
+message EscrowResponse {
+    string id                  = 1;
+    string investment_id       = 2;
+    string farmer_id           = 3;
+    string investor_id         = 4;
+    double total_amount_etb    = 5;
+    double locked_amount_etb   = 6;
+    double released_amount_etb = 7;
+    string status              = 8;
+    string lock_expires_at     = 9;
+    string created_at          = 10;
+}
+
+message ReleaseResponse {
+    string release_id     = 1;
+    string escrow_id      = 2;
+    string voucher_id     = 3;
+    double amount_etb     = 4;
+    string release_reason = 5;
+    string released_at    = 6;
+}

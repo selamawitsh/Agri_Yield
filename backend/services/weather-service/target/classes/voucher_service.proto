@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package com.agriyield.voucherservice.grpc;
+
+option java_package = "com.agriyield.voucherservice.grpc";
+option java_outer_classname = "VoucherServiceProto";
+option java_multiple_files = false;
+
+service VoucherService {
+
+    rpc GetVoucherById
+        (VoucherIdRequest)
+        returns (VoucherResponse);
+
+    rpc GetVouchersByFarmId
+        (FarmIdRequest)
+        returns (VoucherListResponse);
+
+    rpc VerifyVoucher
+        (VoucherCodeRequest)
+        returns (VoucherVerifyResponse);
+}
+
+message VoucherIdRequest {
+    string voucher_id = 1;
+}
+
+message FarmIdRequest {
+    string farm_id = 1;
+}
+
+message VoucherCodeRequest {
+    string voucher_code = 1;
+    string merchant_id = 2;
+}
+
+message VoucherResponse {
+
+    string id = 1;
+
+    string voucher_code = 2;
+
+    string farm_id = 3;
+
+    string farmer_id = 4;
+
+    string investment_id = 5;
+
+    string input_need_id = 6;
+
+    string product_name = 7;
+
+    string product_category = 8;
+
+    double amount_etb = 9;
+
+    string status = 10;
+
+    string issued_at = 11;
+
+    string expires_at = 12;
+
+    string created_at = 13;
+}
+
+message VoucherListResponse {
+    repeated VoucherResponse vouchers = 1;
+}
+
+message VoucherVerifyResponse {
+
+    bool is_valid = 1;
+
+    string voucher_id = 2;
+
+    string status = 3;
+
+    string message = 4;
+}

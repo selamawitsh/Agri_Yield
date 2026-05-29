@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package com.agriyield.userservice.grpc;
+
+option java_package = "com.agriyield.userservice.grpc";
+option java_outer_classname = "UserServiceProto";
+option java_multiple_files = false;
+
+service UserService {
+
+    rpc GetUserById (UserIdRequest)
+        returns (UserResponse);
+
+    rpc GetFarmerProfile (UserIdRequest)
+        returns (FarmerProfileResponse);
+
+    rpc GetInvestorProfile (UserIdRequest)
+        returns (InvestorProfileResponse);
+
+    rpc GetMerchantProfile (UserIdRequest)
+        returns (MerchantProfileResponse);
+
+    rpc VerifyUserExists (PhoneRequest)
+        returns (ExistsResponse);
+
+    rpc UpdateAgriScore (UpdateAgriScoreRequest)
+        returns (EmptyResponse);
+
+    rpc GetMerchantIdsByKebele (KebeleRequest)
+        returns (MerchantIdsResponse);
+}
+
+message UserIdRequest {
+    string user_id = 1;
+}
+
+message PhoneRequest {
+    string phone = 1;
+}
+
+message UpdateAgriScoreRequest {
+    string user_id = 1;
+    int32 agri_score = 2;
+    string crop_cycle_id = 3;
+}
+
+message EmptyResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message ExistsResponse {
+    bool exists = 1;
+    string user_id = 2;
+    string role = 3;
+}
+
+message UserResponse {
+    string id = 1;
+    string phone = 2;
+    string email = 3;
+    string fayda_id = 4;
+    string role = 5;
+    string kyc_status = 6;
+    string account_status = 7;
+    string preferred_language = 8;
+    string created_at = 9;
+    string updated_at = 10;
+}
+
+message FarmerProfileResponse {
+    string user_id = 1;
+    int32 agri_score = 2;
+    int32 total_seasons_completed = 3;
+    string preferred_language = 4;
+}
+
+message InvestorProfileResponse {
+    string user_id = 1;
+    int32 agri_score = 2;
+    string risk_tolerance = 3;
+    string investment_goal = 4;
+    double total_invested_etb = 5;
+    double total_returned_etb = 6;
+    int32 total_seasons_completed = 7;
+}
+
+message MerchantProfileResponse {
+    string user_id = 1;
+    string business_name = 2;
+    string business_license_number = 3;
+    string subscription_tier = 4;
+    bool is_physically_verified = 5;
+    bool is_premium = 6;
+}
+
+message KebeleRequest {
+    string kebele_code = 1;
+}
+
+message MerchantIdsResponse {
+    repeated string merchant_ids = 1;
+}

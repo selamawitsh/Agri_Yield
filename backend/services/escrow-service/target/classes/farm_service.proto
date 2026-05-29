@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package com.agriyield.farmservice.grpc;
+
+option java_package = "com.agriyield.farmservice.grpc";
+option java_outer_classname = "FarmServiceProto";
+option java_multiple_files = false;
+
+service FarmService {
+    rpc GetFarmById (FarmIdRequest) returns (FarmResponse);
+    rpc GetFarmContext (FarmIdRequest) returns (FarmContextResponse);
+    rpc VerifyFarmBoundary (VerifyBoundaryRequest) returns (BoundaryVerificationResponse);
+}
+
+message FarmIdRequest {
+    string farm_id = 1;
+}
+
+message VerifyBoundaryRequest {
+    string farm_id = 1;
+    double photo_lat = 2;
+    double photo_lng = 3;
+}
+
+message FarmResponse {
+    string farm_id = 1;
+    string farmer_id = 2;
+    string crop_type = 3;
+    double area_hectares = 4;
+    string status = 5;
+    string kebele_code = 6;
+    string region = 7;
+    double gps_centroid_lat = 8;
+    double gps_centroid_lng = 9;
+    bool satellite_verified = 10;
+}
+
+message FarmContextResponse {
+    string farm_id = 1;
+    string farmer_id = 2;
+    string crop_type = 3;
+    double area_hectares = 4;
+    string status = 5;
+    string region = 6;
+    string kebele_code = 7;
+    double gps_centroid_lat = 8;
+    double gps_centroid_lng = 9;
+    int32 agri_score = 10;
+    string crop_cycle_id = 11;
+    string season_name = 12;
+    string crop_cycle_status = 13;
+}
+
+message BoundaryVerificationResponse {
+    bool is_within_boundary = 1;
+    double distance_from_boundary_m = 2;
+    string geo_json_polygon = 3;
+}
