@@ -41,3 +41,24 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// ── Fraud API (FR-08) ─────────────────────────────────────────────────────────
+
+export const getFraudAlerts = (params: {
+  severity?: string;
+  unresolvedOnly?: boolean;
+  page?: number;
+  size?: number;
+}) => api.get('/admin/fraud-audit', { params });
+
+export const getFraudAlert = (alertId: string) =>
+  api.get(`/admin/fraud-audit/${alertId}`);
+
+export const resolveAlert = (alertId: string, notes: string) =>
+  api.patch(`/admin/fraud-audit/${alertId}/resolve`, { notes });
+
+export const getAlertsByEntity = (entityId: string, entityType: string) =>
+  api.get(`/admin/fraud-audit/entity/${entityId}`, { params: { entityType } });
+
+export const getFraudScore = (entityId: string, entityType: string) =>
+  api.get(`/admin/fraud-score/${entityId}`, { params: { entityType } });

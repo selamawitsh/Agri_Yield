@@ -82,6 +82,7 @@ export default function DashboardPage() {
               <p className="text-xs text-emerald-700/70 font-medium">User Management</p>
             </div>
           </div>
+          <a href="/fraud" className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 transition-all mr-2">🚨 Fraud Alerts</a>
           <button onClick={handleLogout}
             className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 transition-all">
             Sign Out

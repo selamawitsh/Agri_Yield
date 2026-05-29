@@ -43,3 +43,53 @@ export interface ApiResponse<T> {
   message?: string;
   data: T;
 }
+
+// ── Fraud Types (FR-07, FR-08) ────────────────────────────────────────────────
+
+export type FraudSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type FraudAlertType =
+  | 'DUPLICATE_VOUCHER_REDEMPTION'
+  | 'INVALID_QR_SIGNATURE'
+  | 'GPS_MISMATCH'
+  | 'EXIF_METADATA_MISMATCH'
+  | 'SUSPICIOUS_GPS_MOVEMENT'
+  | 'MERCHANT_INELIGIBLE'
+  | 'HIGH_FRAUD_SCORE'
+  | 'SUSPICIOUS_ACCOUNT';
+
+export type FraudEntityType = 'FARMER' | 'MERCHANT' | 'INVESTOR';
+
+export interface FraudAlert {
+  id: string;
+  alertType: FraudAlertType;
+  entityType: FraudEntityType;
+  entityId: string;
+  severity: FraudSeverity;
+  description: string;
+  evidence: string | null;
+  resolved: boolean;
+  resolvedByAdminId: string | null;
+  resolutionNotes: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+}
+
+export interface FraudRiskScore {
+  entityId: string;
+  entityType: FraudEntityType;
+  gpsAnomalyScore: number;
+  duplicateVoucherScore: number;
+  exifMismatchScore: number;
+  suspiciousActivityScore: number;
+  totalScore: number;
+  severity: FraudSeverity;
+  calculatedAt: string;
+}
+
+export interface FraudStats {
+  totalAlerts: number;
+  unresolvedAlerts: number;
+  criticalAlerts: number;
+  highAlerts: number;
+  resolvedToday: number;
+}
