@@ -415,7 +415,7 @@ class _ScannerScreenState extends State<ScannerScreen>
  
   Widget _buildProcessingOverlay() {
     return Container(
-      color: Colors.black80,
+      color: Colors.black.withOpacity(0.8),
       child: Center(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 40),
