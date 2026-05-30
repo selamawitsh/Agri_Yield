@@ -7219,6 +7219,58 @@ public final class UserServiceProto {
      * @return The isPremium.
      */
     boolean getIsPremium();
+
+    /**
+     * <pre>
+     * real UUID from merchant_profiles.id
+     * </pre>
+     *
+     * <code>string merchant_id = 7;</code>
+     * @return The merchantId.
+     */
+    java.lang.String getMerchantId();
+    /**
+     * <pre>
+     * real UUID from merchant_profiles.id
+     * </pre>
+     *
+     * <code>string merchant_id = 7;</code>
+     * @return The bytes for merchantId.
+     */
+    com.google.protobuf.ByteString
+        getMerchantIdBytes();
+
+    /**
+     * <pre>
+     * needed for zone-based voucher routing
+     * </pre>
+     *
+     * <code>string kebele_code = 8;</code>
+     * @return The kebeleCode.
+     */
+    java.lang.String getKebeleCode();
+    /**
+     * <pre>
+     * needed for zone-based voucher routing
+     * </pre>
+     *
+     * <code>string kebele_code = 8;</code>
+     * @return The bytes for kebeleCode.
+     */
+    com.google.protobuf.ByteString
+        getKebeleCodeBytes();
+
+    /**
+     * <code>string telebirr_account = 9;</code>
+     * @return The telebirrAccount.
+     */
+    java.lang.String getTelebirrAccount();
+    /**
+     * <code>string telebirr_account = 9;</code>
+     * @return The bytes for telebirrAccount.
+     */
+    com.google.protobuf.ByteString
+        getTelebirrAccountBytes();
   }
   /**
    * Protobuf type {@code com.agriyield.userservice.grpc.MerchantProfileResponse}
@@ -7237,6 +7289,9 @@ public final class UserServiceProto {
       businessName_ = "";
       businessLicenseNumber_ = "";
       subscriptionTier_ = "";
+      merchantId_ = "";
+      kebeleCode_ = "";
+      telebirrAccount_ = "";
     }
 
     @java.lang.Override
@@ -7437,6 +7492,139 @@ public final class UserServiceProto {
       return isPremium_;
     }
 
+    public static final int MERCHANT_ID_FIELD_NUMBER = 7;
+    @SuppressWarnings("serial")
+    private volatile java.lang.Object merchantId_ = "";
+    /**
+     * <pre>
+     * real UUID from merchant_profiles.id
+     * </pre>
+     *
+     * <code>string merchant_id = 7;</code>
+     * @return The merchantId.
+     */
+    @java.lang.Override
+    public java.lang.String getMerchantId() {
+      java.lang.Object ref = merchantId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        merchantId_ = s;
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * real UUID from merchant_profiles.id
+     * </pre>
+     *
+     * <code>string merchant_id = 7;</code>
+     * @return The bytes for merchantId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getMerchantIdBytes() {
+      java.lang.Object ref = merchantId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        merchantId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int KEBELE_CODE_FIELD_NUMBER = 8;
+    @SuppressWarnings("serial")
+    private volatile java.lang.Object kebeleCode_ = "";
+    /**
+     * <pre>
+     * needed for zone-based voucher routing
+     * </pre>
+     *
+     * <code>string kebele_code = 8;</code>
+     * @return The kebeleCode.
+     */
+    @java.lang.Override
+    public java.lang.String getKebeleCode() {
+      java.lang.Object ref = kebeleCode_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        kebeleCode_ = s;
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * needed for zone-based voucher routing
+     * </pre>
+     *
+     * <code>string kebele_code = 8;</code>
+     * @return The bytes for kebeleCode.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getKebeleCodeBytes() {
+      java.lang.Object ref = kebeleCode_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        kebeleCode_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int TELEBIRR_ACCOUNT_FIELD_NUMBER = 9;
+    @SuppressWarnings("serial")
+    private volatile java.lang.Object telebirrAccount_ = "";
+    /**
+     * <code>string telebirr_account = 9;</code>
+     * @return The telebirrAccount.
+     */
+    @java.lang.Override
+    public java.lang.String getTelebirrAccount() {
+      java.lang.Object ref = telebirrAccount_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        telebirrAccount_ = s;
+        return s;
+      }
+    }
+    /**
+     * <code>string telebirr_account = 9;</code>
+     * @return The bytes for telebirrAccount.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getTelebirrAccountBytes() {
+      java.lang.Object ref = telebirrAccount_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        telebirrAccount_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -7469,6 +7657,15 @@ public final class UserServiceProto {
       if (isPremium_ != false) {
         output.writeBool(6, isPremium_);
       }
+      if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(merchantId_)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, merchantId_);
+      }
+      if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(kebeleCode_)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 8, kebeleCode_);
+      }
+      if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(telebirrAccount_)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 9, telebirrAccount_);
+      }
       getUnknownFields().writeTo(output);
     }
 
@@ -7498,6 +7695,15 @@ public final class UserServiceProto {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(6, isPremium_);
       }
+      if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(merchantId_)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, merchantId_);
+      }
+      if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(kebeleCode_)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, kebeleCode_);
+      }
+      if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(telebirrAccount_)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, telebirrAccount_);
+      }
       size += getUnknownFields().getSerializedSize();
       memoizedSize = size;
       return size;
@@ -7525,6 +7731,12 @@ public final class UserServiceProto {
           != other.getIsPhysicallyVerified()) return false;
       if (getIsPremium()
           != other.getIsPremium()) return false;
+      if (!getMerchantId()
+          .equals(other.getMerchantId())) return false;
+      if (!getKebeleCode()
+          .equals(other.getKebeleCode())) return false;
+      if (!getTelebirrAccount()
+          .equals(other.getTelebirrAccount())) return false;
       if (!getUnknownFields().equals(other.getUnknownFields())) return false;
       return true;
     }
@@ -7550,6 +7762,12 @@ public final class UserServiceProto {
       hash = (37 * hash) + IS_PREMIUM_FIELD_NUMBER;
       hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
           getIsPremium());
+      hash = (37 * hash) + MERCHANT_ID_FIELD_NUMBER;
+      hash = (53 * hash) + getMerchantId().hashCode();
+      hash = (37 * hash) + KEBELE_CODE_FIELD_NUMBER;
+      hash = (53 * hash) + getKebeleCode().hashCode();
+      hash = (37 * hash) + TELEBIRR_ACCOUNT_FIELD_NUMBER;
+      hash = (53 * hash) + getTelebirrAccount().hashCode();
       hash = (29 * hash) + getUnknownFields().hashCode();
       memoizedHashCode = hash;
       return hash;
@@ -7687,6 +7905,9 @@ public final class UserServiceProto {
         subscriptionTier_ = "";
         isPhysicallyVerified_ = false;
         isPremium_ = false;
+        merchantId_ = "";
+        kebeleCode_ = "";
+        telebirrAccount_ = "";
         return this;
       }
 
@@ -7737,6 +7958,15 @@ public final class UserServiceProto {
         }
         if (((from_bitField0_ & 0x00000020) != 0)) {
           result.isPremium_ = isPremium_;
+        }
+        if (((from_bitField0_ & 0x00000040) != 0)) {
+          result.merchantId_ = merchantId_;
+        }
+        if (((from_bitField0_ & 0x00000080) != 0)) {
+          result.kebeleCode_ = kebeleCode_;
+        }
+        if (((from_bitField0_ & 0x00000100) != 0)) {
+          result.telebirrAccount_ = telebirrAccount_;
         }
       }
 
@@ -7810,6 +8040,21 @@ public final class UserServiceProto {
         if (other.getIsPremium() != false) {
           setIsPremium(other.getIsPremium());
         }
+        if (!other.getMerchantId().isEmpty()) {
+          merchantId_ = other.merchantId_;
+          bitField0_ |= 0x00000040;
+          onChanged();
+        }
+        if (!other.getKebeleCode().isEmpty()) {
+          kebeleCode_ = other.kebeleCode_;
+          bitField0_ |= 0x00000080;
+          onChanged();
+        }
+        if (!other.getTelebirrAccount().isEmpty()) {
+          telebirrAccount_ = other.telebirrAccount_;
+          bitField0_ |= 0x00000100;
+          onChanged();
+        }
         this.mergeUnknownFields(other.getUnknownFields());
         onChanged();
         return this;
@@ -7866,6 +8111,21 @@ public final class UserServiceProto {
                 bitField0_ |= 0x00000020;
                 break;
               } // case 48
+              case 58: {
+                merchantId_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000040;
+                break;
+              } // case 58
+              case 66: {
+                kebeleCode_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000080;
+                break;
+              } // case 66
+              case 74: {
+                telebirrAccount_ = input.readStringRequireUtf8();
+                bitField0_ |= 0x00000100;
+                break;
+              } // case 74
               default: {
                 if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                   done = true; // was an endgroup tag
@@ -8231,6 +8491,262 @@ public final class UserServiceProto {
       public Builder clearIsPremium() {
         bitField0_ = (bitField0_ & ~0x00000020);
         isPremium_ = false;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object merchantId_ = "";
+      /**
+       * <pre>
+       * real UUID from merchant_profiles.id
+       * </pre>
+       *
+       * <code>string merchant_id = 7;</code>
+       * @return The merchantId.
+       */
+      public java.lang.String getMerchantId() {
+        java.lang.Object ref = merchantId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          merchantId_ = s;
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * real UUID from merchant_profiles.id
+       * </pre>
+       *
+       * <code>string merchant_id = 7;</code>
+       * @return The bytes for merchantId.
+       */
+      public com.google.protobuf.ByteString
+          getMerchantIdBytes() {
+        java.lang.Object ref = merchantId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          merchantId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * real UUID from merchant_profiles.id
+       * </pre>
+       *
+       * <code>string merchant_id = 7;</code>
+       * @param value The merchantId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setMerchantId(
+          java.lang.String value) {
+        if (value == null) { throw new NullPointerException(); }
+        merchantId_ = value;
+        bitField0_ |= 0x00000040;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * real UUID from merchant_profiles.id
+       * </pre>
+       *
+       * <code>string merchant_id = 7;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearMerchantId() {
+        merchantId_ = getDefaultInstance().getMerchantId();
+        bitField0_ = (bitField0_ & ~0x00000040);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * real UUID from merchant_profiles.id
+       * </pre>
+       *
+       * <code>string merchant_id = 7;</code>
+       * @param value The bytes for merchantId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setMerchantIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) { throw new NullPointerException(); }
+        checkByteStringIsUtf8(value);
+        merchantId_ = value;
+        bitField0_ |= 0x00000040;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object kebeleCode_ = "";
+      /**
+       * <pre>
+       * needed for zone-based voucher routing
+       * </pre>
+       *
+       * <code>string kebele_code = 8;</code>
+       * @return The kebeleCode.
+       */
+      public java.lang.String getKebeleCode() {
+        java.lang.Object ref = kebeleCode_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          kebeleCode_ = s;
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * needed for zone-based voucher routing
+       * </pre>
+       *
+       * <code>string kebele_code = 8;</code>
+       * @return The bytes for kebeleCode.
+       */
+      public com.google.protobuf.ByteString
+          getKebeleCodeBytes() {
+        java.lang.Object ref = kebeleCode_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          kebeleCode_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * needed for zone-based voucher routing
+       * </pre>
+       *
+       * <code>string kebele_code = 8;</code>
+       * @param value The kebeleCode to set.
+       * @return This builder for chaining.
+       */
+      public Builder setKebeleCode(
+          java.lang.String value) {
+        if (value == null) { throw new NullPointerException(); }
+        kebeleCode_ = value;
+        bitField0_ |= 0x00000080;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * needed for zone-based voucher routing
+       * </pre>
+       *
+       * <code>string kebele_code = 8;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearKebeleCode() {
+        kebeleCode_ = getDefaultInstance().getKebeleCode();
+        bitField0_ = (bitField0_ & ~0x00000080);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * needed for zone-based voucher routing
+       * </pre>
+       *
+       * <code>string kebele_code = 8;</code>
+       * @param value The bytes for kebeleCode to set.
+       * @return This builder for chaining.
+       */
+      public Builder setKebeleCodeBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) { throw new NullPointerException(); }
+        checkByteStringIsUtf8(value);
+        kebeleCode_ = value;
+        bitField0_ |= 0x00000080;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object telebirrAccount_ = "";
+      /**
+       * <code>string telebirr_account = 9;</code>
+       * @return The telebirrAccount.
+       */
+      public java.lang.String getTelebirrAccount() {
+        java.lang.Object ref = telebirrAccount_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          telebirrAccount_ = s;
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>string telebirr_account = 9;</code>
+       * @return The bytes for telebirrAccount.
+       */
+      public com.google.protobuf.ByteString
+          getTelebirrAccountBytes() {
+        java.lang.Object ref = telebirrAccount_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          telebirrAccount_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>string telebirr_account = 9;</code>
+       * @param value The telebirrAccount to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTelebirrAccount(
+          java.lang.String value) {
+        if (value == null) { throw new NullPointerException(); }
+        telebirrAccount_ = value;
+        bitField0_ |= 0x00000100;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>string telebirr_account = 9;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearTelebirrAccount() {
+        telebirrAccount_ = getDefaultInstance().getTelebirrAccount();
+        bitField0_ = (bitField0_ & ~0x00000100);
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>string telebirr_account = 9;</code>
+       * @param value The bytes for telebirrAccount to set.
+       * @return This builder for chaining.
+       */
+      public Builder setTelebirrAccountBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) { throw new NullPointerException(); }
+        checkByteStringIsUtf8(value);
+        telebirrAccount_ = value;
+        bitField0_ |= 0x00000100;
         onChanged();
         return this;
       }
@@ -9553,36 +10069,38 @@ public final class UserServiceProto {
       "olerance\030\003 \001(\t\022\027\n\017investment_goal\030\004 \001(\t\022" +
       "\032\n\022total_invested_etb\030\005 \001(\001\022\032\n\022total_ret" +
       "urned_etb\030\006 \001(\001\022\037\n\027total_seasons_complet" +
-      "ed\030\007 \001(\005\"\261\001\n\027MerchantProfileResponse\022\017\n\007" +
+      "ed\030\007 \001(\005\"\365\001\n\027MerchantProfileResponse\022\017\n\007" +
       "user_id\030\001 \001(\t\022\025\n\rbusiness_name\030\002 \001(\t\022\037\n\027" +
       "business_license_number\030\003 \001(\t\022\031\n\021subscri" +
       "ption_tier\030\004 \001(\t\022\036\n\026is_physically_verifi" +
-      "ed\030\005 \001(\010\022\022\n\nis_premium\030\006 \001(\010\"$\n\rKebeleRe" +
-      "quest\022\023\n\013kebele_code\030\001 \001(\t\"+\n\023MerchantId" +
-      "sResponse\022\024\n\014merchant_ids\030\001 \003(\t2\331\006\n\013User" +
-      "Service\022j\n\013GetUserById\022-.com.agriyield.u" +
-      "serservice.grpc.UserIdRequest\032,.com.agri" +
-      "yield.userservice.grpc.UserResponse\022x\n\020G" +
-      "etFarmerProfile\022-.com.agriyield.userserv" +
-      "ice.grpc.UserIdRequest\0325.com.agriyield.u" +
-      "serservice.grpc.FarmerProfileResponse\022|\n" +
-      "\022GetInvestorProfile\022-.com.agriyield.user" +
-      "service.grpc.UserIdRequest\0327.com.agriyie" +
-      "ld.userservice.grpc.InvestorProfileRespo" +
-      "nse\022|\n\022GetMerchantProfile\022-.com.agriyiel" +
-      "d.userservice.grpc.UserIdRequest\0327.com.a" +
-      "griyield.userservice.grpc.MerchantProfil" +
-      "eResponse\022p\n\020VerifyUserExists\022,.com.agri" +
-      "yield.userservice.grpc.PhoneRequest\032..co" +
-      "m.agriyield.userservice.grpc.ExistsRespo" +
-      "nse\022x\n\017UpdateAgriScore\0226.com.agriyield.u" +
-      "serservice.grpc.UpdateAgriScoreRequest\032-" +
-      ".com.agriyield.userservice.grpc.EmptyRes" +
-      "ponse\022|\n\026GetMerchantIdsByKebele\022-.com.ag" +
-      "riyield.userservice.grpc.KebeleRequest\0323" +
-      ".com.agriyield.userservice.grpc.Merchant" +
-      "IdsResponseB4\n\036com.agriyield.userservice" +
-      ".grpcB\020UserServiceProtoP\000b\006proto3"
+      "ed\030\005 \001(\010\022\022\n\nis_premium\030\006 \001(\010\022\023\n\013merchant" +
+      "_id\030\007 \001(\t\022\023\n\013kebele_code\030\010 \001(\t\022\030\n\020telebi" +
+      "rr_account\030\t \001(\t\"$\n\rKebeleRequest\022\023\n\013keb" +
+      "ele_code\030\001 \001(\t\"+\n\023MerchantIdsResponse\022\024\n" +
+      "\014merchant_ids\030\001 \003(\t2\331\006\n\013UserService\022j\n\013G" +
+      "etUserById\022-.com.agriyield.userservice.g" +
+      "rpc.UserIdRequest\032,.com.agriyield.userse" +
+      "rvice.grpc.UserResponse\022x\n\020GetFarmerProf" +
+      "ile\022-.com.agriyield.userservice.grpc.Use" +
+      "rIdRequest\0325.com.agriyield.userservice.g" +
+      "rpc.FarmerProfileResponse\022|\n\022GetInvestor" +
+      "Profile\022-.com.agriyield.userservice.grpc" +
+      ".UserIdRequest\0327.com.agriyield.userservi" +
+      "ce.grpc.InvestorProfileResponse\022|\n\022GetMe" +
+      "rchantProfile\022-.com.agriyield.userservic" +
+      "e.grpc.UserIdRequest\0327.com.agriyield.use" +
+      "rservice.grpc.MerchantProfileResponse\022p\n" +
+      "\020VerifyUserExists\022,.com.agriyield.userse" +
+      "rvice.grpc.PhoneRequest\032..com.agriyield." +
+      "userservice.grpc.ExistsResponse\022x\n\017Updat" +
+      "eAgriScore\0226.com.agriyield.userservice.g" +
+      "rpc.UpdateAgriScoreRequest\032-.com.agriyie" +
+      "ld.userservice.grpc.EmptyResponse\022|\n\026Get" +
+      "MerchantIdsByKebele\022-.com.agriyield.user" +
+      "service.grpc.KebeleRequest\0323.com.agriyie" +
+      "ld.userservice.grpc.MerchantIdsResponseB" +
+      "4\n\036com.agriyield.userservice.grpcB\020UserS" +
+      "erviceProtoP\000b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -9641,7 +10159,7 @@ public final class UserServiceProto {
     internal_static_com_agriyield_userservice_grpc_MerchantProfileResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_com_agriyield_userservice_grpc_MerchantProfileResponse_descriptor,
-        new java.lang.String[] { "UserId", "BusinessName", "BusinessLicenseNumber", "SubscriptionTier", "IsPhysicallyVerified", "IsPremium", });
+        new java.lang.String[] { "UserId", "BusinessName", "BusinessLicenseNumber", "SubscriptionTier", "IsPhysicallyVerified", "IsPremium", "MerchantId", "KebeleCode", "TelebirrAccount", });
     internal_static_com_agriyield_userservice_grpc_KebeleRequest_descriptor =
       getDescriptor().getMessageTypes().get(9);
     internal_static_com_agriyield_userservice_grpc_KebeleRequest_fieldAccessorTable = new

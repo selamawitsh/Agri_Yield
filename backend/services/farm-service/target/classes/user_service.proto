@@ -92,6 +92,9 @@ message MerchantProfileResponse {
     string subscription_tier = 4;
     bool is_physically_verified = 5;
     bool is_premium = 6;
+    string merchant_id             = 7;  // real UUID from merchant_profiles.id
+    string kebele_code             = 8;  // needed for zone-based voucher routing
+    string telebirr_account        = 9;
 }
 
 message KebeleRequest {
