@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../models/voucher_model.dart';
 import '../../widgets/voucher_status_chip.dart';
 import '../../widgets/voucher_category_chip.dart';
@@ -7,24 +8,31 @@ import 'voucher_qr_screen.dart';
 
 class VoucherDetailScreen extends StatelessWidget {
   final VoucherModel voucher;
-
   const VoucherDetailScreen({super.key, required this.voucher});
 
-  static const _primary     = Color(0xFF1B4332);
-  static const _amber       = Color(0xFF78350F);
-  static const _surface     = Color(0xFFF4F7F5);
-  static const _cardBorder  = Color(0xFFE2E8F0);
+  static const _primary    = Color(0xFF1B4332);
+  static const _surface    = Color(0xFFF4F7F5);
+  static const _cardBorder = Color(0xFFE2E8F0);
 
   @override
   Widget build(BuildContext context) {
+    // ── DEBUG: print raw voucher fields so you can see what came from API ──
+    debugPrint('=== VoucherDetail ===');
+    debugPrint('id:          ${voucher.id}');
+    debugPrint('voucherCode: "${voucher.voucherCode}"');
+    debugPrint('status:      "${voucher.status}"');
+    debugPrint('isActive:    ${voucher.isActive}');
+    debugPrint('====================');
+
     return Scaffold(
       backgroundColor: _surface,
       appBar: AppBar(
         backgroundColor: _primary,
         foregroundColor: Colors.white,
         title: Text(
-          voucher.productCategory,
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: -0.5),
+          voucher.categoryLabel,
+          style: const TextStyle(
+              fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: -0.5),
         ),
         actions: [
           if (voucher.isActive)
@@ -34,8 +42,7 @@ class VoucherDetailScreen extends StatelessWidget {
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => VoucherQrScreen(voucher: voucher),
-                ),
+                    builder: (_) => VoucherQrScreen(voucher: voucher)),
               ),
             ),
         ],
@@ -45,29 +52,21 @@ class VoucherDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status / category header
             _buildHeaderCard(),
             const SizedBox(height: 16),
 
-            // QR or status panel
-            if (voucher.isActive) _buildQrCard(context),
+            // Always show QR section — with a clear error if code is missing
+            _buildQrCard(context),
+
+            const SizedBox(height: 16),
             if (voucher.isRedeemed) _buildRedeemedCard(),
-            if (voucher.isLocked) _buildLockedCard(),
-            if (voucher.isExpired) _buildExpiredCard(),
-
+            if (voucher.isLocked)   _buildLockedCard(),
+            if (voucher.isExpired)  _buildExpiredCard(),
             const SizedBox(height: 16),
-
-            // Voucher info rows
             _buildInfoCard(),
-
             const SizedBox(height: 16),
-
-            // Security note
             _buildSecurityNote(),
-
             const SizedBox(height: 24),
-
-            // CTA
             if (voucher.isActive)
               SizedBox(
                 width: double.infinity,
@@ -75,8 +74,7 @@ class VoucherDetailScreen extends StatelessWidget {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => VoucherQrScreen(voucher: voucher),
-                    ),
+                        builder: (_) => VoucherQrScreen(voucher: voucher)),
                   ),
                   icon: const Icon(Icons.qr_code_2_rounded, size: 22),
                   label: const Text('Show QR to Merchant'),
@@ -114,14 +112,12 @@ class VoucherDetailScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(voucher.categoryEmoji, style: const TextStyle(fontSize: 32)),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      voucher.productDescription,
+                      voucher.productName,
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -148,7 +144,7 @@ class VoucherDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            'Sequence #${voucher.sequenceOrder} · locked to ${voucher.productCategory}',
+            'Sequence #${voucher.sequenceOrder}  |  ${voucher.categoryLabel} only',
             style: const TextStyle(color: Colors.white60, fontSize: 11),
           ),
         ],
@@ -157,11 +153,17 @@ class VoucherDetailScreen extends StatelessWidget {
   }
 
   Widget _buildQrCard(BuildContext context) {
+    final code = voucher.voucherCode;
+    final hasCode = code.isNotEmpty;
+
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => VoucherQrScreen(voucher: voucher)),
-      ),
+      onTap: hasCode && voucher.isActive
+          ? () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => VoucherQrScreen(voucher: voucher)),
+              )
+          : null,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(24),
@@ -172,33 +174,111 @@ class VoucherDetailScreen extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Placeholder QR visual — replaced by real QR in VoucherQrScreen
+            // Status badge above QR
             Container(
-              width: 180,
-              height: 180,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _cardBorder, width: 2),
+                color: voucher.isActive
+                    ? const Color(0xFFDCFCE7)
+                    : const Color(0xFFFEF9C3),
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.qr_code_2_rounded, size: 100, color: Color(0xFF1B4332)),
-                  SizedBox(height: 6),
-                  Text('Tap to expand',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                ],
+              child: Text(
+                voucher.isActive
+                    ? 'ACTIVE — ready to redeem'
+                    : 'Status: ${voucher.statusLabel}',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: voucher.isActive
+                      ? const Color(0xFF15803D)
+                      : const Color(0xFF92400E),
+                ),
               ),
             ),
+
+            const SizedBox(height: 20),
+
+            // QR or error state
+            if (hasCode)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _cardBorder, width: 1.5),
+                ),
+                child: QrImageView(
+                  data: code,
+                  version: QrVersions.auto,
+                  size: 200,
+                  backgroundColor: Colors.white,
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: Color(0xFF1B4332),
+                  ),
+                  dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: Color(0xFF1B4332),
+                  ),
+                ),
+              )
+            else
+              // Visible error — tells you exactly what went wrong
+              Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.qr_code_rounded,
+                        size: 48, color: Color(0xFFEF4444)),
+                    SizedBox(height: 10),
+                    Text(
+                      'No QR data',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF991B1B)),
+                    ),
+                    SizedBox(height: 6),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'voucherCode is empty.\nCheck API field name.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 11, color: Color(0xFFDC2626)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 8),
+
+            if (hasCode && voucher.isActive)
+              const Text(
+                'Tap to expand to full screen',
+                style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              ),
+
             const SizedBox(height: 16),
-            // Alphanumeric code
+
+            // Code pill — always visible so you can see the raw value
             GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: voucher.alphanumericCode));
-              },
+              onTap: hasCode
+                  ? () => Clipboard.setData(
+                      ClipboardData(text: voucher.voucherCode))
+                  : null,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(10),
@@ -207,23 +287,32 @@ class VoucherDetailScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      voucher.alphanumericCode,
-                      style: const TextStyle(
+                      hasCode ? voucher.voucherCode : 'NO CODE',
+                      style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 2,
-                          color: Color(0xFF1B4332)),
+                          color: hasCode
+                              ? const Color(0xFF1B4332)
+                              : const Color(0xFFEF4444)),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF64748B)),
+                    Icon(
+                      hasCode
+                          ? Icons.copy_rounded
+                          : Icons.warning_rounded,
+                      size: 14,
+                      color: const Color(0xFF64748B),
+                    ),
                   ],
                 ),
               ),
             ),
+
             const SizedBox(height: 8),
             const Text(
-              'Works offline · Show this to the merchant',
+              'Works offline  |  Show this to the merchant',
               style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],
@@ -243,7 +332,8 @@ class VoucherDetailScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 28),
+          const Icon(Icons.check_circle_rounded,
+              color: Color(0xFF16A34A), size: 28),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -255,15 +345,13 @@ class VoucherDetailScreen extends StatelessWidget {
                         color: Color(0xFF14532D),
                         fontSize: 14)),
                 if (voucher.redeemedAt != null)
-                  Text(
-                    'on ${voucher.redeemedAt}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF16A34A)),
-                  ),
+                  Text('on ${voucher.redeemedAt}',
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFF16A34A))),
                 const SizedBox(height: 4),
-                const Text(
-                  'Payment released to merchant · Input delivered',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF15803D)),
-                ),
+                const Text('Payment released to merchant',
+                    style:
+                        TextStyle(fontSize: 11, color: Color(0xFF15803D))),
               ],
             ),
           ),
@@ -283,7 +371,8 @@ class VoucherDetailScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.lock_rounded, color: Color(0xFF1D4ED8), size: 28),
+          const Icon(Icons.lock_rounded,
+              color: Color(0xFF1D4ED8), size: 28),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -296,13 +385,13 @@ class VoucherDetailScreen extends StatelessWidget {
                         fontSize: 14)),
                 Text(
                   'Unlocks after voucher #${voucher.sequenceOrder - 1} is redeemed',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF1D4ED8)),
+                  style: const TextStyle(
+                      fontSize: 11, color: Color(0xFF1D4ED8)),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Agronomic order must be followed — seeds before fertilizer',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF3B82F6)),
-                ),
+                const Text('Agronomic order must be followed',
+                    style:
+                        TextStyle(fontSize: 11, color: Color(0xFF3B82F6))),
               ],
             ),
           ),
@@ -322,7 +411,8 @@ class VoucherDetailScreen extends StatelessWidget {
       ),
       child: const Row(
         children: [
-          Icon(Icons.schedule_rounded, color: Color(0xFFDC2626), size: 28),
+          Icon(Icons.schedule_rounded,
+              color: Color(0xFFDC2626), size: 28),
           SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -333,15 +423,13 @@ class VoucherDetailScreen extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF991B1B),
                         fontSize: 14)),
-                Text(
-                  'This voucher has passed its validity date',
-                  style: TextStyle(fontSize: 11, color: Color(0xFFDC2626)),
-                ),
+                Text('This voucher has passed its validity date',
+                    style: TextStyle(
+                        fontSize: 11, color: Color(0xFFDC2626))),
                 SizedBox(height: 4),
-                Text(
-                  'Contact Agri-Yield support for assistance',
-                  style: TextStyle(fontSize: 11, color: Color(0xFFEF4444)),
-                ),
+                Text('Contact Agri-Yield support for assistance',
+                    style: TextStyle(
+                        fontSize: 11, color: Color(0xFFEF4444))),
               ],
             ),
           ),
@@ -352,14 +440,17 @@ class VoucherDetailScreen extends StatelessWidget {
 
   Widget _buildInfoCard() {
     final rows = [
-      ['Voucher ID', voucher.id, true],
-      ['Category Lock', '${voucher.productCategory} only', false],
-      ['Amount', '${voucher.amountEtb.toStringAsFixed(2)} ETB', false],
-      ['Sequence', '#${voucher.sequenceOrder}', false],
-      ['Valid Until', voucher.validUntil, false],
-      ['Created', voucher.createdAt, false],
+      ['Voucher ID',  voucher.id,                                   true],
+      ['Code',        voucher.voucherCode.isEmpty
+                        ? '⚠ EMPTY — check API'
+                        : voucher.voucherCode,                      true],
+      ['Category',    '${voucher.categoryLabel} only',              false],
+      ['Amount',      '${voucher.amountEtb.toStringAsFixed(2)} ETB',false],
+      ['Sequence',    '#${voucher.sequenceOrder}',                  false],
+      ['Valid Until', voucher.validUntil,                           false],
+      ['Created',     voucher.createdAt,                            false],
       if (voucher.isRedeemed && voucher.redeemedAt != null)
-        ['Redeemed At', voucher.redeemedAt!, false],
+        ['Redeemed At', voucher.redeemedAt!,                        false],
     ];
 
     return Container(
@@ -382,13 +473,14 @@ class VoucherDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           ...rows.asMap().entries.map((entry) {
-            final i = entry.key;
-            final row = entry.value;
+            final i      = entry.key;
+            final row    = entry.value;
             final isMono = row[2] as bool;
             return Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -416,7 +508,10 @@ class VoucherDetailScreen extends StatelessWidget {
                   ),
                 ),
                 if (i < rows.length - 1)
-                  const Divider(height: 1, indent: 16, color: Color(0xFFF8FAFC)),
+                  const Divider(
+                      height: 1,
+                      indent: 16,
+                      color: Color(0xFFF8FAFC)),
               ],
             );
           }),
@@ -436,14 +531,18 @@ class VoucherDetailScreen extends StatelessWidget {
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('🔐', style: TextStyle(fontSize: 16)),
+          Icon(Icons.lock_outline_rounded,
+              size: 16, color: Color(0xFF92400E)),
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'This voucher is cryptographically signed. The merchant\'s app '
+              'This voucher is cryptographically signed. The merchant app '
               'runs 6 security checks before releasing any payment. '
               'Never share your voucher code with anyone other than certified merchants.',
-              style: TextStyle(fontSize: 11, color: Color(0xFF92400E), height: 1.5),
+              style: TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF92400E),
+                  height: 1.5),
             ),
           ),
         ],

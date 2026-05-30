@@ -1,20 +1,19 @@
 // lib/models/voucher_model.dart
-// Updated to match actual API response from VoucherResponse.java
 
 class VoucherModel {
   final String id;
-  final String voucherCode;       // API: voucherCode (was alphanumericCode)
+  final String voucherCode;
   final String investmentId;
   final String farmId;
   final String farmerId;
-  final String inputNeedId;       // API: inputNeedId (was inputNeedItemId)
+  final String inputNeedId;
   final String cropCycleId;
   final double amountEtb;
   final String productCategory;
-  final String productName;       // API: productName (was productDescription)
-  final int sequenceOrder;        // not in API — default to 1
+  final String productName;
+  final int sequenceOrder;
   final String status;
-  final String validUntil;        // API: expiresAt (was validUntil)
+  final String validUntil;
   final String? redeemedAt;
   final String? redeemedMerchantId;
   final String createdAt;
@@ -50,14 +49,11 @@ class VoucherModel {
       amountEtb:        (json['amountEtb'] ?? 0).toDouble(),
       productCategory:  json['productCategory']?.toString() ?? 'OTHER',
       productName:      json['productName']?.toString() ?? 'Agricultural Input',
-      // sequenceOrder not in API yet — default 1 until backend adds it
       sequenceOrder:    json['sequenceOrder'] ?? 1,
       status:           json['status']?.toString() ?? '',
-      // API uses expiresAt, SRS uses validUntil — handle both
       validUntil:       json['expiresAt']?.toString()
-          ?? json['validUntil']?.toString()
-          ?? json['valid_until']?.toString()
-          ?? '',
+                        ?? json['validUntil']?.toString()
+                        ?? '',
       redeemedAt:       json['redeemedAt']?.toString(),
       redeemedMerchantId: json['merchantId']?.toString(),
       createdAt:        json['createdAt']?.toString() ?? '',
@@ -65,39 +61,33 @@ class VoucherModel {
   }
 
   Map<String, dynamic> toJson() => {
-    'id':                 id,
-    'voucherCode':        voucherCode,
-    'investmentId':       investmentId,
-    'farmId':             farmId,
-    'farmerId':           farmerId,
-    'inputNeedId':        inputNeedId,
-    'cropCycleId':        cropCycleId,
-    'amountEtb':          amountEtb,
-    'productCategory':    productCategory,
-    'productName':        productName,
-    'sequenceOrder':      sequenceOrder,
-    'status':             status,
-    'expiresAt':          validUntil,
-    'redeemedAt':         redeemedAt,
-    'merchantId':         redeemedMerchantId,
-    'createdAt':          createdAt,
+    'id':               id,
+    'voucherCode':      voucherCode,
+    'investmentId':     investmentId,
+    'farmId':           farmId,
+    'farmerId':         farmerId,
+    'inputNeedId':      inputNeedId,
+    'cropCycleId':      cropCycleId,
+    'amountEtb':        amountEtb,
+    'productCategory':  productCategory,
+    'productName':      productName,
+    'sequenceOrder':    sequenceOrder,
+    'status':           status,
+    'expiresAt':        validUntil,
+    'redeemedAt':       redeemedAt,
+    'merchantId':       redeemedMerchantId,
+    'createdAt':        createdAt,
   };
 
-  // ── Status helpers ─────────────────────────────────────────────────────────
+  String get alphanumericCode   => voucherCode;
+  String get productDescription => productName;
+
   bool get isActive    => status == 'ACTIVE';
   bool get isRedeemed  => status == 'REDEEMED';
-  bool get isLocked    => status == 'GENERATED';   // GENERATED = waiting for sequence
+  bool get isLocked    => status == 'GENERATED';
   bool get isExpired   => status == 'EXPIRED';
   bool get isCancelled => status == 'CANCELLED';
   bool get isUsable    => isActive;
-
-  // ── Display helpers ────────────────────────────────────────────────────────
-
-  /// The code shown in the UI and used for USSD
-  String get alphanumericCode => voucherCode;
-
-  /// The description shown in the card
-  String get productDescription => productName;
 
   String get statusLabel {
     switch (status) {
@@ -111,13 +101,13 @@ class VoucherModel {
     }
   }
 
-  String get categoryEmoji {
+  String get categoryLabel {
     switch (productCategory) {
-      case 'SEED':       return '🌾';
-      case 'FERTILIZER': return '🪣';
-      case 'PESTICIDE':  return '🛡️';
-      case 'TOOL':       return '🔧';
-      default:           return '📦';
+      case 'SEED':       return 'Seed';
+      case 'FERTILIZER': return 'Fertilizer';
+      case 'PESTICIDE':  return 'Pesticide';
+      case 'TOOL':       return 'Tool';
+      default:           return 'Other';
     }
   }
 
@@ -161,12 +151,8 @@ class VoucherSummaryModel {
       lockedCount:      vouchers.where((v) => v.isLocked).length,
       expiredCount:     vouchers.where((v) => v.isExpired).length,
       totalValueEtb:    vouchers.fold(0, (s, v) => s + v.amountEtb),
-      redeemedValueEtb: vouchers
-          .where((v) => v.isRedeemed)
-          .fold(0, (s, v) => s + v.amountEtb),
-      pendingValueEtb:  vouchers
-          .where((v) => v.isActive || v.isLocked)
-          .fold(0, (s, v) => s + v.amountEtb),
+      redeemedValueEtb: vouchers.where((v) => v.isRedeemed).fold(0, (s, v) => s + v.amountEtb),
+      pendingValueEtb:  vouchers.where((v) => v.isActive || v.isLocked).fold(0, (s, v) => s + v.amountEtb),
     );
   }
 

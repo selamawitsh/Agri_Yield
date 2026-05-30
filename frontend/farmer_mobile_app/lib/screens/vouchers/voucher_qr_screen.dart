@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../models/voucher_model.dart';
-import '../../widgets/voucher_category_chip.dart';
 
 class VoucherQrScreen extends StatelessWidget {
   final VoucherModel voucher;
-
   const VoucherQrScreen({super.key, required this.voucher});
 
   static const _primary = Color(0xFF1B4332);
 
   @override
   Widget build(BuildContext context) {
-    // Force portrait for QR display
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
+    // Encodes just voucherCode — merchant backend expects this
+    final qrData = voucher.voucherCode;
 
     return Scaffold(
       backgroundColor: _primary,
@@ -37,7 +37,6 @@ class VoucherQrScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
             children: [
-              // Instructions
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
@@ -47,20 +46,16 @@ class VoucherQrScreen extends StatelessWidget {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.qr_code_scanner_rounded,
-                        color: Colors.white70, size: 16),
+                    Icon(Icons.qr_code_scanner_rounded, color: Colors.white70, size: 16),
                     SizedBox(width: 8),
-                    Text(
-                      'Let the merchant scan this QR code',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
+                    Text('Let the merchant scan this QR code',
+                        style: TextStyle(color: Colors.white70, fontSize: 13)),
                   ],
                 ),
               ),
 
               const SizedBox(height: 28),
 
-              // QR Code
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -69,11 +64,11 @@ class VoucherQrScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    // Real QR — encodes voucher id + alphanumeric code
                     QrImageView(
-                      data: '${voucher.id}|${voucher.alphanumericCode}',
+                      data: qrData,
                       version: QrVersions.auto,
                       size: 240,
+                      backgroundColor: Colors.white,
                       eyeStyle: const QrEyeStyle(
                         eyeShape: QrEyeShape.square,
                         color: Color(0xFF1B4332),
@@ -84,22 +79,28 @@ class VoucherQrScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // Alphanumeric code
                     GestureDetector(
-                      onTap: () => Clipboard.setData(
-                          ClipboardData(text: voucher.alphanumericCode)),
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: voucher.voucherCode));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Code copied to clipboard'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF4F7F5),
                           borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              voucher.alphanumericCode,
+                              voucher.voucherCode,
                               style: const TextStyle(
                                 fontFamily: 'monospace',
                                 fontSize: 18,
@@ -109,22 +110,22 @@ class VoucherQrScreen extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Icon(Icons.copy_rounded,
-                                size: 14, color: Color(0xFF64748B)),
+                            const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF64748B)),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text('Tap code to copy · Works offline',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                    const Text(
+                      'Tap code to copy  |  Works offline',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                    ),
                   ],
                 ),
               ),
 
               const SizedBox(height: 24),
 
-              // Voucher info
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
@@ -135,16 +136,9 @@ class VoucherQrScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _infoRow('Product', voucher.productDescription),
+                    _infoRow('Product', voucher.productName),
                     _divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Category',
-                            style: TextStyle(color: Colors.white60, fontSize: 13)),
-                        VoucherCategoryChip(category: voucher.productCategory),
-                      ],
-                    ),
+                    _infoRow('Category', voucher.categoryLabel),
                     _divider(),
                     _infoRow(
                       'Amount',
@@ -166,7 +160,6 @@ class VoucherQrScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // 6-check reminder
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -175,16 +168,15 @@ class VoucherQrScreen extends StatelessWidget {
                   border: Border.all(color: Colors.white12),
                 ),
                 child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.verified_user_rounded,
-                        color: Colors.greenAccent, size: 18),
+                    Icon(Icons.verified_user_rounded, color: Colors.greenAccent, size: 18),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Merchant app runs 6 security checks before payment. '
+                        'Merchant app runs 6 security checks before releasing payment. '
                         'Do not leave until you receive confirmation.',
-                        style: TextStyle(
-                            color: Colors.white60, fontSize: 11, height: 1.5),
+                        style: TextStyle(color: Colors.white60, fontSize: 11, height: 1.5),
                       ),
                     ),
                   ],
@@ -203,34 +195,26 @@ class VoucherQrScreen extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: const TextStyle(color: Colors.white60, fontSize: 13)),
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 13)),
         Flexible(
           child: Text(
             value,
             textAlign: TextAlign.right,
             style: valueStyle ??
-                const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
+                const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
           ),
         ),
       ],
     );
   }
 
-  Widget _divider() => Divider(
-      color: Colors.white.withOpacity(0.1), height: 16, thickness: 0.5);
+  Widget _divider() =>
+      Divider(color: Colors.white.withOpacity(0.1), height: 16, thickness: 0.5);
 
   String _formatDate(String raw) {
     try {
       final d = DateTime.parse(raw);
-      const months = [
-        'Jan','Feb','Mar','Apr','May','Jun',
-        'Jul','Aug','Sep','Oct','Nov','Dec'
-      ];
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       return '${d.day} ${months[d.month - 1]} ${d.year}';
     } catch (_) {
       return raw;
