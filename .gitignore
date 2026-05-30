@@ -21,4 +21,4 @@
 
 !**/*.example.yml
 !**/*.example.properties
-!.env.example
+!.env.exampletarget/
