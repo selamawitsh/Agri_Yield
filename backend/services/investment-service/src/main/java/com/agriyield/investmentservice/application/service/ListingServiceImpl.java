@@ -261,6 +261,47 @@ public class ListingServiceImpl implements ListingServicePort {
         return payoutRepository.findByInvestorId(investorId);
     }
 
+    /** IS-10: Get all open listings for a farm — used by weather/NDVI APR listener */
+    @Override
+    @Transactional(readOnly = true)
+    public List<FarmListing> getActiveListingsByFarmId(UUID farmId) {
+        log.info("IS-10: getActiveListingsByFarmId farm={}", farmId);
+        return listingRepository.findAllOpen().stream()
+            .filter(l -> l.getFarmId().equals(farmId))
+            .filter(l -> l.getStatus() == ListingStatus.OPEN
+                || l.getStatus() == ListingStatus.PARTIALLY_FUNDED)
+            .collect(Collectors.toList());
+    }
+
+    /** WS-04: Cancel all active listings for a farm (drought parametric insurance) */
+    @Override
+    @Transactional
+    public void cancelListingsForFarm(UUID farmId, String reason) {
+        log.warn("WS-04: cancelListingsForFarm farm={} reason={}", farmId, reason);
+        List<FarmListing> listings = getActiveListingsByFarmId(farmId);
+        for (FarmListing listing : listings) {
+            try {
+                listing.markFundingFailed();
+                listingRepository.save(listing);
+                List<Investment> investments = investmentRepository
+                    .findByFarmId(listing.getFarmId())
+                    .map(inv -> java.util.List.of(inv))
+                    .orElse(java.util.List.of());
+                for (Investment inv : investments) {
+                    if (inv.getStatus() != InvestmentStatus.CANCELLED) {
+                        escrowServicePort.cancel(inv.getId());
+                        inv.cancel(reason);
+                        investmentRepository.save(inv);
+                    }
+                }
+                eventPublisher.publishListingFundingFailed(listing);
+                log.info("WS-04: listing {} cancelled for farm={}", listing.getId(), farmId);
+            } catch (Exception e) {
+                log.error("WS-04: failed to cancel listing {}: {}", listing.getId(), e.getMessage());
+            }
+        }
+    }
+
     private BigDecimal calculateBaseApr(int agriScore) {
         if (agriScore >= 700) return new BigDecimal("12.00");
         if (agriScore >= 500) return new BigDecimal("10.00");
