@@ -56,6 +56,12 @@ public interface ListingServicePort {
     /** IS-08: Investment details */
     Investment getInvestmentDetails(UUID investmentId);
 
+    /** IS-10: Get active listings by farm (for weather/NDVI APR update) */
+    List<FarmListing> getActiveListingsByFarmId(UUID farmId);
+
+    /** WS-04: Cancel all listings for a farm (drought parametric insurance) */
+    void cancelListingsForFarm(UUID farmId, String reason);
+
     /** IS-12: Payout history */
     List<PayoutRecord> getPayoutHistory(UUID investorId);
 }
