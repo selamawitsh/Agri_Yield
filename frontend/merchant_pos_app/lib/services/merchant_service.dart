@@ -20,12 +20,12 @@ class MerchantService {
   }) async {
     try {
       final response = await _api.post(Constants.merchantRegister, {
-        'businessName': businessName,
-        'businessLicenseNumber': businessLicenseNumber,
-        'storeGpsLat': storeGpsLat,
-        'storeGpsLng': storeGpsLng,
-        'telebirrAccount': telebirrAccount,
-        'kebeleCode': kebeleCode,
+        'businessName':           businessName,
+        'businessLicenseNumber':  businessLicenseNumber,
+        'storeGpsLat':            storeGpsLat,
+        'storeGpsLng':            storeGpsLng,
+        'telebirrAccount':        telebirrAccount,
+        'kebeleCode':             kebeleCode,
       });
       return {'success': true, 'data': response['data']};
     } catch (e) {
@@ -45,6 +45,29 @@ class MerchantService {
     }
   }
 
+  // MS-03: update merchant-specific fields via PATCH /api/v1/merchants/me
+  Future<Map<String, dynamic>> updateMerchantProfile({
+    String? businessName,
+    String? telebirrAccount,
+    double? storeGpsLat,
+    double? storeGpsLng,
+    String? kebeleCode,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (businessName != null)     body['businessName']    = businessName;
+      if (telebirrAccount != null)  body['telebirrAccount'] = telebirrAccount;
+      if (storeGpsLat != null)      body['storeGpsLat']     = storeGpsLat;
+      if (storeGpsLng != null)      body['storeGpsLng']     = storeGpsLng;
+      if (kebeleCode != null)       body['kebeleCode']       = kebeleCode;
+      final response = await _api.patch(Constants.merchantMe, body);
+      return {'success': true, 'data': response['data']};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // kept for backward compatibility — used by auth profile fields
   Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
     try {
       final response = await _api.patch(Constants.merchantMe, data);
@@ -78,10 +101,10 @@ class MerchantService {
   }) async {
     try {
       final response = await _api.post(Constants.merchantInventory, {
-        'productName': productName,
-        'productCategory': productCategory,
-        'unit': unit,
-        'currentPriceEtb': currentPriceEtb,
+        'productName':      productName,
+        'productCategory':  productCategory,
+        'unit':             unit,
+        'currentPriceEtb':  currentPriceEtb,
       });
       return {'success': true, 'data': response['data']};
     } catch (e) {
@@ -109,7 +132,7 @@ class MerchantService {
     }
   }
 
-  // ── Redemptions & Anomalies ───────────────────────────────────────────────
+  // ── Redemptions ───────────────────────────────────────────────────────────
 
   Future<List<PriceAnomaly>> getRedemptionHistory() async {
     try {
@@ -120,6 +143,32 @@ class MerchantService {
             .toList();
       }
       return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // MS-09: fetch real settlement records from backend
+  // GET /api/v1/merchant/settlements
+  Future<List<SettlementRecord>> getSettlements({
+    String? dateFrom,
+    String? dateTo,
+    int page = 0,
+    int size = 20,
+  }) async {
+    try {
+      final params = <String, dynamic>{
+        'page': page,
+        'size': size,
+        if (dateFrom != null) 'dateFrom': dateFrom,
+        if (dateTo != null)   'dateTo':   dateTo,
+      };
+      final response = await _api.get(
+        '/merchant/settlements',
+        queryParameters: params,
+      );
+      final List data = response['data'] ?? [];
+      return data.map((e) => SettlementRecord.fromJson(e)).toList();
     } catch (e) {
       return [];
     }
@@ -137,5 +186,41 @@ class MerchantService {
     } catch (e) {
       return null;
     }
+  }
+}
+
+// MS-09: settlement record model
+class SettlementRecord {
+  final String id;
+  final String voucherId;
+  final String farmerName;
+  final String productDescription;
+  final double amountEtb;
+  final String settledAt;
+  final String paymentReference;
+  final String status;
+
+  SettlementRecord({
+    required this.id,
+    required this.voucherId,
+    required this.farmerName,
+    required this.productDescription,
+    required this.amountEtb,
+    required this.settledAt,
+    required this.paymentReference,
+    required this.status,
+  });
+
+  factory SettlementRecord.fromJson(Map<String, dynamic> json) {
+    return SettlementRecord(
+      id:                 json['id']?.toString() ?? '',
+      voucherId:          json['voucherId']?.toString() ?? '',
+      farmerName:         json['farmerName']?.toString() ?? 'Farmer',
+      productDescription: json['productDescription']?.toString() ?? '',
+      amountEtb:          (json['amountEtb'] as num?)?.toDouble() ?? 0,
+      settledAt:          json['settledAt']?.toString() ?? '',
+      paymentReference:   json['paymentReference']?.toString() ?? '',
+      status:             json['status']?.toString() ?? 'SETTLED',
+    );
   }
 }
