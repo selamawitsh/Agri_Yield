@@ -28,6 +28,7 @@ class _WeatherScreenState extends State<WeatherScreen>
   WeatherReading? _current;
   List<WeatherReading> _forecast = [];
   List<WeatherReading> _rainfall = [];
+  List<WeatherReading> _history = [];
   DroughtStatus? _drought;
   WeatherRisk? _risk;
   List<WeatherAlert> _alerts = [];
@@ -41,7 +42,7 @@ class _WeatherScreenState extends State<WeatherScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _loadFarms();
   }
 
@@ -96,6 +97,7 @@ class _WeatherScreenState extends State<WeatherScreen>
       _weatherService.getDroughtStatus(farmId),
       _weatherService.getWeatherRisk(farmId),
       _weatherService.getAlerts(farmId),
+      _weatherService.getHistory(farmId),
     ]);
     if (mounted) {
       setState(() {
@@ -105,6 +107,7 @@ class _WeatherScreenState extends State<WeatherScreen>
         _drought    = results[3] as DroughtStatus?;
         _risk       = results[4] as WeatherRisk?;
         _alerts     = results[5] as List<WeatherAlert>;
+        _history    = results[6] as List<WeatherReading>;
         _loading    = false;
       });
     }
@@ -130,6 +133,7 @@ class _WeatherScreenState extends State<WeatherScreen>
             Tab(text: 'NDVI'),
             Tab(text: 'Drought'),
             Tab(text: 'Alerts'),
+            Tab(text: 'History'),
           ],
         ),
       ),
@@ -151,6 +155,7 @@ class _WeatherScreenState extends State<WeatherScreen>
                       _buildNdviTab(),
                       _buildDroughtTab(),
                       _buildAlertsTab(),
+                      _buildHistoryTab(),
                     ],
                   ),
           ),
@@ -598,6 +603,77 @@ class _WeatherScreenState extends State<WeatherScreen>
     );
   }
 
+  Widget _buildHistoryTab() {
+    if (_history.isEmpty) {
+      return _emptyState(
+        'No historical weather data',
+        'Historical weather records will appear here when available',
+        Icons.history,
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _selectedFarm != null
+          ? _loadWeather(_selectedFarm!.id)
+          : Future.value(),
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _history.length,
+        itemBuilder: (context, index) {
+          final weather = _history[index];
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor:
+                const Color(0xFF1B4332).withOpacity(0.1),
+                child: Icon(
+                  _getWeatherIcon(
+                    weather.rainfallMm,
+                    weather.temperatureC,
+                  ),
+                  color: const Color(0xFF1B4332),
+                ),
+              ),
+              title: Text(
+                weather.recordedDate,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Rainfall: ${weather.rainfallMm.toStringAsFixed(1)} mm',
+                  ),
+                  Text(
+                    'Humidity: ${weather.humidityPct?.toStringAsFixed(0) ?? 'N/A'}%',
+                  ),
+                  Text(
+                    weather.isDryDay
+                        ? 'Dry Day'
+                        : 'Rain Recorded',
+                  ),
+                ],
+              ),
+              trailing: Text(
+                '${weather.temperatureC.toStringAsFixed(1)}°C',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1B4332),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
   // ── Helpers ───────────────────────────────────────────────────────────────
   Widget _droughtSummaryCard() {
     return Container(
