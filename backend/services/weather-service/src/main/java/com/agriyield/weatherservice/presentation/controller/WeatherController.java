@@ -4,6 +4,7 @@ import com.agriyield.weatherservice.application.port.incoming.WeatherServicePort
 import com.agriyield.weatherservice.domain.model.DroughtCondition;
 import com.agriyield.weatherservice.domain.model.WeatherAlert;
 import com.agriyield.weatherservice.domain.model.WeatherReading;
+import com.agriyield.weatherservice.domain.model.WeatherRisk;
 import com.agriyield.weatherservice.presentation.dto.response.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,16 +66,22 @@ public class WeatherController {
     @GetMapping("/risk/{farmId}")
     public ResponseEntity<ApiResponse<WeatherRiskResponse>> getWeatherRisk(
             @PathVariable UUID farmId) {
+
         log.info("GET /weather/risk/{}", farmId);
-        double score = weatherService.calculateWeatherRiskScore(farmId);
+
+        WeatherRisk risk = weatherService.calculateWeatherRiskScore(farmId);
+
         WeatherRiskResponse response = WeatherRiskResponse.builder()
                 .farmId(farmId)
-                .riskScore(score)
-                .riskLevel(WeatherRiskResponse.toRiskLevel(score))
+                .riskScore(risk.getScore())
+                .rainfallRisk(risk.getRainfallRisk())
+                .droughtRisk(risk.getDroughtRisk())
+                .ndviVolatility(risk.getNdviVolatility())
+                .riskLevel(WeatherRiskResponse.toRiskLevel(risk.getScore()))
                 .build();
+
         return ResponseEntity.ok(ApiResponse.success(response));
     }
-
     // WS-08: Get historical weather
     @GetMapping("/history/{farmId}")
     public ResponseEntity<ApiResponse<List<WeatherReadingResponse>>> getHistory(
@@ -98,11 +105,13 @@ public class WeatherController {
     // Manual trigger for testing
     @PostMapping("/fetch/{farmId}")
     public ResponseEntity<ApiResponse<String>> triggerWeatherFetch(
-            @PathVariable UUID farmId,
-            @RequestParam double lat,
-            @RequestParam double lng) {
+            @PathVariable UUID farmId) {
+
         log.info("POST /weather/fetch/{}", farmId);
-        weatherService.fetchAndStoreWeather(farmId, lat, lng);
-        return ResponseEntity.ok(ApiResponse.success("Weather fetch triggered"));
+
+        weatherService.fetchAndStoreWeather(farmId);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Weather fetch triggered"));
     }
 }
