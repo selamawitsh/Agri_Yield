@@ -15,14 +15,37 @@ public interface JpaWeatherReadingRepository extends JpaRepository<WeatherReadin
     List<WeatherReadingEntity> findByFarmIdOrderByRecordedDateDesc(UUID farmId);
 
     List<WeatherReadingEntity> findByFarmIdAndRecordedDateBetweenOrderByRecordedDateAsc(
-            UUID farmId, LocalDate from, LocalDate to);
+            UUID farmId,
+            LocalDate from,
+            LocalDate to
+    );
 
-    @Query("SELECT w FROM WeatherReadingEntity w WHERE w.farmId = :farmId AND w.forecastType = 'ACTUAL' ORDER BY w.recordedDate DESC")
-    Optional<WeatherReadingEntity> findLatestActualByFarmId(@Param("farmId") UUID farmId);
+    Optional<WeatherReadingEntity> findTopByFarmIdAndForecastTypeOrderByFetchedAtDesc(
+            UUID farmId,
+            String forecastType
+    );
 
-    @Query("SELECT w FROM WeatherReadingEntity w WHERE w.farmId = :farmId AND w.forecastType = 'FORECAST' ORDER BY w.forecastHorizonDays ASC")
-    List<WeatherReadingEntity> findForecastsByFarmId(@Param("farmId") UUID farmId);
+    @Query("""
+        SELECT w
+        FROM WeatherReadingEntity w
+        WHERE w.farmId = :farmId
+          AND w.forecastType = 'FORECAST'
+        ORDER BY w.forecastHorizonDays ASC
+    """)
+    List<WeatherReadingEntity> findForecastsByFarmId(
+            @Param("farmId") UUID farmId
+    );
 
-    @Query("SELECT COUNT(w) FROM WeatherReadingEntity w WHERE w.farmId = :farmId AND w.isDryDay = true AND w.recordedDate >= :since AND w.forecastType = 'ACTUAL'")
-    int countDryDaysSince(@Param("farmId") UUID farmId, @Param("since") LocalDate since);
+    @Query("""
+        SELECT COUNT(w)
+        FROM WeatherReadingEntity w
+        WHERE w.farmId = :farmId
+          AND w.isDryDay = true
+          AND w.recordedDate >= :since
+          AND w.forecastType = 'ACTUAL'
+    """)
+    int countDryDaysSince(
+            @Param("farmId") UUID farmId,
+            @Param("since") LocalDate since
+    );
 }
