@@ -29,8 +29,7 @@ public class WeatherScheduler {
 
         for (UUID farmId : farmIds) {
             try {
-                double[] coords = farmServiceClient.getFarmCoordinates(farmId);
-                weatherService.fetchAndStoreWeather(farmId, coords[0], coords[1]);
+                weatherService.fetchAndStoreWeather(farmId);
             } catch (Exception e) {
                 log.error("Failed to fetch weather for farm {}: {}", farmId, e.getMessage());
             }
