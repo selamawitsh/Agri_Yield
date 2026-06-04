@@ -3,26 +3,31 @@ import 'package:intl/intl.dart';
 import '../services/voucher_service.dart';
 import '../models/voucher_model.dart';
 import '../widgets/voucher_category_badge.dart';
- 
+
 class TransactionHistoryScreen extends StatefulWidget {
   const TransactionHistoryScreen({super.key});
- 
+
   @override
   State<TransactionHistoryScreen> createState() =>
       _TransactionHistoryScreenState();
 }
- 
-class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
+
+class _TransactionHistoryScreenState
+    extends State<TransactionHistoryScreen> {
   final _voucherService = VoucherService();
   List<MerchantRedemptionSummary> _items = [];
   bool _loading = true;
   String _filterStatus = 'ALL';
-  String _searchQuery = '';
-  final _searchCtrl = TextEditingController();
- 
+  String _searchQuery  = '';
+  final _searchCtrl    = TextEditingController();
+
+  // MS-08: date range filter — sent to backend as dateFrom / dateTo
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
+
   double get _totalEtb =>
-      _items.fold(0, (sum, r) => sum + r.amountEtb);
- 
+      _filtered.fold(0, (sum, r) => sum + r.amountEtb);
+
   List<MerchantRedemptionSummary> get _filtered {
     return _items.where((r) {
       final matchStatus =
@@ -34,41 +39,80 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           r.productDescription
               .toLowerCase()
               .contains(_searchQuery.toLowerCase()) ||
-          r.voucherId.toLowerCase().contains(_searchQuery.toLowerCase());
+          r.voucherId
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase());
       return matchStatus && matchSearch;
     }).toList();
   }
- 
+
   @override
   void initState() {
     super.initState();
     _load();
   }
- 
+
   @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
   }
- 
+
   Future<void> _load() async {
     setState(() => _loading = true);
-    final data = await _voucherService.getRedemptionHistory();
-    if (mounted) setState(() { _items = data; _loading = false; });
+    final data = await _voucherService.getRedemptionHistory(
+      dateFrom: _dateFrom != null
+          ? DateFormat('yyyy-MM-dd').format(_dateFrom!)
+          : null,
+      dateTo: _dateTo != null
+          ? DateFormat('yyyy-MM-dd').format(_dateTo!)
+          : null,
+    );
+    if (mounted) {
+      setState(() { _items = data; _loading = false; });
+    }
   }
- 
+
+  Future<void> _pickDateRange() async {
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+      initialDateRange: _dateFrom != null && _dateTo != null
+          ? DateTimeRange(start: _dateFrom!, end: _dateTo!)
+          : null,
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(primary: Colors.orange),
+        ),
+        child: child!,
+      ),
+    );
+    if (range != null) {
+      setState(() {
+        _dateFrom = range.start;
+        _dateTo   = range.end;
+      });
+      await _load();
+    }
+  }
+
+  void _clearDateRange() {
+    setState(() { _dateFrom = null; _dateTo = null; });
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final fmt = NumberFormat('#,##0.00');
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Redemption History'),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _load,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),
       body: Column(
@@ -79,16 +123,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.orange, Colors.deepOrange],
-              ),
+                  colors: [Colors.orange, Colors.deepOrange]),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _stat('Total Redeemed', _items.length.toString()),
+                _stat('Shown', _filtered.length.toString()),
                 _statDivider(),
-                _stat('Total Earned',
-                    'ETB ${NumberFormat('#,##0.00').format(_totalEtb)}'),
+                _stat('Total', 'ETB ${fmt.format(_totalEtb)}'),
                 _statDivider(),
                 _stat('This Month',
                     _items
@@ -99,16 +141,60 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               ],
             ),
           ),
- 
+
+          // Date range bar
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.orange.shade50,
+            child: Row(children: [
+              const Icon(Icons.date_range,
+                  color: Colors.orange, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: GestureDetector(
+                  onTap: _pickDateRange,
+                  child: Text(
+                    _dateFrom != null && _dateTo != null
+                        ? '${DateFormat('dd MMM').format(_dateFrom!)} - ${DateFormat('dd MMM yyyy').format(_dateTo!)}'
+                        : 'Filter by date range',
+                    style: TextStyle(
+                      color: _dateFrom != null
+                          ? Colors.orange.shade800
+                          : Colors.grey,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+              if (_dateFrom != null)
+                IconButton(
+                  icon: const Icon(Icons.close,
+                      size: 16, color: Colors.orange),
+                  onPressed: _clearDateRange,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              TextButton(
+                onPressed: _pickDateRange,
+                style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8)),
+                child: const Text('Select',
+                    style: TextStyle(
+                        color: Colors.orange, fontSize: 13)),
+              ),
+            ]),
+          ),
+
           // Search bar
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: TextField(
               controller: _searchCtrl,
               decoration: InputDecoration(
                 hintText: 'Search by farmer, product, or voucher ID',
-                hintStyle:
-                    const TextStyle(fontSize: 13, color: Colors.grey),
+                hintStyle: const TextStyle(
+                    fontSize: 13, color: Colors.grey),
                 prefixIcon:
                     const Icon(Icons.search, color: Colors.orange),
                 suffixIcon: _searchQuery.isNotEmpty
@@ -123,8 +209,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     borderRadius: BorderRadius.circular(10)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide:
-                      const BorderSide(color: Colors.orange, width: 2),
+                  borderSide: const BorderSide(
+                      color: Colors.orange, width: 2),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 10),
@@ -132,14 +218,15 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               onChanged: (v) => setState(() => _searchQuery = v),
             ),
           ),
- 
-          // Filter chips
+
+          // Status filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 10),
             child: Row(
-              children: ['ALL', 'COMPLETED', 'REJECTED'].map((s) {
+              children:
+                  ['ALL', 'COMPLETED', 'REJECTED'].map((s) {
                 final active = _filterStatus == s;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -148,32 +235,38 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     selected: active,
                     onSelected: (_) =>
                         setState(() => _filterStatus = s),
-                    selectedColor: Colors.orange.withOpacity(0.15),
+                    selectedColor:
+                        Colors.orange.withOpacity(0.15),
                     checkmarkColor: Colors.orange,
                     labelStyle: TextStyle(
-                      color: active ? Colors.orange : Colors.grey[700],
+                      color: active
+                          ? Colors.orange
+                          : Colors.grey[700],
                       fontSize: 12,
-                      fontWeight:
-                          active ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: active
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
                 );
               }).toList(),
             ),
           ),
- 
+
           // List
           Expanded(
             child: _loading
                 ? const Center(
-                    child: CircularProgressIndicator(color: Colors.orange))
+                    child: CircularProgressIndicator(
+                        color: Colors.orange))
                 : _filtered.isEmpty
                     ? _emptyState()
                     : RefreshIndicator(
                         onRefresh: _load,
                         color: Colors.orange,
                         child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          padding: const EdgeInsets.fromLTRB(
+                              16, 0, 16, 24),
                           itemCount: _filtered.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 8),
@@ -186,13 +279,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       ),
     );
   }
- 
+
   Widget _buildCard(MerchantRedemptionSummary r) {
     final isCompleted = r.status == 'COMPLETED';
+    final fmt = NumberFormat('#,##0.00');
     return Card(
       elevation: 1,
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => _showDetail(r),
@@ -201,85 +295,81 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      r.farmerName,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
+              Row(children: [
+                Expanded(
+                  child: Text(
+                    r.farmerName,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15),
                   ),
-                  Text(
-                    'ETB ${NumberFormat('#,##0.00').format(r.amountEtb)}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: isCompleted
-                          ? Colors.green[700]
-                          : Colors.red[700],
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                r.productDescription,
-                style: TextStyle(
-                    color: Colors.grey[600], fontSize: 13),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  VoucherCategoryBadge(
-                      category: r.productCategory, fontSize: 11),
-                  const Spacer(),
-                  Icon(
-                    isCompleted
-                        ? Icons.check_circle
-                        : Icons.cancel,
-                    size: 14,
+                ),
+                Text(
+                  'ETB ${fmt.format(r.amountEtb)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                     color: isCompleted
-                        ? Colors.green
-                        : Colors.red,
+                        ? Colors.green[700]
+                        : Colors.red[700],
+                    fontFamily: 'monospace',
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    r.status,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: isCompleted
-                          ? Colors.green[700]
-                          : Colors.red[700],
-                    ),
+                ),
+              ]),
+              const SizedBox(height: 6),
+              Text(r.productDescription,
+                  style: TextStyle(
+                      color: Colors.grey[600], fontSize: 13)),
+              const SizedBox(height: 10),
+              Row(children: [
+                VoucherCategoryBadge(
+                    category: r.productCategory, fontSize: 11),
+                const Spacer(),
+                Icon(
+                  isCompleted
+                      ? Icons.check_circle
+                      : Icons.cancel,
+                  size: 14,
+                  color:
+                      isCompleted ? Colors.green : Colors.red,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  r.status,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isCompleted
+                        ? Colors.green[700]
+                        : Colors.red[700],
                   ),
-                  const SizedBox(width: 12),
-                  Icon(Icons.access_time,
-                      size: 13, color: Colors.grey[400]),
-                  const SizedBox(width: 3),
-                  Text(
-                    _formatDate(r.redeemedAt),
-                    style: TextStyle(
-                        fontSize: 11, color: Colors.grey[500]),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 12),
+                Icon(Icons.access_time,
+                    size: 13, color: Colors.grey[400]),
+                const SizedBox(width: 3),
+                Text(
+                  _formatDate(r.redeemedAt),
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.grey[500]),
+                ),
+              ]),
             ],
           ),
         ),
       ),
     );
   }
- 
+
   void _showDetail(MerchantRedemptionSummary r) {
+    final fmt = NumberFormat('#,##0.00');
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.6,
@@ -292,7 +382,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             children: [
               Center(
                 child: Container(
-                  width: 36, height: 4,
+                  width: 36,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: Colors.grey[300],
                     borderRadius: BorderRadius.circular(2),
@@ -302,25 +393,30 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               const SizedBox(height: 20),
               const Text('Redemption Detail',
                   style: TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold)),
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
               _detailRow('Farmer', r.farmerName),
               _detailRow('Product', r.productDescription),
               _detailRow('Category', r.productCategory),
               _detailRow('Amount',
-                  'ETB ${NumberFormat('#,##0.00').format(r.amountEtb)}'),
+                  'ETB ${fmt.format(r.amountEtb)}'),
               _detailRow('Status', r.status),
               _detailRow('Redeemed At', r.redeemedAt),
-              _detailRow('Voucher ID', r.voucherId, mono: true),
-              _detailRow('Payment Ref', r.paymentReference, mono: true),
+              _detailRow('Voucher ID', r.voucherId,
+                  mono: true),
+              _detailRow(
+                  'Payment Ref', r.paymentReference,
+                  mono: true),
             ],
           ),
         ),
       ),
     );
   }
- 
-  Widget _detailRow(String label, String value, {bool mono = false}) {
+
+  Widget _detailRow(String label, String value,
+      {bool mono = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -346,7 +442,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       ),
     );
   }
- 
+
   Widget _emptyState() => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -357,13 +453,16 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             Text(
               _searchQuery.isNotEmpty
                   ? 'No results for "$_searchQuery"'
-                  : 'No redemptions yet',
-              style: TextStyle(color: Colors.grey[400], fontSize: 15),
+                  : _dateFrom != null
+                      ? 'No redemptions in selected date range'
+                      : 'No redemptions yet',
+              style: TextStyle(
+                  color: Colors.grey[400], fontSize: 15),
             ),
           ],
         ),
       );
- 
+
   Widget _stat(String label, String value) => Column(
         children: [
           Text(value,
@@ -376,12 +475,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   color: Colors.white70, fontSize: 11)),
         ],
       );
- 
+
   Widget _statDivider() => Container(
-      height: 30,
-      width: 0.5,
-      color: Colors.white38);
- 
+      height: 30, width: 0.5, color: Colors.white38);
+
   String _formatDate(String raw) {
     try {
       final dt = DateTime.parse(raw);

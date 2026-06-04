@@ -13,6 +13,8 @@ import 'screens/transaction_history_screen.dart';
 import 'screens/price_transparency_screen.dart';
 import 'screens/wallet_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/voucher_dashboard_screen.dart';
+import 'screens/voucher_verify_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,7 +41,9 @@ class MyApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      supportedLocales: const [Locale('am'), Locale('om'), Locale('en')],
+      supportedLocales: const [
+        Locale('am'), Locale('om'), Locale('en'),
+      ],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -47,16 +51,18 @@ class MyApp extends StatelessWidget {
       ],
       home: const SplashScreen(),
       routes: {
-        '/login':               (_) => const LoginScreen(),
-        '/register':            (_) => const RegisterScreen(),
-        '/home':                (_) => const HomeScreen(),
-        '/scanner':             (_) => const ScannerScreen(),
-        '/products':            (_) => const ProductsScreen(),
-        '/analytics':           (_) => const AnalyticsScreen(),
-        '/history':             (_) => const TransactionHistoryScreen(),
-        '/prices':              (_) => const PriceTransparencyScreen(),
-        '/wallet':              (_) => const WalletScreen(),
-        '/profile':             (_) => const ProfileScreen(),
+        '/login':           (_) => const LoginScreen(),
+        '/register':        (_) => const RegisterScreen(),
+        '/home':            (_) => const HomeScreen(),
+        '/scanner':         (_) => const ScannerScreen(),
+        '/products':        (_) => const ProductsScreen(),
+        '/analytics':       (_) => const AnalyticsScreen(),
+        '/history':         (_) => const TransactionHistoryScreen(),
+        '/prices':          (_) => const PriceTransparencyScreen(),
+        '/wallet':          (_) => const WalletScreen(),
+        '/profile':         (_) => const ProfileScreen(),
+        '/vouchers':        (_) => const VoucherDashboardScreen(),
+        '/verify-voucher':  (_) => const VoucherVerifyScreen(),
       },
     );
   }
