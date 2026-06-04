@@ -9,6 +9,7 @@ import com.agriyield.geospatialservice.presentation.dto.response.ApiResponse;
 import com.agriyield.geospatialservice.presentation.dto.response.FarmMapResponse;
 import com.agriyield.geospatialservice.presentation.dto.response.NdviReadingResponse;
 import com.agriyield.geospatialservice.presentation.dto.response.YieldPredictionResponse;
+import com.agriyield.geospatialservice.presentation.dto.response.DigitalTwinResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -146,5 +147,114 @@ public class GeospatialController {
             .modelVersion(p.getModelVersion())
             .predictedAt(p.getPredictedAt())
             .build();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+// ADD THIS METHOD to GeospatialController.java
+//
+// 1. Add this import at the top of GeospatialController.java:
+//
+//
+// 2. Paste this method after the getFarmMap() method.
+// ═══════════════════════════════════════════════════════════════════════════
+
+    // ── GS-06: Digital Twin ───────────────────────────────────────────────────
+    // Returns a full composite snapshot of the farm combining:
+    //   spatial layer   → GeoJSON polygon, area, satellite verification
+    //   NDVI layer      → current value, health, 30-day time series, trend
+    //   weather layer   → rainfall, temperature, drought risk
+    //   yield layer     → predicted harvest range and confidence
+    //   harvest layer   → readiness signal and estimated window
+    //
+    // Consumers: farmer Flutter app (farm detail screen),
+    //            investor Next.js dashboard (portfolio farm card),
+    //            offtaker dashboard (procurement planning)
+    @GetMapping("/farms/{farmId}/digital-twin")
+    public ResponseEntity<ApiResponse<DigitalTwinResponse>> getDigitalTwin(
+            @RequestHeader("Authorization") String auth,
+            @PathVariable UUID farmId) {
+
+        log.info("GET /geospatial/farms/{}/digital-twin", farmId);
+
+        GeospatialServicePort.DigitalTwinData twin =
+                geospatialService.getDigitalTwin(farmId);
+
+        DigitalTwinResponse response = toDigitalTwinResponse(twin);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    // ── Mapping helper ────────────────────────────────────────────────────────
+
+    private DigitalTwinResponse toDigitalTwinResponse(
+            GeospatialServicePort.DigitalTwinData d) {
+
+        // Spatial layer
+        DigitalTwinResponse.SpatialLayer spatial = DigitalTwinResponse.SpatialLayer.builder()
+                .geoJsonPolygon(d.spatialLayer().geoJsonPolygon())
+                .centroidLat(d.spatialLayer().centroidLat())
+                .centroidLng(d.spatialLayer().centroidLng())
+                .areaHectares(d.spatialLayer().areaHectares())
+                .satelliteVerified(d.spatialLayer().satelliteVerified())
+                .build();
+
+        // NDVI layer — map NdviPoint records to DTO
+        List<DigitalTwinResponse.NdviPoint> ndviPoints = d.ndviLayer().timeSeries()
+                .stream()
+                .map(p -> DigitalTwinResponse.NdviPoint.builder()
+                        .date(p.date())
+                        .ndviValue(p.ndviValue())
+                        .healthStatus(p.healthStatus())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+
+        DigitalTwinResponse.NdviLayer ndvi = DigitalTwinResponse.NdviLayer.builder()
+                .currentNdvi(d.ndviLayer().currentNdvi())
+                .healthStatus(d.ndviLayer().healthStatus())
+                .peakNdvi30Days(d.ndviLayer().peakNdvi30Days())
+                .ndviTrend(d.ndviLayer().ndviTrend())
+                .timeSeries(ndviPoints)
+                .build();
+
+        // Weather layer
+        DigitalTwinResponse.WeatherLayer weather = DigitalTwinResponse.WeatherLayer.builder()
+                .totalRainfallMm30Days(d.weatherLayer().totalRainfallMm30Days())
+                .avgTempC(d.weatherLayer().avgTempC())
+                .droughtRiskScore(d.weatherLayer().droughtRiskScore())
+                .weatherRiskLevel(d.weatherLayer().weatherRiskLevel())
+                .droughtTriggered(d.weatherLayer().droughtTriggered())
+                .build();
+
+        // Yield layer
+        DigitalTwinResponse.YieldLayer yield = DigitalTwinResponse.YieldLayer.builder()
+                .predictedYieldMinQuintals(d.yieldLayer().predictedYieldMinQuintals())
+                .predictedYieldMaxQuintals(d.yieldLayer().predictedYieldMaxQuintals())
+                .predictedYieldMeanQuintals(d.yieldLayer().predictedYieldMeanQuintals())
+                .confidencePct(d.yieldLayer().confidencePct())
+                .weeksToHarvest(d.yieldLayer().weeksToHarvest())
+                .modelVersion(d.yieldLayer().modelVersion())
+                .build();
+
+        // Harvest layer
+        DigitalTwinResponse.HarvestLayer harvest = DigitalTwinResponse.HarvestLayer.builder()
+                .harvestReady(d.harvestLayer().harvestReady())
+                .estimatedHarvestFrom(d.harvestLayer().estimatedHarvestFrom())
+                .estimatedHarvestTo(d.harvestLayer().estimatedHarvestTo())
+                .readinessSignal(d.harvestLayer().readinessSignal())
+                .build();
+
+        return DigitalTwinResponse.builder()
+                .farmId(d.farmId())
+                .cropType(d.cropType())
+                .region(d.region())
+                .seasonName(d.seasonName())
+                .cropCycleStatus(d.cropCycleStatus())
+                .agriScore(d.agriScore())
+                .spatialLayer(spatial)
+                .ndviLayer(ndvi)
+                .weatherLayer(weather)
+                .yieldLayer(yield)
+                .harvestLayer(harvest)
+                .generatedAt(d.generatedAt())
+                .build();
     }
 }
