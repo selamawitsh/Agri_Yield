@@ -13,4 +13,6 @@ public interface FarmBoundaryRepositoryPort {
     Optional<FarmBoundary> findByFarmId(UUID farmId);
 
     List<FarmBoundary> findAll();
+
+    List<FarmBoundary> findNearby(double lat, double lng, double radiusKm);
 }
