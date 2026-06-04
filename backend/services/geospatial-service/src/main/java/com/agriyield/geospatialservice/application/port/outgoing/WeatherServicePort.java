@@ -9,6 +9,7 @@ public interface WeatherServicePort {
         double avgTempC,
         int consecutiveDryDays,
         double weatherRiskScore
+
     ) {}
 
     WeatherContext getWeatherContext(UUID farmId);
