@@ -9,6 +9,7 @@ import com.agriyield.weatherservice.domain.exception.BusinessException;
 import com.agriyield.weatherservice.domain.model.DroughtCondition;
 import com.agriyield.weatherservice.domain.model.WeatherAlert;
 import com.agriyield.weatherservice.domain.model.WeatherReading;
+import com.agriyield.weatherservice.domain.model.WeatherRisk;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -80,27 +81,38 @@ public class WeatherServiceImpl implements WeatherServicePort {
 
     // WS-07
     @Override
-    public double calculateWeatherRiskScore(UUID farmId) {
+    public WeatherRisk calculateWeatherRiskScore(UUID farmId) {
+
         log.info("Calculating weather risk score for farm: {}", farmId);
+
         DroughtCondition drought = droughtConditionRepository.findOrCreateByFarmId(farmId);
 
-        // Rainfall risk: 0-40 points
+        // Rainfall risk (0 - 40)
         int dryDaysLast30 = weatherReadingRepository.countDryDaysSince(
                 farmId, LocalDate.now().minusDays(30));
+
         double rainfallRisk = Math.min(40.0, dryDaysLast30 * 1.33);
 
-        // Drought risk: 0-40 points
-        double droughtRisk = drought.isTriggered() ? 40.0
+        // Drought risk (0 - 40)
+        double droughtRisk = drought.isTriggered()
+                ? 40.0
                 : (drought.getConsecutiveDryDays() / (double) droughtThresholdDays) * 40.0;
 
-        // NDVI volatility placeholder: 0-20 points
+        // NDVI volatility (0 - 20)
         double ndviVolatility = 10.0;
 
         double total = rainfallRisk + droughtRisk + ndviVolatility;
-        log.info("Weather risk score for farm {}: {}", farmId, total);
-        return Math.min(100.0, total);
-    }
+        double score = Math.min(100.0, total);
 
+        log.info("Weather risk score for farm {}: {}", farmId, score);
+
+        return WeatherRisk.builder()
+                .rainfallRisk(rainfallRisk)
+                .droughtRisk(droughtRisk)
+                .ndviVolatility(ndviVolatility)
+                .score(score)
+                .build();
+    }
     // WS-08
     @Override
     public List<WeatherReading> getHistoricalWeather(UUID farmId) {
@@ -118,19 +130,42 @@ public class WeatherServiceImpl implements WeatherServicePort {
 
     @Override
     @Transactional
-    public void fetchAndStoreWeather(UUID farmId, double lat, double lng) {
-        log.info("Fetching weather for farm: {} at [{},{}]", farmId, lat, lng);
+    public void fetchAndStoreWeather(UUID farmId) {
+
         try {
-            WeatherReading current = openWeatherClient.fetchCurrentWeather(lat, lng);
+
+            double[] coords =
+                    farmServiceClient.getFarmCoordinates(farmId);
+
+            double lat = coords[0];
+            double lng = coords[1];
+
+            log.info(
+                    "Fetching weather for farm {} at [{}, {}]",
+                    farmId,
+                    lat,
+                    lng
+            );
+
+            WeatherReading current =
+                    openWeatherClient.fetchCurrentWeather(lat, lng);
+
             current.setFarmId(farmId);
             current.setForecastType(ForecastType.ACTUAL);
+
             weatherReadingRepository.save(current);
 
-            // Check alert conditions
             checkAndCreateAlerts(farmId, current);
 
         } catch (Exception e) {
-            log.error("Failed to fetch weather for farm {}: {}", farmId, e.getMessage());
+
+            log.error(
+                    "Failed to fetch weather for farm {}",
+                    farmId,
+                    e
+            );
+
+            throw e;
         }
     }
 
