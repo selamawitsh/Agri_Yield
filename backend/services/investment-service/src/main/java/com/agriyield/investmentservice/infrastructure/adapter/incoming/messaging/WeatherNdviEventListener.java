@@ -123,6 +123,26 @@ public class WeatherNdviEventListener {
         }
     }
 
+    // ── Yield Predicted (SRS §5.2: yield.predicted from geospatial.exchange) ────
+    @RabbitListener(bindings = @QueueBinding(
+        value = @Queue(value = "investment.yield-predicted.queue", durable = "true"),
+        exchange = @Exchange(value = "geospatial.exchange", type = ExchangeTypes.TOPIC, durable = "true"),
+        key = "yield.predicted"
+    ))
+    public void onYieldPredicted(Map<String, Object> event) {
+        log.info("IS: received yield.predicted event: {}", event);
+        try {
+            String farmId = (String) event.get("farm_id");
+            if (farmId == null) return;
+            // Yield prediction is informational for investors — no APR change needed
+            // Just log it; frontend fetches via geospatial REST endpoint
+            log.info("IS: yield prediction received for farm={} mean={}",
+                farmId, event.get("predicted_mean_quintals"));
+        } catch (Exception e) {
+            log.error("IS: failed processing yield.predicted: {}", e.getMessage(), e);
+        }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
     private void updateListingsForFarm(UUID farmId,
                                        BigDecimal ndviBonus,
