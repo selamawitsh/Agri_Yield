@@ -19,6 +19,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 
 @Slf4j
 @Service
@@ -534,5 +536,199 @@ public class GeospatialServiceImpl implements GeospatialServicePort {
             if (GeoJsonPolygonUtils.isPointInPolygon(lat, lng, b)) inside++;
         }
         return total > 0 ? (inside * 100.0) / total : 0;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+// ADD THIS METHOD to GeospatialServiceImpl.java
+//
+// Place it after the getFarmMap() method, before the private helpers section.
+// Also add these imports to the top of GeospatialServiceImpl.java:
+//
+
+//
+// The method uses WeatherServicePort which is already injected as weatherService.
+// ═══════════════════════════════════════════════════════════════════════════
+
+    // ── GS-06: Digital Twin ───────────────────────────────────────────────────
+    @Override
+    public DigitalTwinData getDigitalTwin(UUID farmId) {
+        log.info("GS: getDigitalTwin farm={}", farmId);
+
+        // ── Layer 1: Farm context (from farm-service via gRPC) ────────────────
+        FarmServicePort.FarmInfo farm;
+        try {
+            farm = farmService.getFarmContext(farmId);
+        } catch (Exception e) {
+            log.warn("GS: digital twin — could not load farm context for farm={}: {}",
+                    farmId, e.getMessage());
+            throw e;
+        }
+
+        // ── Layer 2: Spatial layer (from MongoDB farm_boundaries) ─────────────
+        DigitalTwinSpatialLayer spatialLayer;
+        try {
+            FarmBoundary boundary = boundaryRepository.findByFarmId(farmId)
+                    .orElse(null);
+            if (boundary != null) {
+                spatialLayer = new DigitalTwinSpatialLayer(
+                        boundary.getGeoJsonPolygon(),
+                        boundary.getCentroidLat(),
+                        boundary.getCentroidLng(),
+                        boundary.getAreaSqKm() * 100.0,
+                        boundary.isSatelliteVerified()
+                );
+            } else {
+                spatialLayer = new DigitalTwinSpatialLayer(
+                        null,
+                        farm.gpsCentroidLat(),
+                        farm.gpsCentroidLng(),
+                        farm.areaHectares(),
+                        false
+                );
+            }
+        } catch (Exception e) {
+            log.warn("GS: digital twin — no spatial data for farm={}", farmId);
+            spatialLayer = new DigitalTwinSpatialLayer(
+                    null, farm.gpsCentroidLat(), farm.gpsCentroidLng(),
+                    farm.areaHectares(), false);
+        }
+
+        // ── Layer 3: NDVI layer (from MongoDB ndvi_readings) ──────────────────
+        DigitalTwinNdviLayer ndviLayer;
+        try {
+            List<NdviReading> series = ndviRepository
+                    .findByFarmIdOrderByDateDesc(farmId, 30);
+
+            double currentNdvi  = 0.0;
+            String healthStatus = "UNKNOWN";
+            double peakNdvi     = 0.0;
+            double ndviTrend    = 0.0;
+
+            if (!series.isEmpty()) {
+                // series is newest-first — reverse for trend calculation
+                NdviReading newest = series.get(0);
+                currentNdvi  = newest.getNdviValue();
+                healthStatus = newest.getHealthStatus();
+                peakNdvi     = series.stream()
+                        .mapToDouble(NdviReading::getNdviValue)
+                        .max().orElse(currentNdvi);
+
+                // Trend = change per day over the 30-day window
+                if (series.size() >= 2) {
+                    NdviReading oldest = series.get(series.size() - 1);
+                    long days = java.time.temporal.ChronoUnit.DAYS.between(
+                            oldest.getRecordedDate(), newest.getRecordedDate());
+                    if (days > 0) {
+                        ndviTrend = (newest.getNdviValue() - oldest.getNdviValue()) / days;
+                        ndviTrend = Math.round(ndviTrend * 10000.0) / 10000.0;
+                    }
+                }
+            }
+
+            // Build time series oldest-first for chart rendering on frontend
+            List<NdviPoint> timeSeries = series.stream()
+                    .sorted(Comparator.comparing(NdviReading::getRecordedDate))
+                    .map(r -> new NdviPoint(
+                            r.getRecordedDate().toString(),
+                            r.getNdviValue(),
+                            r.getHealthStatus()))
+                    .collect(java.util.stream.Collectors.toList());
+
+            ndviLayer = new DigitalTwinNdviLayer(
+                    currentNdvi, healthStatus, peakNdvi, ndviTrend, timeSeries);
+
+        } catch (Exception e) {
+            log.warn("GS: digital twin — no NDVI data for farm={}: {}", farmId, e.getMessage());
+            ndviLayer = new DigitalTwinNdviLayer(0.0, "UNKNOWN", 0.0, 0.0,
+                    java.util.Collections.emptyList());
+        }
+
+        // Layer 4: Weather layer (from weather-service via gRPC)
+        DigitalTwinWeatherLayer weatherLayer;
+        try {
+            WeatherServicePort.WeatherContext weather =
+                    weatherService.getWeatherContext(farmId);
+
+            int riskScore = (int) Math.round(weather.weatherRiskScore());
+
+            String riskLevel = riskScore >= 60
+                    ? "HIGH"
+                    : riskScore >= 30
+                      ? "MEDIUM"
+                      : "LOW";
+
+            weatherLayer = new DigitalTwinWeatherLayer(
+                    weather.totalRainfallMm(),
+                    weather.avgTempC(),
+                    riskScore,
+                    riskLevel,
+                    riskScore >= 60
+            );
+
+        } catch (Exception e) {
+            log.warn(
+                    "GS: digital twin - weather data unavailable for farm={}: {}",
+                    farmId,
+                    e.getMessage()
+            );
+
+            weatherLayer = new DigitalTwinWeatherLayer(
+                    0.0,
+                    0.0,
+                    0,
+                    "UNKNOWN",
+                    false
+            );
+        }
+
+        // ── Layer 5: Yield layer (from MongoDB yield_predictions) ─────────────
+        DigitalTwinYieldLayer yieldLayer;
+        try {
+            yieldLayer = yieldRepository.findLatestByFarmId(farmId)
+                    .map(y -> new DigitalTwinYieldLayer(
+                            y.getTotalYieldMinQuintals(),
+                            y.getTotalYieldMaxQuintals(),
+                            y.getTotalYieldMeanQuintals(),
+                            y.getConfidencePct(),
+                            y.getWeeksToHarvest(),
+                            y.getModelVersion()))
+                    .orElse(new DigitalTwinYieldLayer(
+                            0, 0, 0, 0, 0, "NOT_AVAILABLE"));
+        } catch (Exception e) {
+            log.warn("GS: digital twin — no yield prediction for farm={}", farmId);
+            yieldLayer = new DigitalTwinYieldLayer(0, 0, 0, 0, 0, "NOT_AVAILABLE");
+        }
+
+        // ── Layer 6: Harvest readiness layer ──────────────────────────────────
+        DigitalTwinHarvestLayer harvestLayer;
+        try {
+            HarvestReadinessResult readiness = predictHarvestReadiness(farmId);
+            harvestLayer = new DigitalTwinHarvestLayer(
+                    readiness.ready(),
+                    readiness.estimatedDateFrom(),
+                    readiness.estimatedDateTo(),
+                    readiness.readinessSignal()
+            );
+        } catch (Exception e) {
+            log.warn("GS: digital twin — harvest readiness unavailable for farm={}", farmId);
+            harvestLayer = new DigitalTwinHarvestLayer(
+                    false, null, null, "INSUFFICIENT_DATA");
+        }
+
+        // ── Assemble and return ───────────────────────────────────────────────
+        return new DigitalTwinData(
+                farmId,
+                farm.cropType(),
+                farm.region(),
+                farm.seasonName(),
+                farm.cropCycleStatus(),
+                farm.agriScore(),
+                spatialLayer,
+                ndviLayer,
+                weatherLayer,
+                yieldLayer,
+                harvestLayer,
+                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        );
     }
 }
