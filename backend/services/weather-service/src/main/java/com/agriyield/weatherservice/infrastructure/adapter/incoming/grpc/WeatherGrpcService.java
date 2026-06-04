@@ -3,6 +3,8 @@ package com.agriyield.weatherservice.infrastructure.adapter.incoming.grpc;
 import com.agriyield.weatherservice.application.port.incoming.WeatherServicePort;
 import com.agriyield.weatherservice.domain.model.DroughtCondition;
 import com.agriyield.weatherservice.domain.model.WeatherReading;
+import com.agriyield.weatherservice.domain.model.WeatherRisk;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.service.GrpcService;
@@ -34,7 +36,7 @@ public class WeatherGrpcService extends WeatherServiceGrpc.WeatherServiceImplBas
         return weatherService.getDroughtStatus(farmId);
     }
 
-    public double getWeatherRisk(UUID farmId) {
+    public WeatherRisk getWeatherRisk(UUID farmId) {
         log.info("gRPC GetWeatherRisk farmId={}", farmId);
         return weatherService.calculateWeatherRiskScore(farmId);
     }
