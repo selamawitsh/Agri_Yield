@@ -10,14 +10,26 @@ import StatusBadge from '@/components/StatusBadge';
 import FundingProgress from '@/components/FundingProgress';
 import { FarmListing } from '@/lib/types';
 
-const CROP_TYPES = ['', 'WHEAT', 'TEFF', 'BARLEY', 'MAIZE', 'SORGHUM', 'COFFEE', 'BEANS', 'MILLET'];
-const REGIONS = ['', 'Oromia', 'Amhara', 'SNNPR', 'Tigray', 'Somali', 'Afar'];
+const CROP_TYPES = ['WHEAT', 'TEFF', 'BARLEY', 'MAIZE', 'SORGHUM', 'COFFEE', 'BEANS', 'MILLET'];
+const REGIONS = ['Oromia', 'Amhara', 'SNNPR', 'Tigray', 'Somali', 'Afar'];
+const PAGE_SIZE = 9;
+
+function daysRemaining(deadline: string | null): string {
+  if (!deadline) return '—';
+  const diff = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
+  if (diff <= 0) return 'Expired';
+  return `${diff}d left`;
+}
 
 export default function ListingsPage() {
   const router = useRouter();
   const [listings, setListings] = useState<FarmListing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ cropType: '', region: '', minApr: '', maxApr: '' });
+  const [page, setPage] = useState(0);
+  const [filters, setFilters] = useState({
+    cropType: '', region: '', minApr: '', maxApr: '',
+    minAgriScore: '',         // SRS: Agri-Score minimum filter
+  });
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -33,161 +45,178 @@ export default function ListingsPage() {
       if (filters.region) params.append('region', filters.region);
       if (filters.minApr) params.append('minApr', filters.minApr);
       if (filters.maxApr) params.append('maxApr', filters.maxApr);
-
-      const response = await api.get(`/listings?${params.toString()}`);
-      if (response.data.success) {
-        setListings(response.data.data);
+      const res = await api.get(`/listings?${params}`);
+      if (res.data.success) {
+        let data: FarmListing[] = res.data.data || [];
+        // Client-side Agri-Score filter (backend doesn't support it yet)
+        if (filters.minAgriScore) data = data.filter(l => l.agriScore >= parseInt(filters.minAgriScore));
+        setListings(data);
+        setPage(0);
       }
-    } catch (error) {
-      toast.error('Failed to load listings');
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error('Failed to load listings'); }
+    finally { setLoading(false); }
   };
 
-  const handleFilterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchListings();
-  };
-
-  const handleFilterReset = () => {
-    setFilters({ cropType: '', region: '', minApr: '', maxApr: '' });
+  const handleReset = () => {
+    setFilters({ cropType: '', region: '', minApr: '', maxApr: '', minAgriScore: '' });
     setTimeout(fetchListings, 0);
   };
 
-  return (
-      <div className="min-h-screen bg-gray-50 pb-12">
-        <Navbar />
-        <div className="container mx-auto px-4 sm:px-6 py-6 max-w-6xl">
+  const paginated = listings.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalPages = Math.ceil(listings.length / PAGE_SIZE);
 
-          <div className="mb-8 flex justify-between items-end">
-            <div>
-              <h1 className="text-3xl font-bold text-emerald-950 tracking-tight">Map Field</h1>
-              <p className="text-gray-500 mt-2 font-medium">Browse and discover active premium plots</p>
+  return (
+    <div className="min-h-screen bg-gray-50 pb-12">
+      <Navbar />
+      <div className="container mx-auto px-4 sm:px-6 py-6 max-w-6xl">
+
+        <div className="mb-6 flex justify-between items-end">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Farm Listings</h1>
+            <p className="text-gray-500 mt-1">Browse and invest in active agricultural plots</p>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <select value={filters.cropType} onChange={e => setFilters({ ...filters, cropType: e.target.value })}
+              className="px-4 py-3 bg-gray-50 rounded-xl text-sm font-medium text-gray-700 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="">All Crops</option>
+              {CROP_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select value={filters.region} onChange={e => setFilters({ ...filters, region: e.target.value })}
+              className="px-4 py-3 bg-gray-50 rounded-xl text-sm font-medium text-gray-700 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="">All Regions</option>
+              {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <input type="number" step="0.1" value={filters.minApr}
+              onChange={e => setFilters({ ...filters, minApr: e.target.value })}
+              placeholder="Min APR %"
+              className="px-4 py-3 bg-gray-50 rounded-xl text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500" />
+            <input type="number" step="0.1" value={filters.maxApr}
+              onChange={e => setFilters({ ...filters, maxApr: e.target.value })}
+              placeholder="Max APR %"
+              className="px-4 py-3 bg-gray-50 rounded-xl text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500" />
+            {/* Agri-Score minimum — SRS requirement */}
+            <input type="number" value={filters.minAgriScore}
+              onChange={e => setFilters({ ...filters, minAgriScore: e.target.value })}
+              placeholder="Min Agri-Score"
+              className="px-4 py-3 bg-gray-50 rounded-xl text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500" />
+            <div className="flex gap-2">
+              <button onClick={handleReset}
+                className="flex-1 bg-gray-100 text-gray-600 px-3 py-3 rounded-xl text-sm font-semibold hover:bg-gray-200 transition">
+                Clear
+              </button>
+              <button onClick={fetchListings}
+                className="flex-1 bg-green-700 text-white px-3 py-3 rounded-xl text-sm font-semibold hover:bg-green-600 transition">
+                Search
+              </button>
             </div>
           </div>
+        </div>
 
-          {/* Filters Panel */}
-          <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-6 mb-8">
-            <form onSubmit={handleFilterSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Filter inputs styled as rounded pills like the map search bar */}
-                <div>
-                  <select value={filters.cropType}
-                          onChange={(e) => setFilters({ ...filters, cropType: e.target.value })}
-                          className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-full text-sm font-semibold text-emerald-950 focus:ring-2 focus:ring-emerald-900 appearance-none">
-                    <option value="">All Crops</option>
-                    {CROP_TYPES.filter(c=>c).map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <select value={filters.region}
-                          onChange={(e) => setFilters({ ...filters, region: e.target.value })}
-                          className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-full text-sm font-semibold text-emerald-950 focus:ring-2 focus:ring-emerald-900 appearance-none">
-                    <option value="">All Regions</option>
-                    {REGIONS.filter(r=>r).map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <input type="number" step="0.1" value={filters.minApr}
-                         onChange={(e) => setFilters({ ...filters, minApr: e.target.value })}
-                         placeholder="Min APR %"
-                         className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-full text-sm font-semibold text-emerald-950 focus:ring-2 focus:ring-emerald-900 placeholder-gray-400" />
-                </div>
-                <div>
-                  <input type="number" step="0.1" value={filters.maxApr}
-                         onChange={(e) => setFilters({ ...filters, maxApr: e.target.value })}
-                         placeholder="Max APR %"
-                         className="w-full px-5 py-3.5 bg-gray-50 border-none rounded-full text-sm font-semibold text-emerald-950 focus:ring-2 focus:ring-emerald-900 placeholder-gray-400" />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <button type="button" onClick={handleFilterReset}
-                        className="bg-gray-100 text-emerald-950 px-6 py-3 rounded-full text-sm font-bold hover:bg-gray-200 transition">
-                  Clear
-                </button>
-                <button type="submit"
-                        className="bg-emerald-950 text-white px-8 py-3 rounded-full text-sm font-bold shadow-md hover:bg-emerald-900 transition">
-                  Search Fields
-                </button>
-              </div>
-            </form>
+        {loading ? (
+          <div className="flex justify-center py-24">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-green-700" />
           </div>
-
-          {/* Results */}
-          {loading ? (
-              <div className="flex justify-center py-24">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-emerald-950" />
-              </div>
-          ) : listings.length === 0 ? (
-              <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-16 text-center">
-                <p className="text-6xl mb-4">🔍</p>
-                <p className="text-emerald-950 font-bold text-xl">No fields found</p>
-                <p className="text-gray-400 font-medium mt-2">Adjust your filters to see more results</p>
-              </div>
-          ) : (
-              <>
-                <p className="text-sm font-semibold text-gray-500 mb-6 pl-2">{listings.length} plot{listings.length !== 1 ? 's' : ''} available right now</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {listings.map((listing) => (
-                      <div key={listing.id} className="bg-white rounded-[2rem] shadow-sm border border-gray-100 hover:shadow-md transition overflow-hidden group">
-                        {/* Card Header (Image representation) */}
-                        <div className="relative h-32 bg-emerald-900 overflow-hidden">
-                          <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1625246333195-78d9c38ad449?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-60 group-hover:scale-105 transition duration-500"></div>
-                          <div className="absolute top-4 right-4">
-                       <span className="bg-lime-200 text-emerald-950 font-bold text-xs px-3 py-1.5 rounded-full shadow-sm">
+        ) : listings.length === 0 ? (
+          <div className="bg-white rounded-3xl p-16 text-center border border-gray-100">
+            <p className="text-5xl mb-4">🔍</p>
+            <p className="text-gray-700 font-bold text-xl">No fields found</p>
+            <p className="text-gray-400 mt-2">Adjust your filters</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm font-semibold text-gray-400 mb-5 pl-1">
+              {listings.length} listing{listings.length !== 1 ? 's' : ''} · Page {page + 1} of {totalPages}
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {paginated.map(listing => (
+                <div key={listing.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition overflow-hidden group">
+                  <div className="relative h-28 bg-emerald-900 overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1625246333195-78d9c38ad449?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-50 group-hover:scale-105 transition duration-500" />
+                    <div className="absolute top-3 right-3">
+                      <span className="bg-lime-300 text-emerald-950 font-bold text-xs px-2.5 py-1 rounded-full shadow">
                         {listing.currentApr}% APR
                       </span>
-                          </div>
-                        </div>
+                    </div>
+                    {/* Days remaining badge — SRS requirement */}
+                    <div className="absolute top-3 left-3">
+                      <span className="bg-black/40 text-white text-xs px-2.5 py-1 rounded-full font-medium">
+                        ⏱ {daysRemaining(listing.fundingDeadline)}
+                      </span>
+                    </div>
+                  </div>
 
-                        {/* Body */}
-                        <div className="p-6 relative">
-                          {/* Floating Icon */}
-                          <div className="absolute -top-8 left-6 w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm text-2xl border border-gray-50">
-                            🌾
-                          </div>
-
-                          <div className="mt-6 mb-4">
-                            <h3 className="font-bold text-lg text-emerald-950">{listing.cropType} Field</h3>
-                            <p className="text-gray-500 text-sm font-medium mt-1">📍 {listing.region} • {listing.kebeleCode}</p>
-                          </div>
-
-                          <div className="flex justify-between items-center mb-5 bg-gray-50 p-2 rounded-full border border-gray-100">
-                            <StatusBadge status={listing.status} />
-                            <span className="text-xs font-bold text-gray-500 px-2">{listing.seasonName}</span>
-                          </div>
-
-                          <div className="mb-5">
-                            <FundingProgress
-                                funded={listing.fundedAmountEtb}
-                                total={listing.totalAmountEtb}
-                                pct={listing.fundingPct}
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4 mt-2 text-sm border-t border-gray-100 pt-5">
-                            <div>
-                              <p className="text-gray-400 text-xs font-semibold uppercase">Capacity</p>
-                              <p className="font-bold text-emerald-950 mt-1">{listing.totalAmountEtb.toLocaleString()} ETB</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-400 text-xs font-semibold uppercase">Agri-Score</p>
-                              <p className="font-bold text-lime-700 mt-1">{listing.agriScore} / 900</p>
-                            </div>
-                          </div>
-
-                          <Link href={`/listings/${listing.id}`}
-                                className="mt-6 block w-full text-center bg-emerald-950 text-white py-3.5 rounded-full text-sm font-bold hover:bg-emerald-900 transition shadow-sm">
-                            View Details
-                          </Link>
-                        </div>
+                  <div className="p-5">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="font-bold text-gray-900">{listing.cropType} — {listing.region}</h3>
+                        <p className="text-gray-400 text-xs mt-0.5">{listing.kebeleCode} · {listing.seasonName}</p>
                       </div>
-                  ))}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      <StatusBadge status={listing.status} />
+                      {/* Agri-Score badge — SRS */}
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        listing.agriScore >= 700 ? 'bg-green-100 text-green-700' :
+                        listing.agriScore >= 500 ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        ★ {listing.agriScore}/900
+                      </span>
+                    </div>
+
+                    <div className="mb-4">
+                      <FundingProgress funded={listing.fundedAmountEtb} total={listing.totalAmountEtb} pct={listing.fundingPct} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs border-t border-gray-100 pt-4 mb-4">
+                      <div>
+                        <p className="text-gray-400 uppercase tracking-wide font-semibold">Target</p>
+                        <p className="font-bold text-gray-800 mt-0.5">{listing.totalAmountEtb?.toLocaleString()} ETB</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 uppercase tracking-wide font-semibold">Base APR</p>
+                        <p className="font-bold text-gray-800 mt-0.5">{listing.baseApr}%</p>
+                      </div>
+                    </div>
+
+                    <Link href={`/listings/${listing.id}`}
+                      className="block w-full text-center bg-green-700 text-white py-3 rounded-full text-sm font-bold hover:bg-green-600 transition shadow-sm">
+                      View Details
+                    </Link>
+                  </div>
                 </div>
-              </>
-          )}
-        </div>
+              ))}
+            </div>
+
+            {/* Pagination — SRS requirement */}
+            {totalPages > 1 && (
+              <div className="flex justify-center gap-2 mt-8">
+                <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                  className="px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold disabled:opacity-40 hover:border-green-400 transition">
+                  ← Previous
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button key={i} onClick={() => setPage(i)}
+                    className={`w-9 h-9 rounded-xl text-sm font-bold transition ${
+                      page === i ? 'bg-green-700 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-green-400'
+                    }`}>
+                    {i + 1}
+                  </button>
+                ))}
+                <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
+                  className="px-4 py-2 rounded-xl bg-white border border-gray-200 text-sm font-semibold disabled:opacity-40 hover:border-green-400 transition">
+                  Next →
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
+    </div>
   );
 }
