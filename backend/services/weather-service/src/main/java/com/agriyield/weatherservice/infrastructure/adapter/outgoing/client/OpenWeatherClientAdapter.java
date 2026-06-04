@@ -34,7 +34,7 @@ public class OpenWeatherClientAdapter implements OpenWeatherClientPort {
     public WeatherReading fetchCurrentWeather(double lat, double lng) {
         try {
             String url = UriComponentsBuilder
-                    .fromHttpUrl(baseUrl + "/onecall")
+                    .fromHttpUrl(baseUrl + "/weather")
                     .queryParam("lat", lat)
                     .queryParam("lon", lng)
                     .queryParam("exclude", "minutely,hourly,daily,alerts")
@@ -54,7 +54,7 @@ public class OpenWeatherClientAdapter implements OpenWeatherClientPort {
     public List<WeatherReading> fetchForecast(double lat, double lng, int days) {
         try {
             String url = UriComponentsBuilder
-                    .fromHttpUrl(baseUrl + "/onecall")
+                    .fromHttpUrl(baseUrl + "/forecast")
                     .queryParam("lat", lat)
                     .queryParam("lon", lng)
                     .queryParam("exclude", "current,minutely,hourly,alerts")
@@ -72,17 +72,30 @@ public class OpenWeatherClientAdapter implements OpenWeatherClientPort {
 
     @SuppressWarnings("unchecked")
     private WeatherReading parseCurrentWeather(Map<?, ?> response, double lat, double lng) {
-        if (response == null) return buildFallbackReading(lat, lng, ForecastType.ACTUAL);
-        Map<String, Object> current = (Map<String, Object>) response.get("current");
-        if (current == null) return buildFallbackReading(lat, lng, ForecastType.ACTUAL);
 
-        double temp = ((Number) current.getOrDefault("temp", 20.0)).doubleValue();
-        double humidity = ((Number) current.getOrDefault("humidity", 60.0)).doubleValue();
+        if (response == null) {
+            return buildFallbackReading(lat, lng, ForecastType.ACTUAL);
+        }
 
-        // Rain is nested: current.rain.1h
+        Map<String, Object> main =
+                (Map<String, Object>) response.get("main");
+
+        if (main == null) {
+            return buildFallbackReading(lat, lng, ForecastType.ACTUAL);
+        }
+
+        double temp =
+                ((Number) main.getOrDefault("temp", 20.0)).doubleValue();
+
+        double humidity =
+                ((Number) main.getOrDefault("humidity", 60.0)).doubleValue();
+
         double rain = 0.0;
-        if (current.containsKey("rain")) {
-            Map<String, Object> rainMap = (Map<String, Object>) current.get("rain");
+
+        if (response.containsKey("rain")) {
+            Map<String, Object> rainMap =
+                    (Map<String, Object>) response.get("rain");
+
             if (rainMap != null && rainMap.containsKey("1h")) {
                 rain = ((Number) rainMap.get("1h")).doubleValue();
             }
@@ -105,16 +118,32 @@ public class OpenWeatherClientAdapter implements OpenWeatherClientPort {
         List<WeatherReading> readings = new ArrayList<>();
         if (response == null) return readings;
 
-        List<Map<String, Object>> daily = (List<Map<String, Object>>) response.get("daily");
+        List<Map<String, Object>> daily = (List<Map<String, Object>>) response.get("list");
         if (daily == null) return readings;
 
         int limit = Math.min(days, daily.size());
         for (int i = 0; i < limit; i++) {
             Map<String, Object> day = daily.get(i);
-            Map<String, Object> temp = (Map<String, Object>) day.get("temp");
-            double tempDay = temp != null ? ((Number) temp.getOrDefault("day", 20.0)).doubleValue() : 20.0;
-            double rain = day.containsKey("rain") ? ((Number) day.get("rain")).doubleValue() : 0.0;
-            double humidity = ((Number) day.getOrDefault("humidity", 60.0)).doubleValue();
+            // OpenWeather /forecast returns "list" items with "main" block
+            Map<String, Object> mainBlock = (Map<String, Object>) day.get("main");
+            double tempDay = mainBlock != null
+                ? ((Number) mainBlock.getOrDefault("temp", 20.0)).doubleValue()
+                : 20.0;
+            double humidity = mainBlock != null
+                ? ((Number) mainBlock.getOrDefault("humidity", 60.0)).doubleValue()
+                : 60.0;
+            // rain is nested as {"rain": {"3h": value}}
+            double rain = 0.0;
+            if (day.containsKey("rain")) {
+                Object rainObj = day.get("rain");
+                if (rainObj instanceof Map) {
+                    Map<String, Object> rainMap = (Map<String, Object>) rainObj;
+                    rain = rainMap.containsKey("3h")
+                        ? ((Number) rainMap.get("3h")).doubleValue() : 0.0;
+                } else if (rainObj instanceof Number) {
+                    rain = ((Number) rainObj).doubleValue();
+                }
+            }
 
             readings.add(WeatherReading.builder()
                     .gpsLat(BigDecimal.valueOf(lat))
