@@ -34,46 +34,37 @@ public class FarmBoundaryRepositoryAdapter implements FarmBoundaryRepositoryPort
     public FarmBoundary save(FarmBoundary boundary) {
         String farmIdStr = boundary.getFarmId().toString();
 
-        // Upsert — find existing doc or create new one
-        FarmBoundaryDocument existing = repository.findByFarmId(farmIdStr)
-                .orElse(FarmBoundaryDocument.builder()
-                        .farmId(farmIdStr)
-                        .createdAt(LocalDateTime.now())
-                        .build());
+        // Upsert — find existing or create new
+        FarmBoundaryDocument doc = repository.findByFarmId(farmIdStr)
+                .orElse(new FarmBoundaryDocument());
 
-        existing.setGeoJsonPolygon(boundary.getGeoJsonPolygon());
-        existing.setAreaSqKm(boundary.getAreaSqKm());
-        existing.setCentroidLat(boundary.getCentroidLat());
-        existing.setCentroidLng(boundary.getCentroidLng());
-        existing.setSatelliteVerified(boundary.isSatelliteVerified());
-        existing.setUpdatedAt(LocalDateTime.now());
+        doc.setFarmId(farmIdStr);
+        doc.setGeoJsonPolygon(boundary.getGeoJsonPolygon());
+        doc.setAreaSqKm(boundary.getAreaSqKm());
+        doc.setCentroidLat(boundary.getCentroidLat());
+        doc.setCentroidLng(boundary.getCentroidLng());
+        doc.setSatelliteVerified(boundary.isSatelliteVerified());
+        doc.setUpdatedAt(LocalDateTime.now());
 
-        // ── GS-12: Store GeoJsonPoint for 2dsphere spatial queries ───────────
-        // GeoJSON coordinate order is [longitude, latitude] — NOT [lat, lng].
-        // This is the opposite of what most people expect. Getting this wrong
-        // means all spatial queries silently return wrong results.
-        existing.setCentroid(new GeoJsonPoint(
-                boundary.getCentroidLng(),   // X = longitude FIRST
-                boundary.getCentroidLat()    // Y = latitude SECOND
+        if (doc.getCreatedAt() == null) {
+            doc.setCreatedAt(LocalDateTime.now());
+        }
+
+        // GeoJSON coordinate order: [longitude, latitude] — NOT [lat, lng]
+        doc.setCentroid(new GeoJsonPoint(
+                boundary.getCentroidLng(),  // X = longitude FIRST
+                boundary.getCentroidLat()   // Y = latitude SECOND
         ));
 
-        FarmBoundaryDocument saved = repository.save(existing);
-        log.debug("GS-12: Saved farm boundary with 2dsphere centroid for farmId={}",
-                boundary.getFarmId());
+        FarmBoundaryDocument saved = repository.save(doc);
+        log.debug("GS: saved farm boundary farmId={}", farmIdStr);
         return toDomain(saved);
     }
 
-    // ── GS-12: Proximity search — replaces the old findAll() ─────────────────
-    // Returns only farms whose centroid is within `radiusKm` of the given point.
-    // MongoDB uses the 2dsphere index — O(log n) instead of O(n).
-    //
-    // Used by GeospatialServiceImpl.detectSpatialOverlap() to find candidate
-    // farms to check for polygon overlap, instead of loading every farm.
     @Override
     public List<FarmBoundary> findNearby(double lat, double lng, double radiusKm) {
-        // GeoJSON: longitude first, latitude second
-        GeoJsonPoint point   = new GeoJsonPoint(lng, lat);
-        Distance     radius  = new Distance(radiusKm, Metrics.KILOMETERS);
+        GeoJsonPoint point  = new GeoJsonPoint(lng, lat);
+        Distance     radius = new Distance(radiusKm, Metrics.KILOMETERS);
 
         return repository.findByCentroidNear(point, radius)
                 .getContent()
@@ -84,14 +75,11 @@ public class FarmBoundaryRepositoryAdapter implements FarmBoundaryRepositoryPort
 
     @Override
     public List<FarmBoundary> findAll() {
-        // Still available for admin use, but detectSpatialOverlap() no longer calls this.
         return repository.findAll()
                 .stream()
                 .map(this::toDomain)
                 .collect(Collectors.toList());
     }
-
-    // ── Mapping ───────────────────────────────────────────────────────────────
 
     private FarmBoundary toDomain(FarmBoundaryDocument doc) {
         return FarmBoundary.builder()
