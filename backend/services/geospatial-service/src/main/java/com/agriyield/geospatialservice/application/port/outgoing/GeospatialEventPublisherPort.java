@@ -15,4 +15,10 @@ public interface GeospatialEventPublisherPort {
                                   String estimatedDateFrom,
                                   String estimatedDateTo,
                                   double currentNdvi);
+
+    // SRS §5.2: farm.satellite.verified — triggers farm status → VERIFIED
+    void publishSatelliteVerified(UUID farmId,
+                                   double verifiedAreaHectares,
+                                   double ndviBaseline,
+                                   String verificationStatus);
 }
