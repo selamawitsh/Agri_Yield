@@ -63,4 +63,11 @@ public interface FarmServicePort {
             BigDecimal estimatedPriceEtb,
             Integer sequenceOrder
     ) {}
+
+    // SRS §3.3 — called by SatelliteVerifiedListener when geospatial-service
+    // publishes farm.satellite.verified event
+    void markSatelliteVerified(java.util.UUID farmId,
+                                boolean verified,
+                                double verifiedAreaHectares);
+
 }
