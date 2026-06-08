@@ -278,6 +278,25 @@ public class GeospatialServiceImpl implements GeospatialServicePort {
         }
 
         eventPublisher.publishNdviUpdated(saved, changeFromPrev);
+
+        // SRS §5.2: publish farm.satellite.verified so farm-service updates status → VERIFIED
+        // NDVI > 0.05 confirms this is real land (not water or dense urban area)
+        try {
+            String verificationStatus = saved.getNdviValue() > 0.05 ? "VERIFIED" : "REJECTED";
+            double areaHa = 0.0;
+            Optional<FarmBoundary> boundaryOpt = boundaryRepository.findByFarmId(farmId);
+            if (boundaryOpt.isPresent()) {
+                areaHa = boundaryOpt.get().getAreaSqKm() * 100.0;
+            }
+            eventPublisher.publishSatelliteVerified(
+                    farmId, areaHa, saved.getNdviValue(), verificationStatus);
+            log.info("GS: satellite verification published farm={} status={} area={}ha",
+                    farmId, verificationStatus, areaHa);
+        } catch (Exception e) {
+            log.error("GS: failed to publish satellite verification for farm={}: {}",
+                    farmId, e.getMessage());
+        }
+
         log.info("GS: NDVI synced for farm={} value={}", farmId, saved.getNdviValue());
         return saved;
     }
@@ -731,4 +750,30 @@ public class GeospatialServiceImpl implements GeospatialServicePort {
                 LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         );
     }
+
+    // ── GetSatelliteImage ─────────────────────────────────────────────────────
+    @Override
+    public byte[] getSatelliteImage(UUID farmId, int widthPx, int heightPx) {
+        log.info("GS: getSatelliteImage farm={} {}x{}px", farmId, widthPx, heightPx);
+
+        // Get farm coordinates from MongoDB boundary (fastest — no gRPC)
+        double lat, lng;
+        String geoJson = null;
+
+        Optional<FarmBoundary> boundary = boundaryRepository.findByFarmId(farmId);
+        if (boundary.isPresent()) {
+            lat    = boundary.get().getCentroidLat();
+            lng    = boundary.get().getCentroidLng();
+            geoJson = boundary.get().getGeoJsonPolygon();
+        } else {
+            // Fall back to gRPC if boundary not in MongoDB yet
+            FarmServicePort.FarmInfo farm = farmService.getFarmById(farmId);
+            lat = farm.gpsCentroidLat();
+            lng = farm.gpsCentroidLng();
+        }
+
+        return copernicusClient.fetchSatelliteImage(farmId, lat, lng, geoJson,
+                widthPx, heightPx);
+    }
+
 }
