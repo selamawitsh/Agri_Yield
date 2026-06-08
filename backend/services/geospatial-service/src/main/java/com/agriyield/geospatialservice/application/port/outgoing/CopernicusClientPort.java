@@ -15,4 +15,10 @@ public interface CopernicusClientPort {
                            double lat,
                            double lng,
                            String geoJsonPolygon);
+
+    // Fetch a real true-colour satellite image (PNG) of the farm
+    // Uses Band 4 (Red) + Band 3 (Green) + Band 2 (Blue) = natural colour photo
+    byte[] fetchSatelliteImage(UUID farmId, double lat, double lng,
+                                String geoJsonPolygon, int widthPx, int heightPx);
+
 }
