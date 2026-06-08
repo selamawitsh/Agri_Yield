@@ -53,12 +53,29 @@ public class WeatherController {
         return ResponseEntity.ok(ApiResponse.success(DroughtStatusResponse.from(condition)));
     }
 
-    // WS-05: Get current weather (used by AI service, investment service)
+    // WS-05: Get current weather — auto-fetches from OpenWeather if no data exists
     @GetMapping("/current/{farmId}")
     public ResponseEntity<ApiResponse<WeatherReadingResponse>> getCurrentWeather(
             @PathVariable UUID farmId) {
         log.info("GET /weather/current/{}", farmId);
-        WeatherReading reading = weatherService.getCurrentWeather(farmId);
+
+        WeatherReading reading;
+        try {
+            reading = weatherService.getCurrentWeather(farmId);
+        } catch (Exception e) {
+            // No data in DB yet — fetch live from OpenWeather and store it
+            log.info("No weather data for farm {} — triggering live fetch", farmId);
+            try {
+                weatherService.fetchAndStoreWeather(farmId);
+                reading = weatherService.getCurrentWeather(farmId);
+            } catch (Exception fetchEx) {
+                // OpenWeather call failed (bad key, no farm coords, etc.)
+                // Return a structured error so Flutter shows a useful message
+                log.error("Live weather fetch also failed for farm {}: {}", farmId, fetchEx.getMessage());
+                return ResponseEntity.ok(
+                    ApiResponse.error("Weather data unavailable. Please try again shortly."));
+            }
+        }
         return ResponseEntity.ok(ApiResponse.success(WeatherReadingResponse.from(reading)));
     }
 
@@ -66,11 +83,8 @@ public class WeatherController {
     @GetMapping("/risk/{farmId}")
     public ResponseEntity<ApiResponse<WeatherRiskResponse>> getWeatherRisk(
             @PathVariable UUID farmId) {
-
         log.info("GET /weather/risk/{}", farmId);
-
         WeatherRisk risk = weatherService.calculateWeatherRiskScore(farmId);
-
         WeatherRiskResponse response = WeatherRiskResponse.builder()
                 .farmId(farmId)
                 .riskScore(risk.getScore())
@@ -79,9 +93,9 @@ public class WeatherController {
                 .ndviVolatility(risk.getNdviVolatility())
                 .riskLevel(WeatherRiskResponse.toRiskLevel(risk.getScore()))
                 .build();
-
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
     // WS-08: Get historical weather
     @GetMapping("/history/{farmId}")
     public ResponseEntity<ApiResponse<List<WeatherReadingResponse>>> getHistory(
@@ -106,12 +120,8 @@ public class WeatherController {
     @PostMapping("/fetch/{farmId}")
     public ResponseEntity<ApiResponse<String>> triggerWeatherFetch(
             @PathVariable UUID farmId) {
-
         log.info("POST /weather/fetch/{}", farmId);
-
         weatherService.fetchAndStoreWeather(farmId);
-
-        return ResponseEntity.ok(
-                ApiResponse.success("Weather fetch triggered"));
+        return ResponseEntity.ok(ApiResponse.success("Weather fetch triggered"));
     }
 }
