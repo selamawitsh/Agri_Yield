@@ -6,6 +6,7 @@ class VoucherModel {
   final String investmentId;
   final String farmId;
   final String farmerId;
+  final String? merchantId;
   final String inputNeedId;
   final String cropCycleId;
   final double amountEtb;
@@ -24,6 +25,7 @@ class VoucherModel {
     required this.investmentId,
     required this.farmId,
     required this.farmerId,
+    this.merchantId,
     required this.inputNeedId,
     required this.cropCycleId,
     required this.amountEtb,
@@ -44,20 +46,44 @@ class VoucherModel {
       investmentId:     json['investmentId']?.toString() ?? '',
       farmId:           json['farmId']?.toString() ?? '',
       farmerId:         json['farmerId']?.toString() ?? '',
+      merchantId:       json['merchantId']?.toString(),
       inputNeedId:      json['inputNeedId']?.toString() ?? '',
       cropCycleId:      json['cropCycleId']?.toString() ?? '',
-      amountEtb:        (json['amountEtb'] ?? 0).toDouble(),
+
+      // FIXED: Spring's BigDecimal can come back as a String ("1000.00"),
+      // an int (1000), or a double (1000.0). All three cases are handled.
+      amountEtb:        _parseDouble(json['amountEtb']),
+
       productCategory:  json['productCategory']?.toString() ?? 'OTHER',
       productName:      json['productName']?.toString() ?? 'Agricultural Input',
-      sequenceOrder:    json['sequenceOrder'] ?? 1,
+
+      // FIXED: VoucherResponse.java has no sequenceOrder field.
+      // The backend domain model has it but it is not mapped into the
+      // response DTO. We default to 1 so sorting never throws.
+      sequenceOrder:    (json['sequenceOrder'] as int?) ?? 1,
+
       status:           json['status']?.toString() ?? '',
+
+      // Backend sends 'expiresAt' (matches VoucherResponse.java field name).
       validUntil:       json['expiresAt']?.toString()
-                        ?? json['validUntil']?.toString()
-                        ?? '',
-      redeemedAt:       json['redeemedAt']?.toString(),
+          ?? json['validUntil']?.toString()
+          ?? '',
+
+      redeemedAt:         json['redeemedAt']?.toString(),
       redeemedMerchantId: json['merchantId']?.toString(),
-      createdAt:        json['createdAt']?.toString() ?? '',
+      createdAt:          json['createdAt']?.toString() ?? '',
     );
+  }
+
+  // Safely convert whatever Spring sends for BigDecimal to a Dart double.
+  static double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    // num covers both int and double in JSON
+    if (value is num) return value.toDouble();
+    return 0.0;
   }
 
   Map<String, dynamic> toJson() => {
@@ -66,6 +92,7 @@ class VoucherModel {
     'investmentId':     investmentId,
     'farmId':           farmId,
     'farmerId':         farmerId,
+    'merchantId':       merchantId,
     'inputNeedId':      inputNeedId,
     'cropCycleId':      cropCycleId,
     'amountEtb':        amountEtb,
@@ -75,7 +102,6 @@ class VoucherModel {
     'status':           status,
     'expiresAt':        validUntil,
     'redeemedAt':       redeemedAt,
-    'merchantId':       redeemedMerchantId,
     'createdAt':        createdAt,
   };
 
@@ -151,8 +177,12 @@ class VoucherSummaryModel {
       lockedCount:      vouchers.where((v) => v.isLocked).length,
       expiredCount:     vouchers.where((v) => v.isExpired).length,
       totalValueEtb:    vouchers.fold(0, (s, v) => s + v.amountEtb),
-      redeemedValueEtb: vouchers.where((v) => v.isRedeemed).fold(0, (s, v) => s + v.amountEtb),
-      pendingValueEtb:  vouchers.where((v) => v.isActive || v.isLocked).fold(0, (s, v) => s + v.amountEtb),
+      redeemedValueEtb: vouchers
+          .where((v) => v.isRedeemed)
+          .fold(0, (s, v) => s + v.amountEtb),
+      pendingValueEtb:  vouchers
+          .where((v) => v.isActive || v.isLocked)
+          .fold(0, (s, v) => s + v.amountEtb),
     );
   }
 
