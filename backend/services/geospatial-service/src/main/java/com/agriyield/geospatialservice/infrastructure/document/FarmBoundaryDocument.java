@@ -6,10 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
-import org.springframework.data.mongodb.core.index.CompoundIndex;
-import org.springframework.data.mongodb.core.index.CompoundIndexes;
-import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
 import org.springframework.data.mongodb.core.index.GeoSpatialIndexType;
+import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -21,10 +19,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Document(collection = "farm_boundaries")
-@CompoundIndexes({
-        // Speeds up detectSpatialOverlap() proximity queries
-        @CompoundIndex(name = "idx_centroid_farmId", def = "{'centroid': '2dsphere', 'farmId': 1}")
-})
 public class FarmBoundaryDocument {
 
     @Id
@@ -46,10 +40,7 @@ public class FarmBoundaryDocument {
     @Field("centroidLng")
     private double centroidLng;
 
-    // ── GS-12: GeoJSON Point for MongoDB 2dsphere spatial indexing ────────────
-    // Stored as { type: "Point", coordinates: [lng, lat] }
-    // NOTE: GeoJSON uses [longitude, latitude] order — NOT [lat, lng].
-    // This field is what enables $near, $geoWithin, and $geoIntersects queries.
+    // 2dsphere index for spatial proximity queries
     @GeoSpatialIndexed(type = GeoSpatialIndexType.GEO_2DSPHERE)
     @Field("centroid")
     private GeoJsonPoint centroid;
