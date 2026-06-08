@@ -7,10 +7,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum VoucherStatus {
     GENERATED("GENERATED"),
+    ACTIVE("ACTIVE"),
     ISSUED("ISSUED"),
     REDEEMED("REDEEMED"),
     EXPIRED("EXPIRED"),
-    CANCELLED("CANCELLED");
+    CANCELLED("CANCELLED"),
+    REJECTED("REJECTED");
 
     private final String value;
 
