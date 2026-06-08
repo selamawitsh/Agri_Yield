@@ -185,4 +185,8 @@ public interface GeospatialServicePort {
     ) {}
 
     DigitalTwinData getDigitalTwin(UUID farmId);
+
+    // Fetch real satellite image PNG for display in investor dashboard and farmer app
+    byte[] getSatelliteImage(UUID farmId, int widthPx, int heightPx);
+
 }
