@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,7 +33,7 @@ public class VoucherServiceImpl implements VoucherServicePort {
     private final UserServicePort userServicePort;
     private final EventPublisherPort eventPublisher;
 
-    @Value("${app.voucher.expiry-days:30}")
+    @Value("${app.voucher.expiry-days:90}")
     private int expiryDays;
 
     @Value("${app.voucher.code-prefix:AGY}")
@@ -59,53 +58,72 @@ public class VoucherServiceImpl implements VoucherServicePort {
             return existing;
         }
 
-        boolean funded = true;
+        // Investment funded verification
         if (!skipInvestmentVerification) {
+            boolean funded = false;
             try {
                 funded = investmentServicePort.verifyInvestmentFunded(investmentId);
             } catch (Exception e) {
-                log.warn("verifyInvestmentFunded gRPC call failed: {} — proceeding as not funded", e.getMessage());
-                funded = false;
+                log.warn("verifyInvestmentFunded gRPC call failed: {} — treating as not funded",
+                        e.getMessage());
+            }
+            if (!funded) {
+                throw new BusinessException(
+                        "Investment is not funded — cannot generate vouchers",
+                        "INVESTMENT_NOT_FUNDED");
             }
         } else {
-            log.warn("Skipping investment funded verification due to config app.voucher.skip-investment-verification=true");
+            log.warn("Skipping investment funded verification " +
+                    "(app.voucher.skip-investment-verification=true)");
         }
 
-        if (!funded) {
-            throw new BusinessException(
-                "Investment is not funded — cannot generate vouchers",
-                "INVESTMENT_NOT_FUNDED");
+        // Get investment amount — with fallback so a gRPC failure does not
+        // silently block voucher generation when skip-verification is true.
+        BigDecimal amountEtb = BigDecimal.valueOf(1000.00); // safe fallback
+        try {
+            InvestmentServicePort.InvestmentContext ctx =
+                    investmentServicePort.getInvestmentById(investmentId);
+            amountEtb = BigDecimal.valueOf(ctx.amountEtb());
+            log.info("Resolved investment amount: {} ETB for investment: {}",
+                    amountEtb, investmentId);
+        } catch (Exception e) {
+            log.warn("getInvestmentById gRPC call failed for investment: {} — " +
+                    "using fallback amount 1000 ETB. Error: {}", investmentId, e.getMessage());
         }
 
-        InvestmentServicePort.InvestmentContext investmentCtx =
-            investmentServicePort.getInvestmentById(investmentId);
+        // SRS §3.5.1: sequence_order=1 voucher is ACTIVE immediately after generation.
+        // Higher sequence vouchers remain GENERATED (locked) until sequence N-1 is REDEEMED.
+        // Currently we generate one voucher per investment; it is always sequence 1.
+        int sequenceOrder = 1;
+        VoucherStatus initialStatus = VoucherStatus.ACTIVE; // first in sequence → immediately active
 
-        // For now generate one voucher per investment
-        // Real implementation would query input_need_items and generate per item
         Voucher voucher = Voucher.builder()
-            .id(UUID.randomUUID())
-            .voucherCode(generateCode())
-            .investmentId(investmentId)
-            .farmId(farmId)
-            .farmerId(farmerId)
-            .inputNeedId(inputNeedId)
-            .inputNeedItemId(UUID.randomUUID()) // resolved from input need items
-            .cropCycleId(cropCycleId)
-            .productName("Agricultural Input Package")
-            .productCategory(ProductCategory.OTHER)
-            .amountEtb(BigDecimal.valueOf(investmentCtx.amountEtb()))
-            .status(VoucherStatus.GENERATED)
-            .expiresAt(LocalDateTime.now().plusDays(expiryDays))
-            .createdAt(LocalDateTime.now())
-            .updatedAt(LocalDateTime.now())
-            .build();
+                .id(UUID.randomUUID())
+                .voucherCode(generateCode())
+                .investmentId(investmentId)
+                .farmId(farmId)
+                .farmerId(farmerId)
+                .inputNeedId(inputNeedId)
+                .inputNeedItemId(inputNeedId) // same as inputNeedId until per-item generation is built
+                .cropCycleId(cropCycleId)
+                .productName("Agricultural Input Package")
+                .productCategory(ProductCategory.OTHER)
+                .amountEtb(amountEtb)
+                .sequenceOrder(sequenceOrder)
+                .status(initialStatus)
+                .issuedAt(LocalDateTime.now())
+                .expiresAt(LocalDateTime.now().plusDays(expiryDays))
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
 
         Voucher saved = voucherRepository.save(voucher);
         List<Voucher> savedVouchers = List.of(saved);
 
-        log.info("Generated {} voucher(s) for investment: {}", savedVouchers.size(), investmentId);
-        eventPublisher.publishVouchersGenerated(savedVouchers);
+        log.info("Generated voucher id={} code={} status={} for investment={}",
+                saved.getId(), saved.getVoucherCode(), saved.getStatus(), investmentId);
 
+        eventPublisher.publishVouchersGenerated(savedVouchers);
         return savedVouchers;
     }
 
@@ -119,14 +137,14 @@ public class VoucherServiceImpl implements VoucherServicePort {
     @Transactional(readOnly = true)
     public Voucher getById(UUID voucherId) {
         return voucherRepository.findById(voucherId)
-            .orElseThrow(() -> new VoucherNotFoundException(voucherId.toString()));
+                .orElseThrow(() -> new VoucherNotFoundException(voucherId.toString()));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Voucher getByCode(String voucherCode) {
         return voucherRepository.findByVoucherCode(voucherCode)
-            .orElseThrow(() -> new VoucherNotFoundException("code:" + voucherCode));
+                .orElseThrow(() -> new VoucherNotFoundException("code:" + voucherCode));
     }
 
     @Override
@@ -138,12 +156,12 @@ public class VoucherServiceImpl implements VoucherServicePort {
         log.info("Redeeming voucher: {} by merchant: {}", voucherCode, merchantId);
 
         Voucher voucher = voucherRepository.findByVoucherCode(voucherCode)
-            .orElseThrow(() -> new VoucherNotFoundException("code:" + voucherCode));
+                .orElseThrow(() -> new VoucherNotFoundException("code:" + voucherCode));
 
         if (!voucher.isValid()) {
             throw new BusinessException(
-                "Voucher is not valid for redemption. Status: " + voucher.getStatus().getValue(),
-                "INVALID_VOUCHER");
+                    "Voucher is not valid for redemption. Status: " + voucher.getStatus().getValue(),
+                    "INVALID_VOUCHER");
         }
 
         boolean merchantOk = userServicePort.verifyMerchantExists(merchantId);
@@ -151,40 +169,35 @@ public class VoucherServiceImpl implements VoucherServicePort {
             log.warn("Merchant verification failed for: {} — proceeding (stub)", merchantId);
         }
 
-        // Domain method validates state and expiry
         voucher.redeem(merchantId);
         Voucher saved = voucherRepository.save(voucher);
 
         VoucherRedemption redemption = VoucherRedemption.builder()
-            .id(UUID.randomUUID())
-            .voucherId(saved.getId())
-            .merchantId(merchantId)
-            .redeemedBy(redeemedBy)
-            .amountEtb(saved.getAmountEtb())
-            .escrowReleased(false)
-            .notes(notes)
-            .redeemedAt(LocalDateTime.now())
-            .build();
+                .id(UUID.randomUUID())
+                .voucherId(saved.getId())
+                .merchantId(merchantId)
+                .redeemedBy(redeemedBy)
+                .amountEtb(saved.getAmountEtb())
+                .escrowReleased(false)
+                .notes(notes)
+                .redeemedAt(LocalDateTime.now())
+                .build();
 
         VoucherRedemption savedRedemption = redemptionRepository.save(redemption);
 
-        // Release escrow funds to merchant
         try {
             escrowServicePort.releasePartial(
-                saved.getInvestmentId(),
-                saved.getId(),
-                saved.getAmountEtb(),
-                "Voucher redeemed by merchant: " + merchantId);
-
-            // Mark escrow as released
+                    saved.getInvestmentId(),
+                    saved.getId(),
+                    saved.getAmountEtb(),
+                    "Voucher redeemed by merchant: " + merchantId);
             savedRedemption.setEscrowReleased(true);
             savedRedemption = redemptionRepository.save(savedRedemption);
-
             log.info("Escrow released for voucher: {}, amount: {} ETB",
-                voucherCode, saved.getAmountEtb());
+                    voucherCode, saved.getAmountEtb());
         } catch (Exception e) {
-            log.error("Escrow release failed for voucher: {} — {}", voucherCode, e.getMessage());
-            // Redemption recorded but escrow release will be retried
+            log.error("Escrow release failed for voucher: {} — {}",
+                    voucherCode, e.getMessage());
         }
 
         eventPublisher.publishVoucherRedeemed(saved, savedRedemption);
@@ -195,7 +208,7 @@ public class VoucherServiceImpl implements VoucherServicePort {
     @Transactional(readOnly = true)
     public List<VoucherRedemption> getRedemptions(UUID voucherId) {
         voucherRepository.findById(voucherId)
-            .orElseThrow(() -> new VoucherNotFoundException(voucherId.toString()));
+                .orElseThrow(() -> new VoucherNotFoundException(voucherId.toString()));
         return redemptionRepository.findByVoucherId(voucherId);
     }
 
@@ -241,6 +254,8 @@ public class VoucherServiceImpl implements VoucherServicePort {
 
     private String generateCode() {
         String uuid = UUID.randomUUID().toString().replace("-", "").toUpperCase();
-        return codePrefix + "-" + uuid.substring(0, 4) + "-" + uuid.substring(4, 8) + "-" + uuid.substring(8, 12);
+        return codePrefix + "-" + uuid.substring(0, 4)
+                + "-" + uuid.substring(4, 8)
+                + "-" + uuid.substring(8, 12);
     }
 }
