@@ -437,4 +437,38 @@ public class FarmServiceImpl implements FarmServicePort {
                         (month >= 2 && month <= 5) ? "Belg" : "Bega";
         return season + "_" + year;
     }
+
+    // SRS §3.3 — triggered by farm.satellite.verified RabbitMQ event
+    // Updates farm: satellite_verified=true, area_hectares set from satellite,
+    // status → VERIFIED
+    @Override
+    @Transactional
+    public void markSatelliteVerified(UUID farmId,
+                                       boolean verified,
+                                       double verifiedAreaHectares) {
+        log.info("FS: markSatelliteVerified farm={} verified={} area={}ha",
+                farmId, verified, verifiedAreaHectares);
+
+        Farm farm = farmRepository.findById(farmId)
+                .orElseThrow(() -> new FarmNotFoundException(farmId.toString()));
+
+        if (verified) {
+            // SRS §3.3.1: area_hectares is satellite-verified, NOT farmer claim
+            if (verifiedAreaHectares > 0) {
+                farm.setAreaHectares(java.math.BigDecimal.valueOf(verifiedAreaHectares)
+                        .setScale(4, java.math.RoundingMode.HALF_UP));
+            }
+            farm.verify(); // sets status=VERIFIED, satelliteVerified=true, satelliteVerifiedAt=now()
+        } else {
+            // Satellite rejected — NDVI too low, not agricultural land
+            farm.setStatus(com.agriyield.farmservice.domain.enums.FarmStatus.FAILED);
+            farm.setUpdatedAt(java.time.LocalDateTime.now());
+            log.warn("FS: farm {} REJECTED by satellite — not agricultural land", farmId);
+        }
+
+        farmRepository.save(farm);
+        log.info("FS: farm {} satellite status saved → {}",
+                farmId, farm.getStatus().getValue());
+    }
+
 }
