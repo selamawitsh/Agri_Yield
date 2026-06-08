@@ -20,6 +20,9 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen>
 
   List<VoucherModel> _vouchers = [];
   bool _loading = true;
+  // FIXED: track the real error message so the screen shows it
+  // instead of silently displaying "No vouchers here".
+  String? _errorMessage;
   bool _isOffline = false;
   DateTime? _cacheTimestamp;
 
@@ -53,16 +56,30 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen>
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final vouchers = await _voucherService.getMyVouchers();
-    final ts       = await _voucherService.getCacheTimestamp();
-    if (mounted) {
-      setState(() {
-        _vouchers       = vouchers
-          ..sort((a, b) => a.sequenceOrder.compareTo(b.sequenceOrder));
-        _cacheTimestamp = ts;
-        _loading        = false;
-      });
+    setState(() {
+      _loading = true;
+      _errorMessage = null;   // clear previous error on refresh
+    });
+
+    try {
+      final vouchers = await _voucherService.getMyVouchers();
+      final ts       = await _voucherService.getCacheTimestamp();
+      if (mounted) {
+        setState(() {
+          _vouchers = vouchers
+            ..sort((a, b) => a.sequenceOrder.compareTo(b.sequenceOrder));
+          _cacheTimestamp = ts;
+          _loading        = false;
+        });
+      }
+    } catch (e) {
+      // FIXED: surface the real error message in the UI.
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _loading      = false;
+        });
+      }
     }
   }
 
@@ -129,6 +146,9 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen>
       body: _loading
           ? const Center(
           child: CircularProgressIndicator(color: Color(0xFF1B4332)))
+      // FIXED: show the real error instead of an empty list.
+          : _errorMessage != null
+          ? _buildErrorState()
           : Column(
         children: [
           if (_isOffline) _buildOfflineBanner(),
@@ -144,6 +164,47 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Error state — shows the actual exception so you know what failed ─────
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                size: 56, color: Color(0xFFDC2626)),
+            const SizedBox(height: 16),
+            const Text('Could not load vouchers',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F291B))),
+            const SizedBox(height: 8),
+            // Shows the real error — check Flutter debug console for full stack.
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Try Again'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1B4332),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -274,13 +335,10 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen>
   }
 
   // ── Sequence bar ─────────────────────────────────────────────────────────
-  // FIX: removed fixed height; let the content size itself so it never
-  // overflows. Wrapped in IntrinsicHeight so the inner Expanded works.
 
   Widget _buildSequenceBar() {
     if (_vouchers.isEmpty) return const SizedBox.shrink();
     return Container(
-      // No fixed height — grows to fit content naturally (≈ 88–96 px).
       margin: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -300,7 +358,7 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen>
                   letterSpacing: 0.5)),
           const SizedBox(height: 10),
           SizedBox(
-            height: 52, // explicit height for the horizontal list only
+            height: 52,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _vouchers.length,
@@ -386,9 +444,6 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen>
   }
 
   // ── Voucher card ─────────────────────────────────────────────────────────
-  // FIX: replaced Border(left:…, top:…, right:…, bottom:…) with a Stack-
-  // based approach so borderRadius is always applied to a uniform border,
-  // then the coloured left accent is painted as an inner container.
 
   Widget _buildVoucherCard(VoucherModel v) {
     final accentColor = v.isRedeemed
@@ -408,7 +463,6 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          // Uniform border — no more "borderRadius on non-uniform border" error.
           border: Border.all(color: _cardBorder),
           boxShadow: [
             BoxShadow(
@@ -419,22 +473,18 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen>
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(19), // 1 px inside border
+          borderRadius: BorderRadius.circular(19),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Left accent stripe — replaces the non-uniform Border trick.
                 Container(width: 4, color: accentColor),
-
-                // Card body
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Top row
                         Row(
                           children: [
                             Container(
@@ -501,7 +551,6 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen>
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         const SizedBox(height: 10),
 
-                        // Bottom row
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -540,7 +589,6 @@ class _VoucherWalletScreenState extends State<VoucherWalletScreen>
                           ],
                         ),
 
-                        // Expiry / redeemed date
                         const SizedBox(height: 4),
                         Text(
                           v.isRedeemed && v.redeemedAt != null
