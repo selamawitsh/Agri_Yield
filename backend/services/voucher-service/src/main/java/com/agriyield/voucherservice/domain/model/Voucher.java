@@ -30,6 +30,7 @@ public class Voucher {
     private String productName;
     private ProductCategory productCategory;
     private BigDecimal amountEtb;
+    private int sequenceOrder;
     private VoucherStatus status;
     private LocalDateTime issuedAt;
     private LocalDateTime redeemedAt;
@@ -37,28 +38,16 @@ public class Voucher {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    /** Farmer picks up the voucher — transitions GENERATED → ISSUED */
-    public void issue() {
-        if (this.status != VoucherStatus.GENERATED) {
-            throw new BusinessException(
-                "Only GENERATED vouchers can be issued. Current: " + this.status.getValue(),
-                "INVALID_VOUCHER_STATE");
-        }
-        this.status = VoucherStatus.ISSUED;
-        this.issuedAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    /** Merchant redeems voucher at POS — transitions ISSUED → REDEEMED */
     public void redeem(UUID merchantId) {
-        if (this.status != VoucherStatus.ISSUED && this.status != VoucherStatus.GENERATED) {
+        if (this.status != VoucherStatus.ACTIVE
+                && this.status != VoucherStatus.ISSUED
+                && this.status != VoucherStatus.GENERATED) {
             throw new BusinessException(
-                "Only ISSUED or GENERATED vouchers can be redeemed. Current: " + this.status.getValue(),
+                "Voucher cannot be redeemed. Status: " + this.status.getValue(),
                 "INVALID_VOUCHER_STATE");
         }
         if (LocalDateTime.now().isAfter(this.expiresAt)) {
-            throw new BusinessException(
-                "Voucher has expired", "VOUCHER_EXPIRED");
+            throw new BusinessException("Voucher has expired", "VOUCHER_EXPIRED");
         }
         this.merchantId = merchantId;
         this.status = VoucherStatus.REDEEMED;
@@ -66,7 +55,6 @@ public class Voucher {
         this.updatedAt = LocalDateTime.now();
     }
 
-    /** Expire voucher when deadline passes */
     public void expire() {
         if (this.status == VoucherStatus.REDEEMED || this.status == VoucherStatus.CANCELLED) {
             throw new BusinessException(
@@ -76,7 +64,6 @@ public class Voucher {
         this.updatedAt = LocalDateTime.now();
     }
 
-    /** Cancel voucher (e.g. investment cancelled) */
     public void cancel() {
         if (this.status == VoucherStatus.REDEEMED) {
             throw new BusinessException(
@@ -87,7 +74,9 @@ public class Voucher {
     }
 
     public boolean isValid() {
-        return (this.status == VoucherStatus.ISSUED || this.status == VoucherStatus.GENERATED)
+        return (this.status == VoucherStatus.ACTIVE
+                || this.status == VoucherStatus.ISSUED
+                || this.status == VoucherStatus.GENERATED)
             && LocalDateTime.now().isBefore(this.expiresAt);
     }
 }

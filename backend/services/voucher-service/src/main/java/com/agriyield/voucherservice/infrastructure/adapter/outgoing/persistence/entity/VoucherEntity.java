@@ -57,6 +57,9 @@ public class VoucherEntity {
     @Column(name = "amount_etb", nullable = false, precision = 14, scale = 2)
     private BigDecimal amountEtb;
 
+    @Column(name = "sequence_order", nullable = false)
+    private int sequenceOrder;
+
     @Column(name = "status", nullable = false, length = 30)
     private String status;
 

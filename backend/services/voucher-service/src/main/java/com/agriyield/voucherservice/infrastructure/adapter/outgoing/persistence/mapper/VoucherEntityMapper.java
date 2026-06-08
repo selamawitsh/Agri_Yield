@@ -11,8 +11,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class VoucherEntityMapper {
 
-    // ─── Voucher ─────────────────────────────────────────────
-
     public Voucher toDomain(VoucherEntity entity) {
         if (entity == null) return null;
         return Voucher.builder()
@@ -28,6 +26,7 @@ public class VoucherEntityMapper {
             .productName(entity.getProductName())
             .productCategory(ProductCategory.fromValue(entity.getProductCategory()))
             .amountEtb(entity.getAmountEtb())
+            .sequenceOrder(entity.getSequenceOrder())
             .status(VoucherStatus.fromValue(entity.getStatus()))
             .issuedAt(entity.getIssuedAt())
             .redeemedAt(entity.getRedeemedAt())
@@ -52,6 +51,7 @@ public class VoucherEntityMapper {
             .productName(domain.getProductName())
             .productCategory(domain.getProductCategory().getValue())
             .amountEtb(domain.getAmountEtb())
+            .sequenceOrder(domain.getSequenceOrder())
             .status(domain.getStatus().getValue())
             .issuedAt(domain.getIssuedAt())
             .redeemedAt(domain.getRedeemedAt())
@@ -60,8 +60,6 @@ public class VoucherEntityMapper {
             .updatedAt(domain.getUpdatedAt())
             .build();
     }
-
-    // ─── VoucherRedemption ───────────────────────────────────
 
     public VoucherRedemption toDomain(VoucherRedemptionEntity entity) {
         if (entity == null) return null;
