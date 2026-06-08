@@ -81,4 +81,21 @@ public class GeospatialEventPublisher implements GeospatialEventPublisherPort {
             RabbitMQConfig.GEOSPATIAL_EXCHANGE,
             RabbitMQConfig.HARVEST_PREDICTED_KEY, event);
     }
+
+    @Override
+    public void publishSatelliteVerified(UUID farmId,
+                                          double verifiedAreaHectares,
+                                          double ndviBaseline,
+                                          String verificationStatus) {
+        java.util.Map<String, Object> event = new java.util.HashMap<>();
+        event.put("event_type", "farm.satellite.verified");
+        event.put("farm_id", farmId.toString());
+        event.put("verified_area_ha", verifiedAreaHectares);
+        event.put("ndvi_baseline", ndviBaseline);
+        event.put("verification_status", verificationStatus);
+        event.put("timestamp", java.time.LocalDateTime.now().toString());
+
+        log.info("GS: publishing farm.satellite.verified farm={} status={}", farmId, verificationStatus);
+        rabbitTemplate.convertAndSend("farm.exchange", "farm.satellite.verified", event);
+    }
 }
