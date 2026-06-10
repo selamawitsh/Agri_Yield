@@ -103,7 +103,7 @@ public class InputNeedsEventListener {
         // Authoritative lookup: ask farm-service for the owner of this farm.
         try {
             FarmServicePort.FarmContext ctx = farmServicePort.getFarmContext(farmId);
-            UUID resolved = ctx.farmerId();
+            UUID resolved = UUID.fromString(ctx.farmerId());
             if (resolved == null || resolved.equals(farmId)) {
                 throw new IllegalStateException(
                         "FarmContext returned farmerId == farmId (" + farmId + "). " +
