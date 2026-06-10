@@ -21,14 +21,24 @@ class PriceAnomaly {
 
   factory PriceAnomaly.fromJson(Map<String, dynamic> json) {
     return PriceAnomaly(
-      id: json['id'] ?? '',
-      merchantId: json['merchantId'] ?? '',
-      productId: json['productId'] ?? '',
-      merchantPriceEtb: (json['merchantPriceEtb'] ?? 0).toDouble(),
-      regionalMedianEtb: (json['regionalMedianEtb'] ?? 0).toDouble(),
-      deviationPct: (json['deviationPct'] ?? 0).toDouble(),
-      flaggedAt: json['flaggedAt'] ?? '',
-      resolvedAt: json['resolvedAt'],
+      id:               json['id']?.toString() ?? '',
+      merchantId:       json['merchantId']?.toString() ?? '',
+      productId:        json['productId']?.toString() ?? '',
+      // Backend sends BigDecimal — may be String, int, or double
+      merchantPriceEtb: _toDouble(json['merchantPriceEtb']),
+      regionalMedianEtb: _toDouble(json['regionalMedianEtb']),
+      deviationPct:     _toDouble(json['deviationPct']),
+      flaggedAt:        json['flaggedAt']?.toString() ?? '',
+      resolvedAt:       json['resolvedAt']?.toString(),
     );
+  }
+
+  static double _toDouble(dynamic v) {
+    if (v == null) return 0.0;
+    if (v is double) return v;
+    if (v is int)    return v.toDouble();
+    if (v is String) return double.tryParse(v) ?? 0.0;
+    if (v is num)    return v.toDouble();
+    return 0.0;
   }
 }
