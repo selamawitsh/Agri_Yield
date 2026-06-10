@@ -18,6 +18,7 @@ public interface JpaVoucherRepository extends JpaRepository<VoucherEntity, UUID>
     List<VoucherEntity> findByFarmId(UUID farmId);
 
     List<VoucherEntity> findByInvestmentId(UUID investmentId);
+    List<VoucherEntity> findByMerchantIdOrderByRedeemedAtDesc(UUID merchantId);
 
     @Query("SELECT v FROM VoucherEntity v WHERE v.status IN ('GENERATED','ISSUED') AND v.expiresAt < :now")
     List<VoucherEntity> findExpiredActiveVouchers(LocalDateTime now);

@@ -54,6 +54,12 @@ public class VoucherRepositoryAdapter implements VoucherRepositoryPort {
     }
 
     @Override
+    public List<Voucher> findByMerchantId(UUID merchantId) {
+        return jpaRepository.findByMerchantIdOrderByRedeemedAtDesc(merchantId)
+            .stream().map(mapper::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
     public List<Voucher> findExpiredActiveVouchers() {
         return jpaRepository.findExpiredActiveVouchers(LocalDateTime.now())
             .stream().map(mapper::toDomain).collect(Collectors.toList());
