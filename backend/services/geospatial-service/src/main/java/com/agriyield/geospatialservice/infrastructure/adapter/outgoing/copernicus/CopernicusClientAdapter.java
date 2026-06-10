@@ -330,7 +330,7 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
             String token = getAccessToken();
 
             // Bounding box — slightly wider than NDVI so the farm is centred in frame
-            double buffer = 0.008;
+            double buffer = 0.015;
             double lngMin = lng - buffer;
             double latMin = lat - buffer;
             double lngMax = lng + buffer;
@@ -342,10 +342,11 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
             // TrueColor evalscript — gamma correction makes it look like a real photo
             String evalscript = "//VERSION=3\n"
                     + "function setup() {\n"
-                    + "  return { input: ['B02','B03','B04'], output: { bands: 3 } };\n"
+                    + "  return { input: [{bands:['B02','B03','B04']}],\n"
+                    + "           output: { bands: 3, sampleType: 'AUTO' } };\n"
                     + "}\n"
                     + "function evaluatePixel(s) {\n"
-                    + "  return [3.5*s.B04, 3.5*s.B03, 3.5*s.B02];\n"
+                    + "  return [2.5*s.B04, 2.5*s.B03, 2.5*s.B02];\n"
                     + "}";
 
             // Build Process API request for image output
@@ -367,18 +368,22 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
                     dataFilter.putObject("timeRange");
             timeRange.put("from", dateFrom + "T00:00:00Z");
             timeRange.put("to",   dateTo   + "T23:59:59Z");
-            dataFilter.put("maxCloudCoverage", 50);
+            dataFilter.put("maxCloudCoverage", 80);
             dataFilter.put("mosaickingOrder", "leastCC");
 
             // output — PNG image
             com.fasterxml.jackson.databind.node.ObjectNode output = root.putObject("output");
             output.put("width",  widthPx);
             output.put("height", heightPx);
-            com.fasterxml.jackson.databind.node.ObjectNode responses =
-                    output.putObject("responses");
+            // Sentinel Hub Process API requires 'responses' as an ARRAY
+            com.fasterxml.jackson.databind.node.ArrayNode responses =
+                    output.putArray("responses");
             com.fasterxml.jackson.databind.node.ObjectNode defaultResp =
-                    responses.putObject("default");
-            defaultResp.put("format", "PNG");
+                    responses.addObject();
+            defaultResp.put("identifier", "default");
+            com.fasterxml.jackson.databind.node.ObjectNode formatNode =
+                    defaultResp.putObject("format");
+            formatNode.put("type", "image/png");
 
             root.put("evalscript", evalscript);
 
