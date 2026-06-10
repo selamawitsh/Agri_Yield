@@ -1,103 +1,133 @@
+import axios from 'axios';
+import type {
+  FarmMarketplace, Bid, PlaceBidPayload,
+  Agreement, Dispatch, ScheduleDispatchPayload, ConfirmDeliveryPayload,
+  UserProfile, BankAccount,
+} from './types';
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+
+const api = axios.create({ baseURL: BASE_URL, headers: { 'Content-Type': 'application/json' } });
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('access_token');
 }
 
-async function request<T>(method: string, endpoint: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+api.interceptors.request.use(cfg => {
   const token = getToken();
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    method, headers, body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json();
-  if (!res.ok || data.success === false) throw new Error(data.message || 'Request failed');
-  return data;
-}
+  if (token) cfg.headers.Authorization = `Bearer ${token}`;
+  return cfg;
+});
 
-export async function register(payload: { phone: string; faydaId: string; password: string; fullName: string; role: string }) {
-  return request<{ success: boolean; message: string; data: string }>('POST', '/auth/register', payload);
-}
-export async function verifyOtp(payload: { phone: string; otpCode: string; purpose: string }) {
-  return request<{ success: boolean }>('POST', '/auth/otp/verify', payload);
-}
-export async function login(payload: { phone: string; password: string }) {
-  return request<{ success: boolean; data: { accessToken: string; refreshToken: string; expiresIn: number } }>('POST', '/auth/login', payload);
-}
-export async function logout() {
-  return request('POST', '/auth/logout', {});
-}
-export async function getMyProfile() {
-  return request<{ success: boolean; data: UserProfile }>('GET', '/users/me');
-}
-export async function updateProfile(payload: { email?: string; preferredLanguage?: string }) {
-  return request<{ success: boolean; data: UserProfile }>('PATCH', '/users/me', payload);
-}
-export async function getBankAccounts() {
-  return request<{ success: boolean; data: BankAccount[] }>('GET', '/users/me/bank');
-}
-export async function addBankAccount(payload: { accountType: string; accountNumber: string; accountHolderName?: string }) {
-  return request<{ success: boolean; data: BankAccount }>('POST', '/users/me/bank', payload);
-}
-export async function verifyBankAccount(accountId: string, verificationCode: string) {
-  return request<{ success: boolean; data: BankAccount }>('POST', '/users/me/bank/verify', { account_id: accountId, verification_code: verificationCode });
-}
-export async function setDefaultBankAccount(accountId: string) {
-  return request<{ success: boolean; data: BankAccount }>('POST', '/users/me/bank/default', { account_id: accountId });
-}
-export async function deleteBankAccount(accountId: string) {
-  return request<{ success: boolean }>('DELETE', `/users/me/bank/${accountId}`);
-}
+api.interceptors.response.use(
+  r => r,
+  async error => {
+    const orig = error.config;
+    if (error.response?.status === 401 && !orig._retry) {
+      orig._retry = true;
+      try {
+        const refresh = localStorage.getItem('refresh_token');
+        if (!refresh) throw new Error('no refresh token');
+        const res = await axios.post(`${BASE_URL}/auth/refresh`, { refresh_token: refresh });
+        const token = res.data.data.accessToken;
+        localStorage.setItem('access_token', token);
+        orig.headers.Authorization = `Bearer ${token}`;
+        return api(orig);
+      } catch {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        if (typeof window !== 'undefined') window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
-export interface UserProfile {
-  id: string; phone: string; email?: string; faydaId: string;
-  role: string; kycStatus: string; accountStatus: string;
-  preferredLanguage: string; createdAt: string;
-  bankAccounts: BankAccount[]; defaultBankAccount?: BankAccount;
-}
-export interface BankAccount {
-  id: string; accountType: string; accountNumber: string;
-  accountHolderName?: string; isVerified: boolean;
-  isDefault: boolean; verifiedAt?: string; createdAt: string;
-}
+export default api;
 
-export async function refreshAccessToken(refreshTokenValue: string) {
-  const res = await fetch(`${BASE_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshTokenValue }),
-  });
-  const data = await res.json();
-  if (!res.ok || data.success === false) throw new Error('Token refresh failed');
-  return data as { success: boolean; data: { accessToken: string } };
-}
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export const login = (p: { phone: string; password: string }) =>
+  api.post<{ success: boolean; data: { accessToken: string; refreshToken: string; expiresIn: number } }>('/auth/login', p);
+
+export const register = (p: { phone: string; faydaId: string; password: string; fullName: string; role: string }) =>
+  api.post<{ success: boolean; message: string; data: string }>('/auth/register', p);
+
+export const verifyOtp = (p: { phone: string; otpCode: string; purpose: string }) =>
+  api.post<{ success: boolean }>('/auth/otp/verify', p);
+
+export const logout = () => api.post('/auth/logout', {});
+
+export const refreshAccessToken = (refreshToken: string) =>
+  api.post<{ success: boolean; data: { accessToken: string } }>('/auth/refresh', { refresh_token: refreshToken });
+
+// ── User ──────────────────────────────────────────────────────────────────────
+
+export const getMyProfile = () =>
+  api.get<{ success: boolean; data: UserProfile }>('/users/me');
+
+export const updateProfile = (p: { email?: string; preferredLanguage?: string }) =>
+  api.patch<{ success: boolean; data: UserProfile }>('/users/me', p);
+
+export const getBankAccounts = () =>
+  api.get<{ success: boolean; data: BankAccount[] }>('/users/me/bank');
+
+export const addBankAccount = (p: { accountType: string; accountNumber: string; accountHolderName?: string }) =>
+  api.post<{ success: boolean; data: BankAccount }>('/users/me/bank', p);
+
+export const verifyBankAccount = (accountId: string, verificationCode: string) =>
+  api.post<{ success: boolean; data: BankAccount }>('/users/me/bank/verify', { account_id: accountId, verification_code: verificationCode });
+
+export const setDefaultBankAccount = (accountId: string) =>
+  api.post('/users/me/bank/default', { account_id: accountId });
+
+export const deleteBankAccount = (accountId: string) =>
+  api.delete(`/users/me/bank/${accountId}`);
+
+// ── Farm Marketplace ─────────────────────────────────────────────────────────
+// SRS §6.4: GET /api/v1/offtaker/farms/{farmId}
+
+export const getFarmDetail = (farmId: string) =>
+  api.get<{ success: boolean; data: FarmMarketplace }>(`/offtaker/farms/${farmId}`);
+
+// ── Bids ──────────────────────────────────────────────────────────────────────
+// SRS §6.4: POST /api/v1/offtaker/bids
+
+export const placeBid = (payload: PlaceBidPayload) =>
+  api.post<{ success: boolean; data: Bid }>('/offtaker/bids', payload);
+
+export const getMyBids = () =>
+  api.get<{ success: boolean; data: Bid[] }>('/offtaker/bids');
+
+export const getBidById = (bidId: string) =>
+  api.get<{ success: boolean; data: Bid }>(`/offtaker/bids/${bidId}`);
+
+// ── Agreements ────────────────────────────────────────────────────────────────
+// SRS §6.4: POST /api/v1/agreements/{agreementId}/sign
+
+export const getAgreement = (agreementId: string) =>
+  api.get<{ success: boolean; data: Agreement }>(`/agreements/${agreementId}`);
+
+export const signAgreement = (agreementId: string) =>
+  api.post<{ success: boolean; data: Agreement }>(`/agreements/${agreementId}/sign`);
+
+// ── Dispatches ────────────────────────────────────────────────────────────────
+// SRS §6.4: POST /api/v1/offtaker/dispatches
+
+export const scheduleDispatch = (payload: ScheduleDispatchPayload) =>
+  api.post<{ success: boolean; data: Dispatch }>('/offtaker/dispatches', payload);
+
+export const getDispatchesForAgreement = (agreementId: string) =>
+  api.get<{ success: boolean; data: Dispatch[] }>(`/offtaker/dispatches/${agreementId}`);
+
+export const confirmDelivery = (agreementId: string, payload: ConfirmDeliveryPayload) =>
+  api.post<{ success: boolean; data: Dispatch }>(`/offtaker/deliveries/${agreementId}/confirm`, payload);
 
 // ── Weather ───────────────────────────────────────────────────────────────────
 
-export async function getWeatherRisk(farmId: string) {
-  return request<{ success: boolean; data: { farmId: string; riskScore: number; riskLevel: string } }>(
-    'GET', `/weather/risk/${farmId}`);
-}
+export const getWeatherAlerts = (farmId: string) =>
+  api.get<{ success: boolean; data: any[] }>(`/weather/alerts/${farmId}`);
 
-export async function getDroughtStatus(farmId: string) {
-  return request<{ success: boolean; data: {
-    farmId: string; consecutiveDryDays: number;
-    droughtThresholdDays: number; isTriggered: boolean;
-  } }>('GET', `/weather/drought/${farmId}`);
-}
-
-export async function getWeatherAlerts(farmId: string) {
-  return request<{ success: boolean; data: Array<{
-    id: string; alertType: string; severity: string;
-    messageEn: string; createdAt: string;
-  }> }>('GET', `/weather/alerts/${farmId}`);
-}
-
-export async function getWeatherCurrent(farmId: string) {
-  return request<{ success: boolean; data: {
-    temperatureC: number; rainfallMm: number;
-    isDryDay: boolean; recordedDate: string;
-  } }>('GET', `/weather/current/${farmId}`);
-}
+export const getWeatherCurrent = (farmId: string) =>
+  api.get<{ success: boolean; data: any }>(`/weather/current/${farmId}`);

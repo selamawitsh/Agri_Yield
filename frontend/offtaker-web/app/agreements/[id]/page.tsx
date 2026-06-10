@@ -1,0 +1,191 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import toast from 'react-hot-toast';
+import Navbar from '@/components/Navbar';
+import { getAgreement, signAgreement, getBidById } from '@/lib/api';
+import type { Agreement, Bid } from '@/lib/types';
+
+export default function AgreementPage() {
+  const router  = useRouter();
+  const params  = useParams();
+  const id      = params.id as string;
+
+  const [agreement, setAgreement] = useState<Agreement | null>(null);
+  const [bid,       setBid]       = useState<Bid | null>(null);
+  const [loading,   setLoading]   = useState(true);
+  const [signing,   setSigning]   = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+
+  useEffect(() => {
+    if (!localStorage.getItem('access_token')) { router.push('/login'); return; }
+    load();
+  }, [id]);
+
+  const load = async () => {
+    try {
+      // id here is the bid id — agreement endpoint uses agreement UUID
+      // Try as agreement id first, then try to get bid to find agreement
+      const [agreementRes, bidRes] = await Promise.allSettled([
+        getAgreement(id),
+        getBidById(id),
+      ]);
+      if (agreementRes.status === 'fulfilled' && agreementRes.value.data.success)
+        setAgreement(agreementRes.value.data.data);
+      if (bidRes.status === 'fulfilled' && bidRes.value.data.success)
+        setBid(bidRes.value.data.data);
+    } catch {
+      toast.error('Agreement not found');
+    } finally { setLoading(false); }
+  };
+
+  const handleSign = async () => {
+    if (!agreement) return;
+    if (!confirmed) { toast.error('Please confirm you have reviewed the contract'); return; }
+    setSigning(true);
+    try {
+      const res = await signAgreement(agreement.id);
+      if (res.data.success) {
+        toast.success(res.data.data.fullyExecuted
+          ? '✅ Contract fully executed!'
+          : '✍️ Your signature recorded. Waiting for the other party.');
+        setAgreement(res.data.data);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Signing failed');
+    } finally { setSigning(false); }
+  };
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600" />
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
+      <Navbar />
+      <div className="container mx-auto px-4 sm:px-6 py-6 max-w-3xl">
+
+        <button onClick={() => router.back()}
+          className="text-teal-700 text-sm font-semibold mb-6 hover:underline flex items-center gap-2">
+          ← Back to Bids
+        </button>
+
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Purchase Agreement</h1>
+
+        {/* Bid summary */}
+        {bid && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
+            <h3 className="font-bold text-gray-800 mb-3">Bid Details</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <div><p className="text-gray-400 text-xs">Quantity</p><p className="font-bold">{bid.quantityQuintals} quintals</p></div>
+              <div><p className="text-gray-400 text-xs">Price</p><p className="font-bold">{bid.pricePerQuintalEtb.toLocaleString()} ETB/qt</p></div>
+              <div><p className="text-gray-400 text-xs">Total Value</p><p className="font-bold text-teal-700">{bid.totalValueEtb.toLocaleString()} ETB</p></div>
+              <div><p className="text-gray-400 text-xs">Deposit (10%)</p><p className="font-bold">{bid.bidDepositEtb.toLocaleString()} ETB</p></div>
+              <div><p className="text-gray-400 text-xs">Farm ID</p><p className="font-mono text-xs text-gray-600">{bid.farmId}</p></div>
+              <div><p className="text-gray-400 text-xs">Status</p><p className="font-bold">{bid.status}</p></div>
+            </div>
+          </div>
+        )}
+
+        {/* Agreement status */}
+        {agreement ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-5">
+            <h3 className="font-bold text-gray-800 mb-4">Contract Status</h3>
+
+            {/* Signature status — SRS §6.4 */}
+            <div className="space-y-3 mb-5">
+              <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+                agreement.farmerSignedAt ? 'border-green-200 bg-green-50' : 'border-gray-100 bg-gray-50'
+              }`}>
+                <span className="text-xl">{agreement.farmerSignedAt ? '✅' : '⏳'}</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Farmer Signature</p>
+                  <p className="text-xs text-gray-400">
+                    {agreement.farmerSignedAt
+                      ? `Signed on ${new Date(agreement.farmerSignedAt).toLocaleString()}`
+                      : 'Awaiting farmer signature'}
+                  </p>
+                </div>
+              </div>
+              <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+                agreement.offtakerSignedAt ? 'border-green-200 bg-green-50' : 'border-gray-100 bg-gray-50'
+              }`}>
+                <span className="text-xl">{agreement.offtakerSignedAt ? '✅' : '⏳'}</span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Your Signature</p>
+                  <p className="text-xs text-gray-400">
+                    {agreement.offtakerSignedAt
+                      ? `Signed on ${new Date(agreement.offtakerSignedAt).toLocaleString()}`
+                      : 'Your signature pending'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {agreement.fullyExecuted ? (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                <p className="text-2xl mb-1">🎉</p>
+                <p className="font-bold text-green-800">Contract Fully Executed</p>
+                <p className="text-sm text-green-600 mt-1">Both parties have signed. You can now schedule harvest collection.</p>
+                <button onClick={() => router.push(`/logistics?agreementId=${agreement.id}`)}
+                  className="mt-3 bg-green-700 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-green-800 transition">
+                  Schedule Dispatch →
+                </button>
+              </div>
+            ) : !agreement.offtakerSignedAt ? (
+              <div className="space-y-4">
+                {/* Contract PDF preview */}
+                {agreement.contractPdfUrl && (
+                  <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                    <p className="text-sm font-semibold text-gray-700 mb-2">📄 Purchase Agreement PDF</p>
+                    <a href={agreement.contractPdfUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-teal-600 text-sm font-medium hover:underline">
+                      Open PDF Contract ↗
+                    </a>
+                  </div>
+                )}
+                <label className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl cursor-pointer">
+                  <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}
+                    className="mt-1 w-4 h-4 accent-teal-600" />
+                  <span className="text-sm text-amber-800">
+                    I confirm that I have reviewed the purchase agreement, understand my obligations,
+                    and agree to the terms including the 10% bid deposit and delivery schedule.
+                  </span>
+                </label>
+                <button onClick={handleSign} disabled={signing || !confirmed}
+                  className="w-full bg-teal-700 text-white py-3 rounded-xl font-bold hover:bg-teal-600 disabled:opacity-50 transition">
+                  {signing ? 'Signing with Fayda ID…' : '✍️ Sign Agreement'}
+                </button>
+                <p className="text-xs text-gray-400 text-center">
+                  Your Fayda National ID is used as the digital signature — linked to your account on file
+                </p>
+              </div>
+            ) : (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
+                <p className="font-bold text-blue-800">You have signed ✅</p>
+                <p className="text-sm text-blue-600 mt-1">Waiting for the farmer to sign the agreement.</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
+            <p className="text-3xl mb-2">📄</p>
+            <p className="text-gray-500">Agreement not found or not yet generated</p>
+            <p className="text-gray-400 text-sm mt-1">The farmer must accept the bid first to generate the contract</p>
+          </div>
+        )}
+
+        {/* Contract hash — tamper detection */}
+        {agreement?.contractHash && (
+          <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs">
+            <p className="text-gray-400 font-semibold mb-1">Contract integrity hash (SHA-256)</p>
+            <p className="font-mono text-gray-600 break-all">{agreement.contractHash}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
