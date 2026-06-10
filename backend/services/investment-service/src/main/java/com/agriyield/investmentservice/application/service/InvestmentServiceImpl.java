@@ -89,6 +89,7 @@ public class InvestmentServiceImpl implements InvestmentServicePort {
             .cropType(farmContext.cropType())
             .region(farmContext.region())
             .seasonName(farmContext.seasonName())
+            .investmentPct(new java.math.BigDecimal("0.00"))  // updated by caller
             .expectedReturnPct(new BigDecimal("8.50"))
             .notes(notes)
             .createdAt(LocalDateTime.now())

@@ -161,6 +161,9 @@ public class ListingServiceImpl implements ListingServicePort {
                 "EXCEEDS_REMAINING");
         }
 
+        /* SRS §4.1.1: investment_pct = amount / total_listing_amount */
+        BigDecimal investmentPct = amountEtb
+            .divide(listing.getTotalAmountEtb(), 5, java.math.RoundingMode.HALF_UP);
         Investment investment = investmentService.placeInvestment(
             investorId,
             listing.getFarmId(),
