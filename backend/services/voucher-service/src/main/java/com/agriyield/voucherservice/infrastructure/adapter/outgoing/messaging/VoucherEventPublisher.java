@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -31,21 +32,19 @@ public class VoucherEventPublisher implements EventPublisherPort {
         event.put("farm_id", vouchers.get(0).getFarmId().toString());
         event.put("farmer_id", vouchers.get(0).getFarmerId().toString());
         event.put("vouchers", vouchers.stream().map(v -> {
-            Map<String, Object> vMap = new HashMap<>();
-            vMap.put("voucher_id", v.getId().toString());
-            vMap.put("voucher_code", v.getVoucherCode());
-            vMap.put("product_name", v.getProductName());
-            vMap.put("amount_etb", v.getAmountEtb());
-            vMap.put("expires_at", v.getExpiresAt().toString());
-            return vMap;
+            Map<String, Object> m = new HashMap<>();
+            m.put("voucher_id", v.getId().toString());
+            m.put("voucher_code", v.getVoucherCode());
+            m.put("product_name", v.getProductName());
+            m.put("amount_etb", v.getAmountEtb());
+            m.put("expires_at", v.getExpiresAt().toString());
+            return m;
         }).collect(Collectors.toList()));
         event.put("timestamp", LocalDateTime.now().toString());
-
         log.info("Publishing voucher.generated for investment: {}",
             vouchers.get(0).getInvestmentId());
         rabbitTemplate.convertAndSend(
-            RabbitMQConfig.VOUCHER_EXCHANGE,
-            RabbitMQConfig.VOUCHER_GENERATED_KEY, event);
+            RabbitMQConfig.VOUCHER_EXCHANGE, RabbitMQConfig.VOUCHER_GENERATED_KEY, event);
     }
 
     @Override
@@ -62,11 +61,9 @@ public class VoucherEventPublisher implements EventPublisherPort {
         event.put("escrow_released", redemption.getEscrowReleased());
         event.put("redeemed_at", redemption.getRedeemedAt().toString());
         event.put("timestamp", LocalDateTime.now().toString());
-
         log.info("Publishing voucher.redeemed: {}", voucher.getVoucherCode());
         rabbitTemplate.convertAndSend(
-            RabbitMQConfig.VOUCHER_EXCHANGE,
-            RabbitMQConfig.VOUCHER_REDEEMED_KEY, event);
+            RabbitMQConfig.VOUCHER_EXCHANGE, RabbitMQConfig.VOUCHER_REDEEMED_KEY, event);
     }
 
     @Override
@@ -79,11 +76,9 @@ public class VoucherEventPublisher implements EventPublisherPort {
         event.put("farm_id", voucher.getFarmId().toString());
         event.put("amount_etb", voucher.getAmountEtb());
         event.put("timestamp", LocalDateTime.now().toString());
-
         log.info("Publishing voucher.expired: {}", voucher.getVoucherCode());
         rabbitTemplate.convertAndSend(
-            RabbitMQConfig.VOUCHER_EXCHANGE,
-            RabbitMQConfig.VOUCHER_EXPIRED_KEY, event);
+            RabbitMQConfig.VOUCHER_EXCHANGE, RabbitMQConfig.VOUCHER_EXPIRED_KEY, event);
     }
 
     @Override
@@ -96,10 +91,31 @@ public class VoucherEventPublisher implements EventPublisherPort {
         event.put("farm_id", voucher.getFarmId().toString());
         event.put("amount_etb", voucher.getAmountEtb());
         event.put("timestamp", LocalDateTime.now().toString());
-
         log.info("Publishing voucher.cancelled: {}", voucher.getVoucherCode());
         rabbitTemplate.convertAndSend(
-            RabbitMQConfig.VOUCHER_EXCHANGE,
-            RabbitMQConfig.VOUCHER_CANCELLED_KEY, event);
+            RabbitMQConfig.VOUCHER_EXCHANGE, RabbitMQConfig.VOUCHER_CANCELLED_KEY, event);
+    }
+
+    @Override
+    public void publishVoucherRejected(Voucher voucher, UUID merchantId, String reason) {
+        Map<String, Object> event = new HashMap<>();
+        event.put("event_type", "voucher.rejected");
+        event.put("voucher_id", voucher.getId().toString());
+        event.put("voucher_code", voucher.getVoucherCode());
+        event.put("farm_id", voucher.getFarmId().toString());
+        event.put("merchant_id", merchantId.toString());
+        event.put("rejection_reason", reason);
+        // SRS §5.2 fraud severity mapping
+        String severity = switch (reason) {
+            case "DUPLICATE_SCAN", "INVALID_SIGNATURE" -> "CRITICAL";
+            case "CATEGORY_MISMATCH", "MERCHANT_TOO_FAR" -> "HIGH";
+            default -> "LOW";
+        };
+        event.put("fraud_severity", severity);
+        event.put("timestamp", LocalDateTime.now().toString());
+        log.warn("Publishing voucher.rejected: code={} reason={} severity={}",
+            voucher.getVoucherCode(), reason, severity);
+        rabbitTemplate.convertAndSend(
+            RabbitMQConfig.VOUCHER_EXCHANGE, RabbitMQConfig.VOUCHER_REJECTED_KEY, event);
     }
 }
