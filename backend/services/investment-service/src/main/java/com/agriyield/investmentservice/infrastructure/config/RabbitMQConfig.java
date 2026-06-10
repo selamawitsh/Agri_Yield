@@ -48,6 +48,21 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public TopicExchange offtakerExchange() {
+        return new TopicExchange("offtaker.exchange", true, false);
+    }
+
+    @Bean
+    public Queue bidAcceptedQueue() {
+        return QueueBuilder.durable("investment.bid-accepted.queue").build();
+    }
+
+    @Bean
+    public Queue settlementCompletedQueue() {
+        return QueueBuilder.durable("investment.settlement-completed.queue").build();
+    }
+
+    @Bean
     public Jackson2JsonMessageConverter messageConverter() {
         return new Jackson2JsonMessageConverter();
     }
@@ -59,3 +74,13 @@ public class RabbitMQConfig {
         return template;
     }
 }
+// NOTE: The above is appended — merge these beans into RabbitMQConfig class manually.
+// Add to RabbitMQConfig:
+//
+//    public static final String OFFTAKER_EXCHANGE          = "offtaker.exchange";
+//    public static final String BID_ACCEPTED_QUEUE         = "investment.bid-accepted.queue";
+//    public static final String SETTLEMENT_COMPLETED_QUEUE = "investment.settlement-completed.queue";
+//
+//    @Bean public TopicExchange offtakerExchange() { return new TopicExchange(OFFTAKER_EXCHANGE, true, false); }
+//    @Bean public Queue bidAcceptedQueue()          { return QueueBuilder.durable(BID_ACCEPTED_QUEUE).build(); }
+//    @Bean public Queue settlementCompletedQueue()  { return QueueBuilder.durable(SETTLEMENT_COMPLETED_QUEUE).build(); }
