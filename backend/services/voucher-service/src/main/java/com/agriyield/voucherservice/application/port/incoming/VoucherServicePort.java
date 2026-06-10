@@ -37,6 +37,9 @@ public interface VoucherServicePort {
     /** Get all vouchers for a farm */
     List<Voucher> getByFarmId(UUID farmId);
 
+    /** Returns all REDEEMED vouchers for a given merchant. */
+    List<Voucher> getByMerchantId(UUID merchantId);
+
     /** Expire vouchers past their deadline — called by scheduler */
     void expireOverdueVouchers();
 

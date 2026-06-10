@@ -21,4 +21,5 @@ public interface VoucherRepositoryPort {
     List<Voucher> findByInvestmentId(UUID investmentId);
 
     List<Voucher> findExpiredActiveVouchers();
+    List<Voucher> findByMerchantId(UUID merchantId);
 }
