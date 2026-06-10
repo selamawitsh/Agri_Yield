@@ -42,6 +42,10 @@ public class InvestmentEntity {
     @Column(name = "amount_etb", nullable = false, precision = 14, scale = 2)
     private BigDecimal amountEtb;
 
+    // SRS §4.1.1: investment_pct = amount / total_amount stored as decimal (e.g. 0.41667)
+    @Column(name = "investment_pct", precision = 8, scale = 5)
+    private BigDecimal investmentPct;
+
     @Column(name = "status", nullable = false, length = 30)
     private String status;
 
@@ -65,6 +69,18 @@ public class InvestmentEntity {
 
     @Column(name = "cancelled_reason", length = 255)
     private String cancelledReason;
+
+    // SRS §4.1.1: When escrow confirmed funds locked
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
+    // SRS §4.1.1: Actual amount paid out at settlement
+    @Column(name = "payout_amount_etb", precision = 14, scale = 2)
+    private BigDecimal payoutAmountEtb;
+
+    // SRS §4.1.1: When payout was transferred
+    @Column(name = "payout_at")
+    private LocalDateTime payoutAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
