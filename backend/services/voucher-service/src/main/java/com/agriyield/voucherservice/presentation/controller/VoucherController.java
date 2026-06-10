@@ -38,6 +38,21 @@ public class VoucherController {
         return ResponseEntity.ok(ApiResponse.success(vouchers));
     }
 
+    /**
+     * Merchant: view all vouchers redeemed by this merchant.
+     * Used by the merchant POS app for transaction history.
+     * Returns all vouchers where merchantId matches the authenticated user.
+     */
+    @GetMapping("/merchant/my")
+    public ResponseEntity<ApiResponse<List<VoucherResponse>>> getMyMerchantVouchers(
+            @RequestHeader("Authorization") String authHeader) {
+        UUID merchantId = jwtUtils.extractUserId(authHeader);
+        log.info("GET /api/v1/vouchers/merchant/my — merchant: {}", merchantId);
+        List<VoucherResponse> vouchers = voucherService.getByMerchantId(merchantId)
+            .stream().map(this::toResponse).collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(vouchers));
+    }
+
     /** Get voucher by ID */
     @GetMapping("/{voucherId}")
     public ResponseEntity<ApiResponse<VoucherResponse>> getById(
@@ -48,7 +63,7 @@ public class VoucherController {
         return ResponseEntity.ok(ApiResponse.success(toResponse(voucher)));
     }
 
-    /** Get voucher by code — used by merchant POS to look up before redeeming */
+    /** Get voucher by code */
     @GetMapping("/code/{voucherCode}")
     public ResponseEntity<ApiResponse<VoucherResponse>> getByCode(
             @RequestHeader("Authorization") String authHeader,
@@ -66,13 +81,11 @@ public class VoucherController {
         UUID merchantId = jwtUtils.extractUserId(authHeader);
         log.info("POST /api/v1/vouchers/redeem — merchant: {}, code: {}",
             merchantId, request.getVoucherCode());
-
         VoucherRedemption redemption = voucherService.redeem(
             request.getVoucherCode(),
             merchantId,
             merchantId,
             request.getNotes());
-
         return ResponseEntity.ok(ApiResponse.success(
             "Voucher redeemed successfully. Funds released from escrow.",
             toRedemptionResponse(redemption)));
