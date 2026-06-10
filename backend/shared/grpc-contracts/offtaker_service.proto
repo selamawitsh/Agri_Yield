@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package com.agriyield.offtakerservice.grpc;
+
+option java_package         = "com.agriyield.offtakerservice.grpc";
+option java_outer_classname = "OfftakerServiceProto";
+option java_multiple_files  = false;
+
+// SRS §2.2.2: offtaker-service gRPC methods called by other services
+service OfftakerService {
+    // Called by escrow-service to lock 10% bid deposit when bid is placed
+    rpc LockBidDeposit          (LockBidDepositRequest)         returns (LockBidDepositResponse);
+
+    // Called by escrow-service to process final harvest payment
+    rpc ProcessHarvestPayment   (HarvestPaymentRequest)         returns (HarvestPaymentResponse);
+
+    // Called by geospatial-service to check harvest readiness against active bids
+    rpc GetActiveBidsForFarm    (FarmIdRequest)                  returns (BidListResponse);
+
+    // Called by analytics-service
+    rpc GetBidById              (BidIdRequest)                   returns (BidResponse);
+}
+
+// ── Shared request types ──────────────────────────────────────────────────────
+
+message FarmIdRequest {
+    string farm_id = 1;
+}
+
+message BidIdRequest {
+    string bid_id = 1;
+}
+
+// ── LockBidDeposit ────────────────────────────────────────────────────────────
+
+message LockBidDepositRequest {
+    string bid_id          = 1;
+    string offtaker_id     = 2;
+    string farm_id         = 3;
+    double bid_deposit_etb = 4;   // SRS: total_value_etb * 0.10
+}
+
+message LockBidDepositResponse {
+    bool   success           = 1;
+    string escrow_account_id = 2;
+    string message           = 3;
+}
+
+// ── ProcessHarvestPayment ────────────────────────────────────────────────────
+
+message HarvestPaymentRequest {
+    string bid_id                     = 1;
+    string farm_id                    = 2;
+    string offtaker_id                = 3;
+    double actual_quantity_quintals   = 4;
+    string quality_grade              = 5;
+    double total_payment_etb          = 6;
+}
+
+message HarvestPaymentResponse {
+    bool   success   = 1;
+    string message   = 2;
+}
+
+// ── GetActiveBidsForFarm ──────────────────────────────────────────────────────
+
+message BidResponse {
+    string bid_id                  = 1;
+    string farm_id                 = 2;
+    string offtaker_id             = 3;
+    double quantity_quintals        = 4;
+    double price_per_quintal_etb   = 5;
+    double total_value_etb         = 6;
+    double bid_deposit_etb         = 7;
+    string status                  = 8;
+    string expires_at              = 9;
+    string accepted_at             = 10;
+}
+
+message BidListResponse {
+    repeated BidResponse bids = 1;
+}
