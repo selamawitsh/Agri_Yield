@@ -24,6 +24,8 @@ public class Investment {
     private UUID inputNeedId;
     private UUID cropCycleId;
     private BigDecimal amountEtb;
+    // SRS §4.1.1: This investor's share of total listing (e.g. 0.41667 for 41.667%)
+    private BigDecimal investmentPct;
     private InvestmentStatus status;
     private String cropType;
     private String region;
@@ -32,6 +34,10 @@ public class Investment {
     private BigDecimal actualReturnPct;
     private String notes;
     private String cancelledReason;
+    // SRS §4.1.1: locked_at, payout_amount_etb, payout_at
+    private LocalDateTime lockedAt;
+    private BigDecimal payoutAmountEtb;
+    private LocalDateTime payoutAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -41,6 +47,7 @@ public class Investment {
                 "Only PENDING investments can be locked", "INVALID_STATUS");
         }
         this.status = InvestmentStatus.ESCROW_LOCKED;
+        this.lockedAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -53,13 +60,21 @@ public class Investment {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void complete(BigDecimal actualReturnPct) {
+    public void complete(BigDecimal actualReturnPct, BigDecimal payoutAmountEtb) {
         if (this.status != InvestmentStatus.ACTIVE) {
             throw new BusinessException(
                 "Only ACTIVE investments can be completed", "INVALID_STATUS");
         }
         this.status = InvestmentStatus.COMPLETED;
         this.actualReturnPct = actualReturnPct;
+        this.payoutAmountEtb = payoutAmountEtb;
+        this.payoutAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void refund(String reason) {
+        this.status = InvestmentStatus.REFUNDED;
+        this.cancelledReason = reason;
         this.updatedAt = LocalDateTime.now();
     }
 
