@@ -1,3 +1,5 @@
+// ── User / Auth ───────────────────────────────────────────────────────────────
+
 export interface UserProfile {
   id: string;
   phone: string;
@@ -32,22 +34,17 @@ export interface AuthTokens {
   expiresIn: number;
 }
 
-// ── Voucher Types (VS-02, VS-03, VS-10) ──────────────────────────────────────
+// alias used by dashboard
+export type User = UserProfile;
+
+// ── Voucher types (SRS §3.5) ──────────────────────────────────────────────────
 
 export type VoucherStatus =
-  | 'GENERATED'
-  | 'ACTIVE'
-  | 'REDEEMED'
-  | 'EXPIRED'
-  | 'CANCELLED'
-  | 'REJECTED';
+  | 'GENERATED' | 'ACTIVE' | 'REDEEMED'
+  | 'EXPIRED'   | 'CANCELLED' | 'REJECTED';
 
 export type ProductCategory =
-  | 'SEED'
-  | 'FERTILIZER'
-  | 'PESTICIDE'
-  | 'TOOL'
-  | 'OTHER';
+  | 'SEED' | 'FERTILIZER' | 'PESTICIDE' | 'TOOL' | 'OTHER';
 
 export interface Voucher {
   id: string;
@@ -105,93 +102,7 @@ export interface FarmVoucherTimeline {
   summary: VoucherSummary;
 }
 
-// ── Investment Service Types ──────────────────────────────────────────────────
-
-export type ListingStatus =
-  | 'OPEN'
-  | 'PARTIALLY_FUNDED'
-  | 'FULLY_FUNDED'
-  | 'FUNDING_FAILED'
-  | 'ACTIVE'
-  | 'COMPLETED'
-  | 'CANCELLED';
-
-export type InvestmentStatus =
-  | 'PENDING'
-  | 'ESCROW_LOCKED'
-  | 'ACTIVE'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'FAILED';
-
-export interface FarmListing {
-  id: string;
-  farmId: string;
-  farmerId: string;
-  inputNeedId: string;
-  cropCycleId: string;
-  cropType: string;
-  region: string;
-  kebeleCode: string;
-  seasonName: string;
-  totalAmountEtb: number;
-  fundedAmountEtb: number;
-  fundingPct: number;
-  currentApr: number;
-  baseApr: number;
-  agriScore: number;
-  status: ListingStatus;
-  fundingDeadline: string | null;
-  fullyFundedAt: string | null;
-  createdAt: string;
-}
-
-export interface Investment {
-  id: string;
-  investorId: string;
-  farmId: string;
-  farmerId: string;
-  inputNeedId: string;
-  cropCycleId: string;
-  amountEtb: number;
-  status: InvestmentStatus;
-  cropType: string;
-  region: string;
-  seasonName: string;
-  expectedReturnPct: number;
-  actualReturnPct: number | null;
-  notes: string | null;
-  cancelledReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PayoutRecord {
-  id: string;
-  investmentId: string;
-  farmId: string;
-  listingId: string;
-  principalEtb: number;
-  returnEtb: number;
-  totalEtb: number;
-  actualApr: number;
-  payoutReason: string | null;
-  paidAt: string;
-}
-
-export interface PortfolioStats {
-  totalInvested: number;
-  totalReturned: number;
-  activeInvestments: number;
-  completedInvestments: number;
-  cancelledInvestments: number;
-  averageApr: number;
-}
-
-// Alias — dashboard imports 'User', pages use 'UserProfile'
-export type User = UserProfile;
-
-// ── Investment Service Types ──────────────────────────────────────────────────
+// ── Investment Service types (SRS §4.1) ───────────────────────────────────────
 
 export type ListingStatus =
   | 'OPEN' | 'PARTIALLY_FUNDED' | 'FULLY_FUNDED'
@@ -199,7 +110,7 @@ export type ListingStatus =
 
 export type InvestmentStatus =
   | 'PENDING' | 'ESCROW_LOCKED' | 'ACTIVE'
-  | 'COMPLETED' | 'CANCELLED' | 'FAILED';
+  | 'COMPLETED' | 'REFUNDED' | 'CANCELLED' | 'FAILED';
 
 export interface FarmListing {
   id: string;
@@ -218,8 +129,13 @@ export interface FarmListing {
   baseApr: number;
   agriScore: number;
   status: ListingStatus;
-  fundingDeadline: string | null;
+  // SRS §4.1.1: listing_expires_at (renamed from funding_deadline)
+  listingExpiresAt: string | null;
+  /** @deprecated use listingExpiresAt — kept for backward compat during migration */
+  fundingDeadline?: string | null;
   fullyFundedAt: string | null;
+  // SRS: satellite_verified flag from farm-service
+  satelliteVerified?: boolean;
   createdAt: string;
 }
 
@@ -231,6 +147,8 @@ export interface Investment {
   inputNeedId: string;
   cropCycleId: string;
   amountEtb: number;
+  // SRS §4.1.1: this investor's share of total listing (e.g. 0.41667)
+  investmentPct: number | null;
   status: InvestmentStatus;
   cropType: string;
   region: string;
@@ -239,6 +157,10 @@ export interface Investment {
   actualReturnPct: number | null;
   notes: string | null;
   cancelledReason: string | null;
+  // SRS §4.1.1: payout tracking
+  lockedAt: string | null;
+  payoutAmountEtb: number | null;
+  payoutAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -246,6 +168,7 @@ export interface Investment {
 export interface PayoutRecord {
   id: string;
   investmentId: string;
+  investorId: string;
   farmId: string;
   listingId: string;
   principalEtb: number;
@@ -264,6 +187,8 @@ export interface PortfolioStats {
   cancelledInvestments: number;
   averageApr: number;
 }
+
+// ── Geospatial / Weather types (SRS §3.6, §4.4) ───────────────────────────────
 
 export interface NdviReading {
   date: string;
@@ -272,11 +197,52 @@ export interface NdviReading {
 }
 
 export interface YieldPrediction {
+  farmId: string;
+  cropType: string;
   predictedYieldMin: number;
   predictedYieldMax: number;
   predictedYieldMean: number;
   confidencePct: number;
   predictedAt: string;
+  modelVersion: string;
 }
 
-export type User = UserProfile;
+export interface WeatherReading {
+  id?: string;
+  farmId?: string;
+  temperatureC: number;
+  rainfallMm: number;
+  humidityPct?: number;
+  isDryDay: boolean;
+  forecastType: string;
+  forecastHorizonDays?: number;
+  recordedDate: string;
+}
+
+export interface DroughtStatus {
+  farmId: string;
+  consecutiveDryDays: number;
+  droughtThresholdDays: number;
+  isTriggered: boolean;
+  triggeredAt?: string;
+  lastChecked: string;
+}
+
+export interface WeatherRisk {
+  farmId: string;
+  riskScore: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+}
+
+export interface WeatherAlert {
+  id: string;
+  farmId: string;
+  alertType: string;
+  severity: string;
+  messageEn: string;
+  messageAm?: string;
+  messageOm?: string;
+  forecastValue?: number;
+  forecastDate?: string;
+  createdAt: string;
+}
