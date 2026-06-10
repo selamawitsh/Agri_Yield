@@ -33,12 +33,16 @@ export default function PortfolioPage() {
       if (res.data.success) {
         const data: Investment[] = res.data.data || [];
         setInvestments(data);
-        const totalInvested = data.reduce((s, i) => s + i.amountEtb, 0);
-        const active = data.filter(i => ['ACTIVE', 'ESCROW_LOCKED', 'PENDING'].includes(i.status)).length;
-        const completed = data.filter(i => i.status === 'COMPLETED').length;
-        const cancelled = data.filter(i => i.status === 'CANCELLED').length;
-        const avgApr = data.length > 0 ? data.reduce((s, i) => s + i.expectedReturnPct, 0) / data.length : 0;
-        setStats({ totalInvested, totalReturned: 0, activeInvestments: active, completedInvestments: completed, cancelledInvestments: cancelled, averageApr: avgApr });
+        const totalInvested  = data.reduce((s, i) => s + i.amountEtb, 0);
+        const totalReturned  = data.filter(i => i.status === 'COMPLETED')
+                                   .reduce((s, i) => s + (i.payoutAmountEtb ?? 0), 0);
+        const active         = data.filter(i => ['ACTIVE','ESCROW_LOCKED','PENDING'].includes(i.status)).length;
+        const completed      = data.filter(i => i.status === 'COMPLETED').length;
+        const cancelled      = data.filter(i => i.status === 'CANCELLED').length;
+        const avgApr         = data.length > 0
+          ? data.reduce((s, i) => s + i.expectedReturnPct, 0) / data.length : 0;
+        setStats({ totalInvested, totalReturned, activeInvestments: active,
+          completedInvestments: completed, cancelledInvestments: cancelled, averageApr: avgApr });
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to load portfolio');
@@ -57,17 +61,17 @@ export default function PortfolioPage() {
   };
 
   const filtered = investments.filter(i => {
-    if (filter === 'ALL') return true;
-    if (filter === 'ACTIVE') return ['ACTIVE', 'ESCROW_LOCKED', 'PENDING'].includes(i.status);
-    if (filter === 'REFUNDED') return i.status === 'FAILED';
+    if (filter === 'ALL')       return true;
+    if (filter === 'ACTIVE')    return ['ACTIVE','ESCROW_LOCKED','PENDING'].includes(i.status);
+    if (filter === 'REFUNDED')  return i.status === 'REFUNDED';
     return i.status === filter;
   });
 
   const sorted = [...filtered].sort((a, b) => {
-    if (sort === 'date_desc') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    if (sort === 'date_asc') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    if (sort === 'date_desc')   return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    if (sort === 'date_asc')    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     if (sort === 'amount_desc') return b.amountEtb - a.amountEtb;
-    if (sort === 'apr_desc') return b.expectedReturnPct - a.expectedReturnPct;
+    if (sort === 'apr_desc')    return b.expectedReturnPct - a.expectedReturnPct;
     return 0;
   });
 
@@ -78,10 +82,10 @@ export default function PortfolioPage() {
   );
 
   const TABS: { key: FilterType; label: string }[] = [
-    { key: 'ALL', label: 'All' },
-    { key: 'ACTIVE', label: 'Active' },
+    { key: 'ALL',       label: 'All' },
+    { key: 'ACTIVE',    label: 'Active' },
     { key: 'COMPLETED', label: 'Completed' },
-    { key: 'REFUNDED', label: 'Refunded' },
+    { key: 'REFUNDED',  label: 'Refunded' },
     { key: 'CANCELLED', label: 'Cancelled' },
   ];
 
@@ -95,13 +99,13 @@ export default function PortfolioPage() {
           <p className="text-gray-500 mt-1">Track all your farm investments</p>
         </div>
 
-        {/* Stats */}
+        {/* Stats — SRS §6.3.2 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Total Invested', value: `${(stats?.totalInvested || 0).toLocaleString()} ETB`, color: 'text-green-600', bg: 'bg-green-50' },
-            { label: 'Active', value: stats?.activeInvestments || 0, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { label: 'Completed', value: stats?.completedInvestments || 0, color: 'text-gray-700', bg: 'bg-gray-50' },
-            { label: 'Avg APR', value: `${(stats?.averageApr || 0).toFixed(1)}%`, color: 'text-purple-600', bg: 'bg-purple-50' },
+            { label: 'Total Invested',  value: `${(stats?.totalInvested  || 0).toLocaleString()} ETB`, color: 'text-green-600',  bg: 'bg-green-50'  },
+            { label: 'Total Returned',  value: `${(stats?.totalReturned  || 0).toLocaleString()} ETB`, color: 'text-blue-600',   bg: 'bg-blue-50'   },
+            { label: 'Active',          value: stats?.activeInvestments    || 0,                        color: 'text-orange-600', bg: 'bg-orange-50' },
+            { label: 'Avg APR',         value: `${(stats?.averageApr     || 0).toFixed(1)}%`,          color: 'text-purple-600', bg: 'bg-purple-50' },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
               <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">{s.label}</p>
@@ -112,17 +116,21 @@ export default function PortfolioPage() {
 
         {/* Filter tabs + Sort */}
         <div className="flex flex-wrap gap-3 justify-between items-center mb-5">
-          <div className="flex gap-1 bg-white rounded-xl shadow-sm border border-gray-100 p-1">
+          <div className="flex gap-1 bg-white rounded-xl shadow-sm border border-gray-100 p-1 flex-wrap">
             {TABS.map(tab => (
               <button key={tab.key} onClick={() => setFilter(tab.key)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${
                   filter === tab.key ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-100'
                 }`}>
                 {tab.label}
+                <span className="ml-1.5 text-xs opacity-60">
+                  ({tab.key === 'ALL' ? investments.length
+                    : tab.key === 'ACTIVE' ? investments.filter(i => ['ACTIVE','ESCROW_LOCKED','PENDING'].includes(i.status)).length
+                    : investments.filter(i => i.status === tab.key).length})
+                </span>
               </button>
             ))}
           </div>
-          {/* Sort — SRS requirement */}
           <select value={sort} onChange={e => setSort(e.target.value as SortType)}
             className="bg-white border border-gray-200 text-sm rounded-xl px-3 py-2 text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500">
             <option value="date_desc">Newest first</option>
@@ -151,16 +159,24 @@ export default function PortfolioPage() {
                       <StatusBadge status={inv.status} />
                     </div>
                     <p className="text-gray-400 text-sm">{inv.seasonName}</p>
-                    {inv.notes && <p className="text-gray-400 text-xs mt-1 italic">"{inv.notes}"</p>}
-                    {inv.cancelledReason && <p className="text-red-500 text-xs mt-1">Cancelled: {inv.cancelledReason}</p>}
+                    {inv.notes && (
+                      <p className="text-gray-400 text-xs mt-1 italic">"{inv.notes}"</p>
+                    )}
+                    {inv.cancelledReason && (
+                      <p className="text-red-500 text-xs mt-1">Reason: {inv.cancelledReason}</p>
+                    )}
                   </div>
-                  <div className="text-right ml-4">
+                  <div className="text-right ml-4 shrink-0">
                     <p className="text-xl font-bold text-green-600">{inv.amountEtb.toLocaleString()} ETB</p>
-                    {/* NDVI trend arrow — SRS requirement */}
-                    <p className="text-sm text-gray-500 flex items-center justify-end gap-1">
+                    <p className="text-sm text-gray-500 flex items-center justify-end gap-1 mt-0.5">
                       <span className="text-green-500">↑</span>
                       <span>{inv.expectedReturnPct}% APR</span>
                     </p>
+                    {inv.payoutAmountEtb && inv.payoutAmountEtb > 0 && (
+                      <p className="text-xs text-blue-600 font-semibold mt-1">
+                        Paid out: {inv.payoutAmountEtb.toLocaleString()} ETB
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -171,10 +187,10 @@ export default function PortfolioPage() {
                       +{(inv.amountEtb * inv.expectedReturnPct / 100).toFixed(0)} ETB/yr
                     </p>
                   </div>
-                  {inv.actualReturnPct && (
+                  {inv.actualReturnPct != null && (
                     <div>
                       <p className="text-xs text-gray-400">Actual Return</p>
-                      <p className="text-sm font-semibold">{inv.actualReturnPct}%</p>
+                      <p className="text-sm font-semibold text-blue-600">{inv.actualReturnPct}%</p>
                     </div>
                   )}
                   <div>
@@ -188,13 +204,18 @@ export default function PortfolioPage() {
                 </div>
 
                 <div className="flex gap-4 mt-4">
-                  <Link href={`/portfolio/${inv.id}`} className="text-green-600 text-sm font-semibold hover:underline">
+                  <Link href={`/portfolio/${inv.id}`}
+                    className="text-green-600 text-sm font-semibold hover:underline">
                     View Details →
+                  </Link>
+                  <Link href={`/portfolio/${inv.id}/vouchers`}
+                    className="text-blue-600 text-sm font-semibold hover:underline">
+                    Vouchers →
                   </Link>
                   {['PENDING', 'ESCROW_LOCKED'].includes(inv.status) && (
                     <button onClick={() => handleCancel(inv.id)} disabled={cancellingId === inv.id}
-                      className="text-red-500 text-sm font-semibold hover:underline disabled:opacity-50">
-                      {cancellingId === inv.id ? 'Cancelling…' : 'Cancel Investment'}
+                      className="text-red-500 text-sm font-semibold hover:underline disabled:opacity-50 ml-auto">
+                      {cancellingId === inv.id ? 'Cancelling…' : 'Cancel'}
                     </button>
                   )}
                 </div>
