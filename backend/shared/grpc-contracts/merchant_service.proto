@@ -1,48 +1,68 @@
 syntax = "proto3";
-
 package com.agriyield.merchantservice.grpc;
-
 option java_multiple_files = true;
 option java_package = "com.agriyield.merchantservice.grpc";
 option java_outer_classname = "MerchantProto";
 
 service MerchantService {
-
   rpc GetMerchantCategories (MerchantIdRequest)
       returns (MerchantCategoriesResponse);
-
   rpc GetMerchantLocation (MerchantIdRequest)
       returns (MerchantLocationResponse);
-
   rpc VerifyMerchantActive (MerchantIdRequest)
       returns (MerchantActiveResponse);
-
   rpc GetRegionalPriceIndex (RegionalPriceIndexRequest)
       returns (RegionalPriceIndexResponse);
+  rpc CheckInventory (CheckInventoryRequest)
+      returns (CheckInventoryResponse);
+  rpc DeductInventory (DeductInventoryRequest)
+      returns (DeductInventoryResponse);
 }
 
 message MerchantIdRequest {
   string merchant_id = 1;
 }
-
 message MerchantCategoriesResponse {
   repeated string categories = 1;
 }
-
 message MerchantLocationResponse {
   double latitude = 1;
   double longitude = 2;
 }
-
 message MerchantActiveResponse {
   bool active = 1;
 }
-
 message RegionalPriceIndexRequest {
   string kebele_code = 1;
-  string category = 2;
+  string category    = 2;
 }
-
 message RegionalPriceIndexResponse {
   double price_index = 1;
+}
+
+// Inventory check before voucher redemption
+message CheckInventoryRequest {
+  string merchant_id       = 1;
+  string category          = 2;
+  double required_quantity = 3;
+}
+message CheckInventoryResponse {
+  bool   available         = 1;
+  string product_name      = 2;
+  double available_quantity = 3;
+  string unit              = 4;
+  string product_id        = 5;
+  string error_code        = 6;
+  string error_message     = 7;
+}
+
+// Deduct stock after successful redemption
+message DeductInventoryRequest {
+  string merchant_id = 1;
+  string category    = 2;
+  double quantity    = 3;
+}
+message DeductInventoryResponse {
+  bool   success       = 1;
+  string error_message = 2;
 }
