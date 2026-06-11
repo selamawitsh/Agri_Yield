@@ -1,9 +1,6 @@
 package com.agriyield.voucherservice.infrastructure.adapter.outgoing.grpc;
 
-import com.agriyield.merchantservice.grpc.MerchantCategoriesResponse;
-import com.agriyield.merchantservice.grpc.MerchantIdRequest;
-import com.agriyield.merchantservice.grpc.MerchantLocationResponse;
-import com.agriyield.merchantservice.grpc.MerchantServiceGrpc;
+import com.agriyield.merchantservice.grpc.*;
 import com.agriyield.voucherservice.application.port.outgoing.MerchantServicePort;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
@@ -37,5 +34,45 @@ public class MerchantServiceGrpcClient implements MerchantServicePort {
                 .setMerchantId(merchantId.toString())
                 .build());
         return new double[]{response.getLatitude(), response.getLongitude()};
+    }
+
+    @Override
+    public InventoryCheckResult checkInventory(UUID merchantId, String category,
+                                               double requiredQuantity) {
+        log.info("gRPC: checkInventory merchant={} category={} qty={}",
+            merchantId, category, requiredQuantity);
+        CheckInventoryResponse response = merchantStub.checkInventory(
+            CheckInventoryRequest.newBuilder()
+                .setMerchantId(merchantId.toString())
+                .setCategory(category)
+                .setRequiredQuantity(requiredQuantity)
+                .build());
+        return new InventoryCheckResult(
+            response.getAvailable(),
+            response.getProductName(),
+            response.getAvailableQuantity(),
+            response.getUnit(),
+            response.getProductId(),
+            response.getErrorCode(),
+            response.getErrorMessage());
+    }
+
+    @Override
+    public void deductInventory(UUID merchantId, String category, double quantity) {
+        log.info("gRPC: deductInventory merchant={} category={} qty={}",
+            merchantId, category, quantity);
+        try {
+            DeductInventoryResponse response = merchantStub.deductInventory(
+                DeductInventoryRequest.newBuilder()
+                    .setMerchantId(merchantId.toString())
+                    .setCategory(category)
+                    .setQuantity(quantity)
+                    .build());
+            if (!response.getSuccess()) {
+                log.warn("gRPC: deductInventory failed: {}", response.getErrorMessage());
+            }
+        } catch (Exception e) {
+            log.error("gRPC: deductInventory exception: {}", e.getMessage());
+        }
     }
 }
