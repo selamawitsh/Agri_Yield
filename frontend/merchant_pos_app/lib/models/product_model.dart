@@ -6,6 +6,8 @@ class Product {
   final String unit;
   final double currentPriceEtb;
   final bool isAvailable;
+  final double quantityInStock;
+  final String unitOfMeasure;
   final String createdAt;
   final String updatedAt;
 
@@ -17,29 +19,38 @@ class Product {
     required this.unit,
     required this.currentPriceEtb,
     required this.isAvailable,
+    required this.quantityInStock,
+    required this.unitOfMeasure,
     required this.createdAt,
     required this.updatedAt,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['id'] ?? '',
-      merchantId: json['merchantId'] ?? '',
-      productName: json['productName'] ?? '',
-      productCategory: json['productCategory'] ?? '',
-      unit: json['unit'] ?? '',
-      currentPriceEtb: (json['currentPriceEtb'] ?? 0).toDouble(),
-      isAvailable: json['isAvailable'] ?? true,
-      createdAt: json['createdAt'] ?? '',
-      updatedAt: json['updatedAt'] ?? '',
+      id:               json['id']?.toString() ?? '',
+      merchantId:       json['merchantId']?.toString() ?? '',
+      productName:      json['productName']?.toString() ?? '',
+      productCategory:  json['productCategory']?.toString() ?? '',
+      unit:             json['unit']?.toString() ?? 'kg',
+      currentPriceEtb:  (json['currentPriceEtb'] as num?)?.toDouble() ?? 0,
+      isAvailable:      json['isAvailable'] as bool? ?? true,
+      quantityInStock:  (json['quantityInStock'] as num?)?.toDouble() ?? 0,
+      unitOfMeasure:    json['unitOfMeasure']?.toString()
+                        ?? json['unit']?.toString() ?? 'kg',
+      createdAt:        json['createdAt']?.toString() ?? '',
+      updatedAt:        json['updatedAt']?.toString() ?? '',
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'productName': productName,
+    'productName':     productName,
     'productCategory': productCategory,
-    'unit': unit,
+    'unit':            unit,
     'currentPriceEtb': currentPriceEtb,
-    'isAvailable': isAvailable,
+    'isAvailable':     isAvailable,
+    'quantityInStock': quantityInStock,
   };
+
+  bool get isLowStock => quantityInStock > 0 && quantityInStock < 5;
+  bool get isOutOfStock => quantityInStock <= 0;
 }
