@@ -336,7 +336,7 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
             double lngMax = lng + buffer;
             double latMax = lat + buffer;
 
-            String dateFrom = LocalDate.now().minusDays(30).toString();
+            String dateFrom = LocalDate.now().minusDays(45).toString();
             String dateTo   = LocalDate.now().toString();
 
             // TrueColor evalscript — gamma correction makes it look like a real photo
@@ -390,9 +390,12 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
             String requestBody = objectMapper.writeValueAsString(root);
             log.debug("GS: satellite image request for farm={}: {}", farmId, requestBody);
 
+            // Sentinel Hub Process API returns application/tar
+            // Accept header must be exactly "application/tar"
             byte[] imageBytes = webClient.post()
                     .uri(processApiUrl + "/api/v1/process")
                     .header("Authorization", "Bearer " + token)
+                    .header("Accept", "application/tar")
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(requestBody)
                     .retrieve()
@@ -404,9 +407,11 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
                 return null;
             }
 
-            log.info("GS: satellite image fetched for farm={} size={}KB",
+            log.info("GS: tar archive received for farm={} size={}KB",
                     farmId, imageBytes.length / 1024);
-            return imageBytes;
+
+            // Extract PNG from tar archive
+            return extractPngFromTar(imageBytes);
 
         } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
             log.error("GS: satellite image HTTP {} for farm={}: {}",
@@ -416,6 +421,92 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
             log.error("GS: satellite image failed for farm={}: {}", farmId, e.getMessage(), e);
             return null;
         }
+    }
+
+
+
+    /**
+     * Extracts PNG image from a TAR archive returned by Sentinel Hub Process API.
+     * TAR format: 512-byte header blocks followed by file data padded to 512-byte blocks.
+     * The archive contains one file: response.png (or similar)
+     */
+    private byte[] extractPngFromTar(byte[] tarBytes) {
+        if (tarBytes == null || tarBytes.length < 512) {
+            log.warn("GS: TAR archive too small: {} bytes", tarBytes == null ? 0 : tarBytes.length);
+            return null;
+        }
+        try {
+            // TAR header: bytes 0-99 = filename, bytes 124-135 = octal file size
+            // First check for PNG magic bytes directly (some responses are raw PNG)
+            if (tarBytes[0] == (byte)0x89 && tarBytes[1] == (byte)0x50 &&
+                tarBytes[2] == (byte)0x4E && tarBytes[3] == (byte)0x47) {
+                log.info("GS: response is raw PNG, not TAR");
+                return tarBytes;
+            }
+
+            // Parse TAR header
+            String sizeOctal = new String(tarBytes, 124, 12).trim().replace("\0", "").trim();
+            if (sizeOctal.isEmpty()) {
+                log.warn("GS: TAR header size field empty");
+                return extractPngMagicBytes(tarBytes);
+            }
+
+            long fileSize = Long.parseLong(sizeOctal, 8);
+            log.info("GS: TAR contains file of size {} bytes", fileSize);
+
+            if (fileSize <= 0 || fileSize > 50_000_000L) {
+                log.warn("GS: TAR file size suspicious: {}", fileSize);
+                return extractPngMagicBytes(tarBytes);
+            }
+
+            // Data starts at byte 512 (after header block)
+            int dataStart = 512;
+            if (dataStart + fileSize > tarBytes.length) {
+                log.warn("GS: TAR data extends beyond buffer");
+                return extractPngMagicBytes(tarBytes);
+            }
+
+            byte[] pngData = new byte[(int) fileSize];
+            System.arraycopy(tarBytes, dataStart, pngData, 0, (int) fileSize);
+
+            // Verify PNG magic bytes
+            if (pngData.length > 4 &&
+                pngData[0] == (byte)0x89 && pngData[1] == (byte)0x50 &&
+                pngData[2] == (byte)0x4E && pngData[3] == (byte)0x47) {
+                log.info("GS: PNG extracted from TAR size={}KB", pngData.length / 1024);
+                return pngData;
+            }
+
+            log.warn("GS: extracted data is not PNG, trying magic byte scan");
+            return extractPngMagicBytes(tarBytes);
+
+        } catch (Exception e) {
+            log.error("GS: TAR extraction failed: {} — trying magic byte scan", e.getMessage());
+            return extractPngMagicBytes(tarBytes);
+        }
+    }
+
+    /** Fallback: scan raw bytes for PNG magic signature */
+    private byte[] extractPngMagicBytes(byte[] data) {
+        byte[] magic = { (byte)0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        byte[] iend  = { 0x49, 0x45, 0x4E, 0x44, (byte)0xAE, 0x42, 0x60, (byte)0x82 };
+        for (int i = 0; i <= data.length - magic.length; i++) {
+            boolean m = true;
+            for (int j = 0; j < magic.length; j++) if (data[i+j] != magic[j]) { m=false; break; }
+            if (!m) continue;
+            int end = data.length;
+            for (int k = i + magic.length; k <= data.length - iend.length; k++) {
+                boolean e = true;
+                for (int l = 0; l < iend.length; l++) if (data[k+l] != iend[l]) { e=false; break; }
+                if (e) { end = k + iend.length; break; }
+            }
+            byte[] png = new byte[end - i];
+            System.arraycopy(data, i, png, 0, png.length);
+            log.info("GS: PNG found via magic scan offset={} size={}KB", i, png.length/1024);
+            return png;
+        }
+        log.warn("GS: no PNG found in response");
+        return null;
     }
 
 }
