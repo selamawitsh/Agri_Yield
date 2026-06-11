@@ -39,141 +39,103 @@ public class MerchantServiceImpl implements MerchantServicePort {
     @Override
     @Transactional
     public MerchantProfile registerMerchant(UUID userId, RegisterMerchantRequest request) {
-
         if (merchantProfileRepository.findByUserId(userId).isPresent()) {
             throw new BusinessException("Merchant profile already exists for this user");
         }
-
-        // Save locally so all other operations work immediately
         MerchantProfile profile = MerchantProfile.builder()
-                .userId(userId)
-                .businessName(request.getBusinessName())
-                .businessLicenseNumber(request.getBusinessLicenseNumber())
-                .storeGpsLat(request.getStoreGpsLat())
-                .storeGpsLng(request.getStoreGpsLng())
-                .telebirrAccount(request.getTelebirrAccount())
-                .subscriptionTier(SubscriptionTier.BASIC)
-                .isPhysicallyVerified(false)
-                .createdAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
-                .build();
-
+            .userId(userId)
+            .businessName(request.getBusinessName())
+            .businessLicenseNumber(request.getBusinessLicenseNumber())
+            .storeGpsLat(request.getStoreGpsLat())
+            .storeGpsLng(request.getStoreGpsLng())
+            .telebirrAccount(request.getTelebirrAccount())
+            .subscriptionTier(SubscriptionTier.BASIC)
+            .isPhysicallyVerified(false)
+            .createdAt(OffsetDateTime.now())
+            .updatedAt(OffsetDateTime.now())
+            .build();
         MerchantProfile saved = merchantProfileRepository.save(profile);
-
-        // Also publish event so user-service stays in sync
         Map<String, Object> event = new HashMap<>();
         event.put("event_type", "merchant.registration.requested");
         event.put("user_id", userId.toString());
         event.put("business_name", request.getBusinessName());
-        event.put("business_license_number", request.getBusinessLicenseNumber());
-        event.put("store_gps_lat", request.getStoreGpsLat());
-        event.put("store_gps_lng", request.getStoreGpsLng());
-        event.put("telebirr_account", request.getTelebirrAccount());
-        event.put("kebele_code", request.getKebeleCode());
         event.put("timestamp", OffsetDateTime.now().toString());
-
         eventPublisher.publish("user.exchange", "merchant.registration.requested", event);
-        log.info("Merchant registered locally and event published for userId={}", userId);
-
         return saved;
     }
 
     @Override
     public MerchantProfile getMerchantProfile(UUID userId) {
         return merchantProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new MerchantNotFoundException(
-                        "Merchant profile not found for user: " + userId));
+            .orElseThrow(() -> new MerchantNotFoundException(
+                "Merchant profile not found for user: " + userId));
     }
 
     @Override
     public MerchantProfile getMerchantById(UUID merchantId) {
         return merchantProfileRepository.findById(merchantId)
-                .orElseThrow(() -> new MerchantNotFoundException(
-                        "Merchant not found: " + merchantId));
+            .orElseThrow(() -> new MerchantNotFoundException(
+                "Merchant not found: " + merchantId));
     }
 
     @Override
     @Transactional
     public MerchantProfile updateMerchantProfile(UUID userId, UpdateMerchantRequest request) {
-
         MerchantProfile existing = getMerchantProfile(userId);
-
-        if (request.getBusinessName() != null) {
-            existing.setBusinessName(request.getBusinessName());
-        }
-        if (request.getStoreGpsLat() != null) {
-            existing.setStoreGpsLat(request.getStoreGpsLat());
-        }
-        if (request.getStoreGpsLng() != null) {
-            existing.setStoreGpsLng(request.getStoreGpsLng());
-        }
-        if (request.getTelebirrAccount() != null) {
-            existing.setTelebirrAccount(request.getTelebirrAccount());
-        }
+        if (request.getBusinessName() != null) existing.setBusinessName(request.getBusinessName());
+        if (request.getStoreGpsLat() != null)  existing.setStoreGpsLat(request.getStoreGpsLat());
+        if (request.getStoreGpsLng() != null)  existing.setStoreGpsLng(request.getStoreGpsLng());
+        if (request.getTelebirrAccount() != null) existing.setTelebirrAccount(request.getTelebirrAccount());
         existing.setUpdatedAt(OffsetDateTime.now());
-
-        MerchantProfile updated = merchantProfileRepository.save(existing);
-
-        Map<String, Object> event = new HashMap<>();
-        event.put("event_type", "merchant.profile.update.requested");
-        event.put("user_id", userId.toString());
-        event.put("timestamp", OffsetDateTime.now().toString());
-        eventPublisher.publish("user.exchange", "merchant.profile.update.requested", event);
-
-        return updated;
+        return merchantProfileRepository.save(existing);
     }
 
     @Override
     @Transactional
     public Product createProduct(UUID userId, CreateProductRequest request) {
-
         MerchantProfile merchant = getMerchantProfile(userId);
-
         Product product = Product.builder()
-                .merchantId(merchant.getId())
-                .productName(request.getProductName())
-                .productCategory(ProductCategory.valueOf(request.getProductCategory()))
-                .unit(request.getUnit())
-                .currentPriceEtb(request.getCurrentPriceEtb())
-                .isAvailable(true)
-                .createdAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
-                .build();
-
+            .merchantId(merchant.getId())
+            .productName(request.getProductName())
+            .productCategory(ProductCategory.valueOf(request.getProductCategory()))
+            .unit(request.getUnit())
+            .currentPriceEtb(request.getCurrentPriceEtb())
+            .isAvailable(true)
+            .quantityInStock(request.getQuantityInStock() != null
+                ? request.getQuantityInStock() : BigDecimal.ZERO)
+            .unitOfMeasure(request.getUnit())
+            .createdAt(OffsetDateTime.now())
+            .updatedAt(OffsetDateTime.now())
+            .build();
         return productRepository.save(product);
     }
 
     @Override
     @Transactional
     public Product updateProduct(UUID userId, UUID productId, UpdateProductRequest request) {
-
         MerchantProfile merchant = getMerchantProfile(userId);
-
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ProductNotFoundException("Product not found: " + productId));
-
+            .orElseThrow(() -> new ProductNotFoundException("Product not found: " + productId));
         if (!product.getMerchantId().equals(merchant.getId())) {
             throw new BusinessException("Product does not belong to this merchant");
         }
-
         if (request.getCurrentPriceEtb() != null &&
                 request.getCurrentPriceEtb().compareTo(product.getCurrentPriceEtb()) != 0) {
-
-            PriceHistory history = PriceHistory.builder()
-                    .productId(productId)
-                    .oldPriceEtb(product.getCurrentPriceEtb())
-                    .newPriceEtb(request.getCurrentPriceEtb())
-                    .changedAt(OffsetDateTime.now())
-                    .changedBy(userId)
-                    .build();
-
-            priceHistoryRepository.save(history);
+            priceHistoryRepository.save(PriceHistory.builder()
+                .productId(productId)
+                .oldPriceEtb(product.getCurrentPriceEtb())
+                .newPriceEtb(request.getCurrentPriceEtb())
+                .changedAt(OffsetDateTime.now())
+                .changedBy(userId)
+                .build());
             product.setCurrentPriceEtb(request.getCurrentPriceEtb());
         }
-
-        if (request.getProductName() != null) product.setProductName(request.getProductName());
-        if (request.getIsAvailable() != null) product.setAvailable(request.getIsAvailable());
-
+        if (request.getProductName()  != null) product.setProductName(request.getProductName());
+        if (request.getIsAvailable()  != null) product.setAvailable(request.getIsAvailable());
+        if (request.getQuantityInStock() != null) {
+            product.setQuantityInStock(request.getQuantityInStock());
+            product.setAvailable(request.getQuantityInStock().compareTo(BigDecimal.ZERO) > 0);
+        }
         product.setUpdatedAt(OffsetDateTime.now());
         return productRepository.save(product);
     }
@@ -186,16 +148,12 @@ public class MerchantServiceImpl implements MerchantServicePort {
     @Override
     @Transactional
     public void deleteProduct(UUID userId, UUID productId) {
-
         MerchantProfile merchant = getMerchantProfile(userId);
-
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ProductNotFoundException("Product not found: " + productId));
-
+            .orElseThrow(() -> new ProductNotFoundException("Product not found: " + productId));
         if (!product.getMerchantId().equals(merchant.getId())) {
             throw new BusinessException("Product does not belong to this merchant");
         }
-
         productRepository.deleteById(productId);
     }
 
@@ -212,12 +170,11 @@ public class MerchantServiceImpl implements MerchantServicePort {
 
     @Override
     public List<String> getMerchantCategories(UUID merchantId) {
-        return productRepository.findByMerchantId(merchantId)
-                .stream()
-                .filter(Product::isAvailable)
-                .map(p -> p.getProductCategory().name())
-                .distinct()
-                .collect(Collectors.toList());
+        return productRepository.findByMerchantId(merchantId).stream()
+            .filter(Product::isAvailable)
+            .map(p -> p.getProductCategory().name())
+            .distinct()
+            .collect(Collectors.toList());
     }
 
     @Override
@@ -234,8 +191,59 @@ public class MerchantServiceImpl implements MerchantServicePort {
     @Override
     public double getRegionalPriceIndex(String kebeleCode, String category) {
         return priceIndexCache.getRegionalMedian(kebeleCode, category)
-                .map(BigDecimal::doubleValue)
-                .orElse(0.0);
+            .map(BigDecimal::doubleValue).orElse(0.0);
+    }
+
+    // ── Inventory check for voucher redemption ────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public Product checkInventoryForRedemption(UUID merchantId, String category,
+                                               BigDecimal requiredQty) {
+        List<Product> products = productRepository.findByMerchantId(merchantId).stream()
+            .filter(p -> category.equals("OTHER") ||
+                p.getProductCategory().name().equals(category))
+            .collect(Collectors.toList());
+
+        if (products.isEmpty()) {
+            throw new BusinessException(
+                "Merchant does not carry category: " + category +
+                ". Add this product type to your inventory first.",
+                "PRODUCT_NOT_AVAILABLE");
+        }
+
+        // Find product with sufficient stock
+        return products.stream()
+            .filter(p -> p.hasSufficientStock(requiredQty))
+            .findFirst()
+            .orElseThrow(() -> {
+                Product any = products.get(0);
+                BigDecimal available = any.getQuantityInStock() != null
+                    ? any.getQuantityInStock() : BigDecimal.ZERO;
+                return new BusinessException(
+                    "Insufficient stock. Required: " + requiredQty + " " + any.getUnit() +
+                    ", Available: " + available + " " + any.getUnit(),
+                    "INSUFFICIENT_STOCK");
+            });
+    }
+
+    @Override
+    @Transactional
+    public void deductInventory(UUID merchantId, String category, BigDecimal quantity) {
+        productRepository.findByMerchantId(merchantId).stream()
+            .filter(p -> category.equals("OTHER") ||
+                p.getProductCategory().name().equals(category))
+            .filter(p -> p.hasSufficientStock(quantity))
+            .findFirst()
+            .ifPresentOrElse(product -> {
+                product.deductStock(quantity);
+                product.setUpdatedAt(OffsetDateTime.now());
+                productRepository.save(product);
+                log.info("Inventory deducted: {} {} of {} — merchant: {}",
+                    quantity, product.getUnit(), product.getProductName(), merchantId);
+            }, () -> log.warn(
+                "DeductInventory: no matching product with sufficient stock. " +
+                "merchant={} category={} qty={}", merchantId, category, quantity));
     }
 
     public List<Product> getProductsByCategoryAndKebele(String category, String kebeleCode) {
