@@ -29,6 +29,7 @@ public class BidServiceImpl implements BidServicePort {
     private final EscrowServicePort escrowService;
     private final EventPublisherPort eventPublisher;
     private final FarmServicePort farmService;
+    private final FarmOpportunityRepositoryPort opportunityRepository;
 
     @Value("${app.bid.deposit-percentage:0.10}")
     private BigDecimal depositPercentage;
@@ -38,10 +39,12 @@ public class BidServiceImpl implements BidServicePort {
     public Bid placeBid(UUID offtakerId, UUID farmId, BigDecimal quantityQuintals,
                         BigDecimal pricePerQuintalEtb, int expiresInDays) {
 
-        // Verify farm exists via gRPC
-        farmService.getFarmById(farmId.toString());
+        // Verify farm exists in marketplace
+        opportunityRepository.findByFarmId(farmId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Farm not available in marketplace: " + farmId));
 
-        BigDecimal totalValue = quantityQuintals.multiply(pricePerQuintalEtb);
+        BigDecimal totalValue   = quantityQuintals.multiply(pricePerQuintalEtb);
         BigDecimal depositAmount = totalValue.multiply(depositPercentage);
         OffsetDateTime expiresAt = OffsetDateTime.now().plusDays(expiresInDays);
 
@@ -49,7 +52,7 @@ public class BidServiceImpl implements BidServicePort {
                 .id(UUID.randomUUID())
                 .offtakerId(offtakerId)
                 .farmId(farmId)
-                .cropCycleId(UUID.randomUUID()) // resolved from farm context
+                .cropCycleId(UUID.randomUUID())
                 .quantityQuintals(quantityQuintals)
                 .pricePerQuintalEtb(pricePerQuintalEtb)
                 .totalValueEtb(totalValue)
@@ -60,10 +63,14 @@ public class BidServiceImpl implements BidServicePort {
                 .updatedAt(OffsetDateTime.now())
                 .build();
 
-        // Lock deposit in escrow before saving bid
         escrowService.lockBidDeposit(bid.getId(), offtakerId, depositAmount);
-
         Bid saved = bidRepository.save(bid);
+
+        // Keep marketplace bid count in sync
+        opportunityRepository.findByFarmId(farmId).ifPresent(o -> {
+            o.setExistingBidsCount(o.getExistingBidsCount() + 1);
+            opportunityRepository.save(o);
+        });
 
         eventPublisher.publishBidPlaced(
                 saved.getId(), farmId, offtakerId,
@@ -88,23 +95,18 @@ public class BidServiceImpl implements BidServicePort {
         bid.accept();
         Bid saved = bidRepository.save(bid);
 
-        // Generate purchase agreement
-        String contractHash = UUID.randomUUID().toString(); // real hash logic in prod
-        String pdfUrl = "minio://contracts/agreement-" + bidId + ".pdf";
-
         PurchaseAgreement agreement = PurchaseAgreement.builder()
                 .id(UUID.randomUUID())
                 .bidId(bidId)
-                .contractHash(contractHash)
-                .contractPdfUrl(pdfUrl)
+                .contractHash(UUID.randomUUID().toString())
+                .contractPdfUrl("minio://contracts/agreement-" + bidId + ".pdf")
                 .fullyExecuted(false)
                 .createdAt(OffsetDateTime.now())
                 .updatedAt(OffsetDateTime.now())
                 .build();
 
-        PurchaseAgreement savedAgreement = agreementRepository.save(agreement);
-
-        log.info("Bid accepted: bidId={} agreementId={}", bidId, savedAgreement.getId());
+        agreementRepository.save(agreement);
+        log.info("Bid accepted: bidId={} agreementId={}", bidId, agreement.getId());
         return saved;
     }
 
@@ -114,10 +116,7 @@ public class BidServiceImpl implements BidServicePort {
         Bid bid = findBidOrThrow(bidId);
         bid.reject();
         Bid saved = bidRepository.save(bid);
-
-        // Refund deposit
         escrowService.forfeitBidDeposit(bidId);
-
         log.info("Bid rejected: bidId={}", bidId);
         return saved;
     }
@@ -138,11 +137,11 @@ public class BidServiceImpl implements BidServicePort {
     }
 
     @Override
-    @Scheduled(cron = "0 0 * * * *") // every hour
+    @Scheduled(cron = "0 0 * * * *")
     @Transactional
     public void expireStaleBids() {
-        List<Bid> staleBids = bidRepository.findByStatusAndExpiresAtBefore(
-                BidStatus.PENDING, OffsetDateTime.now());
+        List<Bid> staleBids = bidRepository
+                .findByStatusAndExpiresAtBefore(BidStatus.PENDING, OffsetDateTime.now());
         for (Bid bid : staleBids) {
             bid.expire();
             bidRepository.save(bid);
