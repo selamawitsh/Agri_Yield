@@ -3,6 +3,7 @@ package com.agriyield.merchantservice.presentation.dto.request;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -22,4 +23,8 @@ public class CreateProductRequest {
     @NotNull(message = "Price is required")
     @Positive(message = "Price must be positive")
     private BigDecimal currentPriceEtb;
+
+    /** Initial stock quantity. Defaults to 0 if not provided. */
+    @PositiveOrZero(message = "Quantity must be zero or positive")
+    private BigDecimal quantityInStock;
 }
