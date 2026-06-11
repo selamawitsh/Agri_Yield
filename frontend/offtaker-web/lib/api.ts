@@ -131,3 +131,7 @@ export const getWeatherAlerts = (farmId: string) =>
 
 export const getWeatherCurrent = (farmId: string) =>
   api.get<{ success: boolean; data: any }>(`/weather/current/${farmId}`);
+
+// UC-OFF-01: Browse available farms from offtaker-service marketplace
+export const browseFarms = (params?: { cropType?: string; region?: string; harvestReady?: boolean }) =>
+  api.get<{ success: boolean; data: FarmMarketplace[] }>('/offtaker/farms', { params });
