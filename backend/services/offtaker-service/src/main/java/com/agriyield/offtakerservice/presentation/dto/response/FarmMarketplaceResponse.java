@@ -21,8 +21,8 @@ public class FarmMarketplaceResponse {
     private String ndviHealthStatus;
     private double predictedYieldMeanQuintals;
     private int yieldConfidencePct;
-    // Harvest readiness
     private boolean harvestReady;
     private String estimatedHarvestFrom;
     private String estimatedHarvestTo;
+    private int existingBidsCount;
 }
