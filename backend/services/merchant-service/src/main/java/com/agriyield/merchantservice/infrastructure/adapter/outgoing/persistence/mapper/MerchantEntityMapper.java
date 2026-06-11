@@ -9,6 +9,8 @@ import com.agriyield.merchantservice.infrastructure.adapter.outgoing.persistence
 import com.agriyield.merchantservice.infrastructure.adapter.outgoing.persistence.entity.ProductEntity;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+
 @Component
 public class MerchantEntityMapper {
 
@@ -22,6 +24,9 @@ public class MerchantEntityMapper {
                 .unit(entity.getUnit())
                 .currentPriceEtb(entity.getCurrentPriceEtb())
                 .isAvailable(entity.isAvailable())
+                .quantityInStock(entity.getQuantityInStock() != null
+                        ? entity.getQuantityInStock() : BigDecimal.ZERO)
+                .unitOfMeasure(entity.getUnitOfMeasure())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
@@ -37,6 +42,9 @@ public class MerchantEntityMapper {
                 .unit(domain.getUnit())
                 .currentPriceEtb(domain.getCurrentPriceEtb())
                 .isAvailable(domain.isAvailable())
+                .quantityInStock(domain.getQuantityInStock() != null
+                        ? domain.getQuantityInStock() : BigDecimal.ZERO)
+                .unitOfMeasure(domain.getUnitOfMeasure())
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .build();

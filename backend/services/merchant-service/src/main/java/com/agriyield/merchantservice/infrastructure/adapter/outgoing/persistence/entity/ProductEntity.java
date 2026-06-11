@@ -39,6 +39,14 @@ public class ProductEntity {
     @Column(name = "is_available", nullable = false)
     private boolean isAvailable;
 
+    /** Stock quantity in the merchant's store. Deducted on voucher redemption. */
+    @Column(name = "quantity_in_stock", nullable = false, precision = 10, scale = 2)
+    private BigDecimal quantityInStock;
+
+    /** Unit of measure (kg, litre, bag, piece). Same as unit — kept for clarity. */
+    @Column(name = "unit_of_measure")
+    private String unitOfMeasure;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
