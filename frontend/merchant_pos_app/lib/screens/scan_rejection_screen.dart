@@ -91,6 +91,22 @@ class _ScanRejectionScreenState extends State<ScanRejectionScreen>
           'The farmer must first redeem the earlier vouchers in the correct sequence before this one becomes active.',
       icon: Icons.format_list_numbered,
     ),
+    'INSUFFICIENT_STOCK': _RejectionInfo(
+      title: 'Insufficient Stock',
+      description:
+          'The merchant does not have enough stock of this product to fulfill your voucher.',
+      guidance:
+          'Ask the merchant to restock before redeeming this voucher, or find another certified merchant.',
+      icon: Icons.inventory_2,
+    ),
+    'PRODUCT_NOT_AVAILABLE': _RejectionInfo(
+      title: 'Product Not Available',
+      description:
+          'This merchant does not carry the product category required by your voucher.',
+      guidance:
+          'Find a merchant who sells this type of agricultural input and is certified for this voucher category.',
+      icon: Icons.store_mall_directory,
+    ),
     'NETWORK_ERROR': _RejectionInfo(
       title: 'Connection Error',
       description:
