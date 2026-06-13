@@ -7,13 +7,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,25 +43,20 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
     private int cloudCoverThreshold;
 
     public CopernicusClientAdapter(WebClient.Builder webClientBuilder,
-                                    ObjectMapper objectMapper) {
+                                   ObjectMapper objectMapper) {
         this.webClient    = webClientBuilder.build();
         this.objectMapper = objectMapper;
     }
 
     @Override
     public NdviReading fetchNdvi(UUID farmId,
-                                  double lat,
-                                  double lng,
-                                  String geoJsonPolygon) {
+                                 double lat,
+                                 double lng,
+                                 String geoJsonPolygon) {
         try {
             return fetchFromCopernicus(farmId, lat, lng, geoJsonPolygon);
-        } catch (WebClientResponseException e) {
-            // Log the full response body so we can see exactly what Copernicus rejected
-            log.error("GS: Copernicus HTTP {} for farm={}: body={}",
-                    e.getStatusCode(), farmId, e.getResponseBodyAsString(), e);
-            return null;
         } catch (Exception e) {
-            log.error("GS: Copernicus API failed for farm={}: {}", farmId, e.getMessage(), e);
+            log.error("GS: satellite image FULL ERROR", e);
             return null;
         }
     }
@@ -95,9 +91,9 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
 
     // ── STEPS 2+3: Statistical API → mean Band 4 + Band 8 → NDVI ────────────
     private NdviReading fetchFromCopernicus(UUID farmId,
-                                             double lat,
-                                             double lng,
-                                             String geoJsonPolygon)
+                                            double lat,
+                                            double lng,
+                                            String geoJsonPolygon)
             throws JsonProcessingException {
 
         log.info("GS: fetching real Sentinel-2 NDVI for farm={} lat={} lng={}",
@@ -105,18 +101,14 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
 
         String token = getAccessToken();
 
-        // Bounding box: centroid ± 0.005 degrees (~500m buffer)
         double lngMin = lng - 0.005;
         double latMin = lat - 0.005;
         double lngMax = lng + 0.005;
         double latMax = lat + 0.005;
 
-        // Date range: last 15 days to maximise chance of a cloud-free scene
         String dateFrom = LocalDate.now().minusDays(15).toString();
         String dateTo   = LocalDate.now().toString();
 
-        // SRS §3.6.1: evalscript returns Band 4 (Red) and Band 8 (NIR) per pixel
-        // The Statistical API aggregates these into mean values over the bbox
         String evalscript = "//VERSION=3\n"
                 + "function setup() {\n"
                 + "  return { input: [\"B04\",\"B08\",\"dataMask\"],\n"
@@ -130,8 +122,6 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
                 + "  return { B04:[s.B04], B08:[s.B08], dataMask:[s.dataMask] };\n"
                 + "}";
 
-        // Sentinel Hub Statistical API — correct request structure
-        // Docs: https://docs.sentinel-hub.com/api/latest/api/statistical/
         String requestBody = buildStatisticsRequest(
                 lngMin, latMin, lngMax, latMax,
                 dateFrom, dateTo,
@@ -154,29 +144,24 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
     }
 
     // ── Build the correct Sentinel Hub Statistical API request body ───────────
-    // Reference: https://docs.sentinel-hub.com/api/latest/api/statistical/
     private String buildStatisticsRequest(double lngMin, double latMin,
-                                           double lngMax, double latMax,
-                                           String dateFrom, String dateTo,
-                                           String evalscript)
+                                          double lngMax, double latMax,
+                                          String dateFrom, String dateTo,
+                                          String evalscript)
             throws JsonProcessingException {
 
-        // Use Jackson to build the JSON properly — no string formatting issues
         com.fasterxml.jackson.databind.node.ObjectNode root =
                 objectMapper.createObjectNode();
 
-        // input
         com.fasterxml.jackson.databind.node.ObjectNode input =
                 root.putObject("input");
 
-        // input.bounds
         com.fasterxml.jackson.databind.node.ObjectNode bounds =
                 input.putObject("bounds");
         com.fasterxml.jackson.databind.node.ArrayNode bbox =
                 bounds.putArray("bbox");
         bbox.add(lngMin).add(latMin).add(lngMax).add(latMax);
 
-        // input.data
         com.fasterxml.jackson.databind.node.ArrayNode dataArray =
                 input.putArray("data");
         com.fasterxml.jackson.databind.node.ObjectNode dataItem =
@@ -190,9 +175,8 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
         timeRange.put("from", dateFrom + "T00:00:00Z");
         timeRange.put("to",   dateTo   + "T23:59:59Z");
         dataFilter.put("maxCloudCoverage", cloudCoverThreshold);
-        dataFilter.put("mosaickingOrder", "leastCC"); // least cloud cover first
+        dataFilter.put("mosaickingOrder", "leastCC");
 
-        // aggregation
         com.fasterxml.jackson.databind.node.ObjectNode aggregation =
                 root.putObject("aggregation");
 
@@ -203,13 +187,12 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
 
         com.fasterxml.jackson.databind.node.ObjectNode aggInterval =
                 aggregation.putObject("aggregationInterval");
-        aggInterval.put("of", "P15D"); // one result over the 15-day window
+        aggInterval.put("of", "P15D");
 
         aggregation.put("evalscript", evalscript);
-        aggregation.put("resx", 10); // 10m resolution matching Sentinel-2
+        aggregation.put("resx", 10);
         aggregation.put("resy", 10);
 
-        // calculations — request mean statistics for each output band
         com.fasterxml.jackson.databind.node.ObjectNode calculations =
                 root.putObject("calculations");
         com.fasterxml.jackson.databind.node.ObjectNode defaultCalc =
@@ -218,8 +201,6 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
                 defaultCalc.putObject("statistics");
         com.fasterxml.jackson.databind.node.ObjectNode defaultStat =
                 statistics.putObject("default");
-        // percentiles must be an OBJECT not an array
-        // Correct format: { "percentiles": { "k": [25, 50, 75] } }
         com.fasterxml.jackson.databind.node.ObjectNode percentiles =
                 defaultStat.putObject("percentiles");
         com.fasterxml.jackson.databind.node.ArrayNode kArray =
@@ -230,12 +211,10 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
     }
 
     // ── STEP 4: Parse response and compute NDVI ───────────────────────────────
-    // SRS §3.6.1: NDVI = (B08 - B04) / (B08 + B04)
     private NdviReading parseStatisticsResponse(UUID farmId, String response) {
         try {
             JsonNode root = objectMapper.readTree(response);
 
-            // Handle Copernicus error response
             if (root.has("error") || root.has("errors")) {
                 log.warn("GS: Copernicus returned error for farm={}: {}", farmId, response);
                 return null;
@@ -248,8 +227,7 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
                 return null;
             }
 
-            // Use the most recent interval with valid data
-            JsonNode interval  = null;
+            JsonNode interval = null;
             for (int i = data.size() - 1; i >= 0; i--) {
                 JsonNode candidate = data.get(i);
                 String status = candidate.path("status").asText("");
@@ -266,7 +244,6 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
 
             JsonNode outputs = interval.path("outputs");
 
-            // Extract mean B04 (Red) and B08 (NIR)
             double meanRed = outputs.path("B04")
                     .path("bands").path("B0")
                     .path("stats").path("mean").asDouble(-1);
@@ -281,13 +258,10 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
                 return null;
             }
 
-            // SRS §3.6.1: NDVI = (B08 - B04) / (B08 + B04)
             double ndvi = NdviReading.calculate(meanNir, meanRed);
             ndvi = Math.max(-1.0, Math.min(1.0, ndvi));
             ndvi = Math.round(ndvi * 10000.0) / 10000.0;
 
-            // Cloud coverage from dataMask (0=no data, 1=valid pixel)
-            // mean of 1.0 = 0% cloud, mean of 0.7 = 30% cloud
             double maskMean = outputs.path("dataMask")
                     .path("bands").path("B0")
                     .path("stats").path("mean").asDouble(1.0);
@@ -318,18 +292,15 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
     }
 
     // ── SATELLITE IMAGE: True-colour PNG from Sentinel-2 ─────────────────────
-    // Band 4 (Red) + Band 3 (Green) + Band 2 (Blue) = natural colour photograph
-    // Returns raw PNG bytes ready to serve as image/png HTTP response
     @Override
     public byte[] fetchSatelliteImage(UUID farmId, double lat, double lng,
-                                       String geoJsonPolygon,
-                                       int widthPx, int heightPx) {
+                                      String geoJsonPolygon,
+                                      int widthPx, int heightPx) {
         try {
             log.info("GS: fetching satellite image for farm={} {}x{}px", farmId, widthPx, heightPx);
 
             String token = getAccessToken();
 
-            // Bounding box — slightly wider than NDVI so the farm is centred in frame
             double buffer = 0.015;
             double lngMin = lng - buffer;
             double latMin = lat - buffer;
@@ -339,7 +310,6 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
             String dateFrom = LocalDate.now().minusDays(45).toString();
             String dateTo   = LocalDate.now().toString();
 
-            // TrueColor evalscript — gamma correction makes it look like a real photo
             String evalscript = "//VERSION=3\n"
                     + "function setup() {\n"
                     + "  return { input: [{bands:['B02','B03','B04']}],\n"
@@ -349,11 +319,9 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
                     + "  return [2.5*s.B04, 2.5*s.B03, 2.5*s.B02];\n"
                     + "}";
 
-            // Build Process API request for image output
             com.fasterxml.jackson.databind.node.ObjectNode root =
                     objectMapper.createObjectNode();
 
-            // input
             com.fasterxml.jackson.databind.node.ObjectNode input = root.putObject("input");
             com.fasterxml.jackson.databind.node.ObjectNode bounds = input.putObject("bounds");
             bounds.putArray("bbox").add(lngMin).add(latMin).add(lngMax).add(latMax);
@@ -371,11 +339,9 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
             dataFilter.put("maxCloudCoverage", 80);
             dataFilter.put("mosaickingOrder", "leastCC");
 
-            // output — PNG image
             com.fasterxml.jackson.databind.node.ObjectNode output = root.putObject("output");
             output.put("width",  widthPx);
             output.put("height", heightPx);
-            // Sentinel Hub Process API requires 'responses' as an ARRAY
             com.fasterxml.jackson.databind.node.ArrayNode responses =
                     output.putArray("responses");
             com.fasterxml.jackson.databind.node.ObjectNode defaultResp =
@@ -390,17 +356,47 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
             String requestBody = objectMapper.writeValueAsString(root);
             log.debug("GS: satellite image request for farm={}: {}", farmId, requestBody);
 
-            // Sentinel Hub Process API returns application/tar
-            // Accept header must be exactly "application/tar"
+            // ── FIX: use exchangeToMono + DataBuffer flux to read raw bytes
+            // regardless of Content-Type, avoiding WebClient codec negotiation failure
             byte[] imageBytes = webClient.post()
                     .uri(processApiUrl + "/api/v1/process")
                     .header("Authorization", "Bearer " + token)
                     .header("Accept", "application/tar")
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(requestBody)
-                    .retrieve()
-                    .bodyToMono(byte[].class)
+                    .exchangeToMono(clientResponse -> {
+                        log.info("GS: Process API response status={} content-type={}",
+                                clientResponse.statusCode(),
+                                clientResponse.headers().contentType().orElse(null));
+                        return clientResponse.bodyToFlux(DataBuffer.class)
+                                .collectList()
+                                .map(buffers -> {
+                                    int total = buffers.stream()
+                                            .mapToInt(DataBuffer::readableByteCount)
+                                            .sum();
+                                    byte[] all = new byte[total];
+                                    int offset = 0;
+                                    for (DataBuffer buf : buffers) {
+                                        int len = buf.readableByteCount();
+                                        buf.read(all, offset, len);
+                                        offset += len;
+                                        DataBufferUtils.release(buf);
+                                    }
+                                    return all;
+                                });
+                    })
                     .block();
+
+            log.info("GS: received image response size={} bytes",
+                    imageBytes == null ? 0 : imageBytes.length);
+
+            if (imageBytes != null && imageBytes.length >= 4) {
+                log.info("GS: first bytes={} {} {} {}",
+                        imageBytes[0] & 0xFF,
+                        imageBytes[1] & 0xFF,
+                        imageBytes[2] & 0xFF,
+                        imageBytes[3] & 0xFF);
+            }
 
             if (imageBytes == null || imageBytes.length == 0) {
                 log.warn("GS: satellite image returned empty for farm={}", farmId);
@@ -410,7 +406,6 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
             log.info("GS: tar archive received for farm={} size={}KB",
                     farmId, imageBytes.length / 1024);
 
-            // Extract PNG from tar archive
             return extractPngFromTar(imageBytes);
 
         } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
@@ -418,17 +413,14 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
                     e.getStatusCode(), farmId, e.getResponseBodyAsString());
             return null;
         } catch (Exception e) {
-            log.error("GS: satellite image failed for farm={}: {}", farmId, e.getMessage(), e);
+            log.error("GS: satellite image FULL ERROR", e);
             return null;
         }
     }
 
-
-
     /**
      * Extracts PNG image from a TAR archive returned by Sentinel Hub Process API.
      * TAR format: 512-byte header blocks followed by file data padded to 512-byte blocks.
-     * The archive contains one file: response.png (or similar)
      */
     private byte[] extractPngFromTar(byte[] tarBytes) {
         if (tarBytes == null || tarBytes.length < 512) {
@@ -436,48 +428,59 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
             return null;
         }
         try {
-            // TAR header: bytes 0-99 = filename, bytes 124-135 = octal file size
-            // First check for PNG magic bytes directly (some responses are raw PNG)
+            // Check if it's already raw PNG (magic bytes 89 50 4E 47)
             if (tarBytes[0] == (byte)0x89 && tarBytes[1] == (byte)0x50 &&
-                tarBytes[2] == (byte)0x4E && tarBytes[3] == (byte)0x47) {
-                log.info("GS: response is raw PNG, not TAR");
+                    tarBytes[2] == (byte)0x4E && tarBytes[3] == (byte)0x47) {
+                log.info("GS: response is raw PNG, not TAR, size={}KB", tarBytes.length / 1024);
                 return tarBytes;
             }
 
-            // Parse TAR header
-            String sizeOctal = new String(tarBytes, 124, 12).trim().replace("\0", "").trim();
-            if (sizeOctal.isEmpty()) {
-                log.warn("GS: TAR header size field empty");
+            // TAR header: bytes 124-135 = file size in octal ASCII
+            byte[] sizeBytes = new byte[12];
+            System.arraycopy(tarBytes, 124, sizeBytes, 0, 12);
+            StringBuilder sizeStr = new StringBuilder();
+            for (byte b : sizeBytes) {
+                if (b == 0 || b == ' ') continue;
+                sizeStr.append((char) b);
+            }
+
+            if (sizeStr.length() == 0) {
+                log.warn("GS: TAR size field empty, trying magic scan");
                 return extractPngMagicBytes(tarBytes);
             }
 
-            long fileSize = Long.parseLong(sizeOctal, 8);
-            log.info("GS: TAR contains file of size {} bytes", fileSize);
+            long fileSize = Long.parseLong(sizeStr.toString(), 8);
+            log.info("GS: TAR entry size={} bytes ({}KB)", fileSize, fileSize / 1024);
 
             if (fileSize <= 0 || fileSize > 50_000_000L) {
-                log.warn("GS: TAR file size suspicious: {}", fileSize);
+                log.warn("GS: TAR file size out of range: {}", fileSize);
                 return extractPngMagicBytes(tarBytes);
             }
 
-            // Data starts at byte 512 (after header block)
             int dataStart = 512;
-            if (dataStart + fileSize > tarBytes.length) {
-                log.warn("GS: TAR data extends beyond buffer");
+            int dataEnd = dataStart + (int) fileSize;
+
+            if (dataEnd > tarBytes.length) {
+                log.warn("GS: TAR data extends beyond buffer ({} > {}), trying magic scan",
+                        dataEnd, tarBytes.length);
                 return extractPngMagicBytes(tarBytes);
             }
 
             byte[] pngData = new byte[(int) fileSize];
             System.arraycopy(tarBytes, dataStart, pngData, 0, (int) fileSize);
 
-            // Verify PNG magic bytes
-            if (pngData.length > 4 &&
-                pngData[0] == (byte)0x89 && pngData[1] == (byte)0x50 &&
-                pngData[2] == (byte)0x4E && pngData[3] == (byte)0x47) {
-                log.info("GS: PNG extracted from TAR size={}KB", pngData.length / 1024);
+            // Verify PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A
+            if (pngData.length >= 4 &&
+                    pngData[0] == (byte)0x89 && pngData[1] == (byte)0x50 &&
+                    pngData[2] == (byte)0x4E && pngData[3] == (byte)0x47) {
+                log.info("GS: PNG extracted from TAR successfully, size={}KB", pngData.length / 1024);
                 return pngData;
             }
 
-            log.warn("GS: extracted data is not PNG, trying magic byte scan");
+            // Data at offset 512 is not PNG — log first bytes for debugging
+            log.warn("GS: data at TAR offset 512 is not PNG. First 8 bytes: {} {} {} {} {} {} {} {}",
+                    pngData[0] & 0xFF, pngData[1] & 0xFF, pngData[2] & 0xFF, pngData[3] & 0xFF,
+                    pngData[4] & 0xFF, pngData[5] & 0xFF, pngData[6] & 0xFF, pngData[7] & 0xFF);
             return extractPngMagicBytes(tarBytes);
 
         } catch (Exception e) {
@@ -508,5 +511,4 @@ public class CopernicusClientAdapter implements CopernicusClientPort {
         log.warn("GS: no PNG found in response");
         return null;
     }
-
 }

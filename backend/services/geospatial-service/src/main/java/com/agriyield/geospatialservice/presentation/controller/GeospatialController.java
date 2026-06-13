@@ -155,6 +155,12 @@ public class GeospatialController {
 
         byte[] image = geospatialService.getSatelliteImage(farmId, w, h);
 
+        log.info(
+                "Satellite image result for farm {} => {}",
+                farmId,
+                image == null ? "NULL" : image.length + " bytes"
+        );
+
         if (image == null || image.length == 0) {
             return ResponseEntity.notFound().build();
         }
