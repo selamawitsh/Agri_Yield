@@ -23,13 +23,31 @@ public class JwtUtils {
         if (header != null && !header.isBlank()) {
             return UUID.fromString(header);
         }
-        throw new IllegalStateException("X-User-Id header missing — request did not pass through gateway");
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            try {
+                Claims claims = parseClaims(auth.substring(7));
+                return UUID.fromString(claims.getSubject());
+            } catch (Exception e) {
+                log.warn("Cannot identify user from JWT: {}", e.getMessage());
+            }
+        }
+        throw new IllegalStateException("Cannot identify user");
     }
 
     public String extractUserRole(HttpServletRequest request) {
         String role = request.getHeader("X-User-Role");
         if (role != null && !role.isBlank()) return role;
-        throw new IllegalStateException("X-User-Role header missing");
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            try {
+                Claims claims = parseClaims(auth.substring(7));
+                return (String) claims.get("role");
+            } catch (Exception e) {
+                log.warn("Cannot identify role from JWT: {}", e.getMessage());
+            }
+        }
+        throw new IllegalStateException("Cannot identify role");
     }
 
     private Key getSigningKey() {
