@@ -182,22 +182,8 @@ export default function InvestmentDetailPage() {
               </div>
               <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-semibold">🛰️ Live</span>
             </div>
-            <SatelliteImageViewComponent farmId={investment.farmId} lat={mapLat} lng={mapLng} ndvi={mapNdvi} areaHectares={farmMapData?.areaHectares} label={`${investment.cropType} — ${investment.region}`} />
-            {latestNdvi && (
-              <div className="flex flex-wrap gap-2 mt-3">
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                  latestNdvi.healthStatus === 'EXCELLENT' ? 'bg-green-100 text-green-700' :
-                  latestNdvi.healthStatus === 'GOOD'      ? 'bg-lime-100 text-lime-700' :
-                  latestNdvi.healthStatus === 'MODERATE'  ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-red-100 text-red-700'
-                }`}>
-                  🌿 NDVI {latestNdvi.ndviValue.toFixed(3)} — {latestNdvi.healthStatus}
-                </span>
-                <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
-                  ☁️ {latestNdvi.cloudCoverage.toFixed(1)}%
-                </span>
-              </div>
-            )}
+            <SatelliteImageViewComponent farmId={investment.farmId} ndvi={latestNdvi?.ndviValue} healthStatus={latestNdvi?.healthStatus} cloudCoverage={latestNdvi?.cloudCoverage} recordedDate={latestNdvi?.recordedDate} />
+            
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
