@@ -36,6 +36,23 @@ public class MerchantServiceImpl implements MerchantServicePort {
     private final PriceIndexCachePort priceIndexCache;
     private final UserServiceClient userServiceClient;
 
+    // ── KEY FIX: resolve merchant profile ID from either userId OR profileId ──
+    // The voucher-service passes the JWT userId (e.g. 89e7c5df) as merchantId.
+    // Products are stored under the merchant profile ID (e.g. 7affb087).
+    // This method handles both cases so gRPC calls always find the right products.
+    private UUID resolveProfileId(UUID merchantIdOrUserId) {
+        // Try direct profile lookup first (fast path — called from REST endpoints)
+        Optional<MerchantProfile> byId = merchantProfileRepository.findById(merchantIdOrUserId);
+        if (byId.isPresent()) return byId.get().getId();
+
+        // Fall back to userId lookup (gRPC path — voucher-service passes userId)
+        Optional<MerchantProfile> byUserId =
+            merchantProfileRepository.findByUserId(merchantIdOrUserId);
+        if (byUserId.isPresent()) return byUserId.get().getId();
+
+        throw new MerchantNotFoundException("Merchant not found: " + merchantIdOrUserId);
+    }
+
     @Override
     @Transactional
     public MerchantProfile registerMerchant(UUID userId, RegisterMerchantRequest request) {
@@ -73,18 +90,19 @@ public class MerchantServiceImpl implements MerchantServicePort {
 
     @Override
     public MerchantProfile getMerchantById(UUID merchantId) {
+        // Try by profile ID first, then by user ID
         return merchantProfileRepository.findById(merchantId)
-            .orElseThrow(() -> new MerchantNotFoundException(
-                "Merchant not found: " + merchantId));
+            .or(() -> merchantProfileRepository.findByUserId(merchantId))
+            .orElseThrow(() -> new MerchantNotFoundException("Merchant not found: " + merchantId));
     }
 
     @Override
     @Transactional
     public MerchantProfile updateMerchantProfile(UUID userId, UpdateMerchantRequest request) {
         MerchantProfile existing = getMerchantProfile(userId);
-        if (request.getBusinessName() != null) existing.setBusinessName(request.getBusinessName());
-        if (request.getStoreGpsLat() != null)  existing.setStoreGpsLat(request.getStoreGpsLat());
-        if (request.getStoreGpsLng() != null)  existing.setStoreGpsLng(request.getStoreGpsLng());
+        if (request.getBusinessName()    != null) existing.setBusinessName(request.getBusinessName());
+        if (request.getStoreGpsLat()     != null) existing.setStoreGpsLat(request.getStoreGpsLat());
+        if (request.getStoreGpsLng()     != null) existing.setStoreGpsLng(request.getStoreGpsLng());
         if (request.getTelebirrAccount() != null) existing.setTelebirrAccount(request.getTelebirrAccount());
         existing.setUpdatedAt(OffsetDateTime.now());
         return merchantProfileRepository.save(existing);
@@ -116,22 +134,18 @@ public class MerchantServiceImpl implements MerchantServicePort {
         MerchantProfile merchant = getMerchantProfile(userId);
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new ProductNotFoundException("Product not found: " + productId));
-        if (!product.getMerchantId().equals(merchant.getId())) {
+        if (!product.getMerchantId().equals(merchant.getId()))
             throw new BusinessException("Product does not belong to this merchant");
-        }
         if (request.getCurrentPriceEtb() != null &&
                 request.getCurrentPriceEtb().compareTo(product.getCurrentPriceEtb()) != 0) {
             priceHistoryRepository.save(PriceHistory.builder()
-                .productId(productId)
-                .oldPriceEtb(product.getCurrentPriceEtb())
+                .productId(productId).oldPriceEtb(product.getCurrentPriceEtb())
                 .newPriceEtb(request.getCurrentPriceEtb())
-                .changedAt(OffsetDateTime.now())
-                .changedBy(userId)
-                .build());
+                .changedAt(OffsetDateTime.now()).changedBy(userId).build());
             product.setCurrentPriceEtb(request.getCurrentPriceEtb());
         }
-        if (request.getProductName()  != null) product.setProductName(request.getProductName());
-        if (request.getIsAvailable()  != null) product.setAvailable(request.getIsAvailable());
+        if (request.getProductName()     != null) product.setProductName(request.getProductName());
+        if (request.getIsAvailable()     != null) product.setAvailable(request.getIsAvailable());
         if (request.getQuantityInStock() != null) {
             product.setQuantityInStock(request.getQuantityInStock());
             product.setAvailable(request.getQuantityInStock().compareTo(BigDecimal.ZERO) > 0);
@@ -142,7 +156,8 @@ public class MerchantServiceImpl implements MerchantServicePort {
 
     @Override
     public List<Product> getProductsByMerchant(UUID merchantId) {
-        return productRepository.findByMerchantId(merchantId);
+        UUID profileId = resolveProfileId(merchantId);
+        return productRepository.findByMerchantId(profileId);
     }
 
     @Override
@@ -151,9 +166,8 @@ public class MerchantServiceImpl implements MerchantServicePort {
         MerchantProfile merchant = getMerchantProfile(userId);
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new ProductNotFoundException("Product not found: " + productId));
-        if (!product.getMerchantId().equals(merchant.getId())) {
+        if (!product.getMerchantId().equals(merchant.getId()))
             throw new BusinessException("Product does not belong to this merchant");
-        }
         productRepository.deleteById(productId);
     }
 
@@ -165,12 +179,15 @@ public class MerchantServiceImpl implements MerchantServicePort {
 
     @Override
     public List<PriceAnomaly> getPriceAnomalies(UUID merchantId) {
-        return priceAnomalyRepository.findByMerchantId(merchantId);
+        UUID profileId = resolveProfileId(merchantId);
+        return priceAnomalyRepository.findByMerchantId(profileId);
     }
 
     @Override
     public List<String> getMerchantCategories(UUID merchantId) {
-        return productRepository.findByMerchantId(merchantId).stream()
+        // FIXED: resolve profile ID — merchantId from gRPC is userId
+        UUID profileId = resolveProfileId(merchantId);
+        return productRepository.findByMerchantId(profileId).stream()
             .filter(Product::isAvailable)
             .map(p -> p.getProductCategory().name())
             .distinct()
@@ -185,7 +202,8 @@ public class MerchantServiceImpl implements MerchantServicePort {
 
     @Override
     public boolean isMerchantActive(UUID merchantId) {
-        return merchantProfileRepository.findById(merchantId).isPresent();
+        return merchantProfileRepository.findById(merchantId).isPresent()
+            || merchantProfileRepository.findByUserId(merchantId).isPresent();
     }
 
     @Override
@@ -194,13 +212,16 @@ public class MerchantServiceImpl implements MerchantServicePort {
             .map(BigDecimal::doubleValue).orElse(0.0);
     }
 
-    // ── Inventory check for voucher redemption ────────────────────────────────
-
     @Override
     @Transactional(readOnly = true)
     public Product checkInventoryForRedemption(UUID merchantId, String category,
                                                BigDecimal requiredQty) {
-        List<Product> products = productRepository.findByMerchantId(merchantId).stream()
+        // FIXED: resolve profile ID from userId
+        UUID profileId = resolveProfileId(merchantId);
+        log.info("checkInventory: userId={} → profileId={} category={} qty={}",
+            merchantId, profileId, category, requiredQty);
+
+        List<Product> products = productRepository.findByMerchantId(profileId).stream()
             .filter(p -> category.equals("OTHER") ||
                 p.getProductCategory().name().equals(category))
             .collect(Collectors.toList());
@@ -212,7 +233,6 @@ public class MerchantServiceImpl implements MerchantServicePort {
                 "PRODUCT_NOT_AVAILABLE");
         }
 
-        // Find product with sufficient stock
         return products.stream()
             .filter(p -> p.hasSufficientStock(requiredQty))
             .findFirst()
@@ -230,7 +250,9 @@ public class MerchantServiceImpl implements MerchantServicePort {
     @Override
     @Transactional
     public void deductInventory(UUID merchantId, String category, BigDecimal quantity) {
-        productRepository.findByMerchantId(merchantId).stream()
+        // FIXED: resolve profile ID from userId
+        UUID profileId = resolveProfileId(merchantId);
+        productRepository.findByMerchantId(profileId).stream()
             .filter(p -> category.equals("OTHER") ||
                 p.getProductCategory().name().equals(category))
             .filter(p -> p.hasSufficientStock(quantity))
@@ -239,11 +261,11 @@ public class MerchantServiceImpl implements MerchantServicePort {
                 product.deductStock(quantity);
                 product.setUpdatedAt(OffsetDateTime.now());
                 productRepository.save(product);
-                log.info("Inventory deducted: {} {} of {} — merchant: {}",
-                    quantity, product.getUnit(), product.getProductName(), merchantId);
+                log.info("Inventory deducted: {} {} of {} — merchant profile: {}",
+                    quantity, product.getUnit(), product.getProductName(), profileId);
             }, () -> log.warn(
-                "DeductInventory: no matching product with sufficient stock. " +
-                "merchant={} category={} qty={}", merchantId, category, quantity));
+                "DeductInventory: no matching product. profileId={} category={} qty={}",
+                profileId, category, quantity));
     }
 
     public List<Product> getProductsByCategoryAndKebele(String category, String kebeleCode) {
