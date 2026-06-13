@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Component
 @RequiredArgsConstructor
@@ -35,8 +36,23 @@ public class FarmOpportunityRepositoryAdapter implements FarmOpportunityReposito
 
     @Override
     public List<FarmOpportunity> search(String cropType, String region, Boolean harvestReady) {
-        return jpaRepository.searchOpportunities(cropType, region, harvestReady)
-                .stream().map(this::toDomain).toList();
+        // Filter in Java to avoid Hibernate null-as-bytea issue with JPQL IS NULL checks
+        Stream<FarmOpportunityEntity> stream = jpaRepository
+                .findAllByOrderByLastUpdatedDesc().stream();
+
+        if (cropType != null && !cropType.isBlank()) {
+            stream = stream.filter(f -> cropType.equalsIgnoreCase(f.getCropType()));
+        }
+        if (region != null && !region.isBlank()) {
+            String regionLower = region.toLowerCase();
+            stream = stream.filter(f -> f.getRegion() != null &&
+                    f.getRegion().toLowerCase().contains(regionLower));
+        }
+        if (harvestReady != null) {
+            stream = stream.filter(f -> f.isHarvestReady() == harvestReady);
+        }
+
+        return stream.map(this::toDomain).toList();
     }
 
     private FarmOpportunity toDomain(FarmOpportunityEntity e) {

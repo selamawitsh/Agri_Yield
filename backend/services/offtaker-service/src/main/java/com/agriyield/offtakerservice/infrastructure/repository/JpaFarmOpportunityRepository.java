@@ -17,10 +17,10 @@ public interface JpaFarmOpportunityRepository extends JpaRepository<FarmOpportun
 
     @Query("SELECT f FROM FarmOpportunityEntity f WHERE " +
            "(:cropType IS NULL OR f.cropType = :cropType) AND " +
-           "(:region   IS NULL OR LOWER(f.region) LIKE LOWER(CONCAT('%', :region, '%'))) AND " +
+           "(:region IS NULL OR LOWER(f.region) LIKE LOWER(CONCAT('%', :region, '%'))) AND " +
            "(:harvestReady IS NULL OR f.harvestReady = :harvestReady)")
     List<FarmOpportunityEntity> searchOpportunities(
-            @Param("cropType")     String cropType,
-            @Param("region")       String region,
+            @Param("cropType") String cropType,
+            @Param("region") String region,
             @Param("harvestReady") Boolean harvestReady);
 }
