@@ -55,6 +55,21 @@ public interface FarmServicePort {
                            String cropType,
                            String status);
 
+    // SRS §3.3 — called by SatelliteVerifiedListener when geospatial-service
+    // publishes farm.satellite.verified event
+    void markSatelliteVerified(UUID farmId,
+                               boolean verified,
+                               double verifiedAreaHectares);
+
+    // SRS §3.3.4 — called by HarvestConfirmedListener when offtaker-service
+    // publishes harvest.confirmed event on offtaker.exchange.
+    // Calculates the seasonal Agri-Score and persists it.
+    void calculateAndSaveAgriScore(UUID farmId,
+                                   UUID cropCycleId,
+                                   boolean contractFulfilled,
+                                   boolean repaymentCompleted,
+                                   int agronomistRating);
+
     record InputNeedItemRequest(
             String productCategory,
             String productName,
@@ -63,11 +78,4 @@ public interface FarmServicePort {
             BigDecimal estimatedPriceEtb,
             Integer sequenceOrder
     ) {}
-
-    // SRS §3.3 — called by SatelliteVerifiedListener when geospatial-service
-    // publishes farm.satellite.verified event
-    void markSatelliteVerified(java.util.UUID farmId,
-                                boolean verified,
-                                double verifiedAreaHectares);
-
 }

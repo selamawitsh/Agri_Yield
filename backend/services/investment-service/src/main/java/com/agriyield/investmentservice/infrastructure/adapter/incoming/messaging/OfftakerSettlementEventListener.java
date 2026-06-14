@@ -41,9 +41,9 @@ public class OfftakerSettlementEventListener {
 
     // ── bid.accepted: FULLY_FUNDED → ACTIVE ──────────────────────────────────
     @RabbitListener(bindings = @QueueBinding(
-        value    = @Queue(value = "investment.bid-accepted.queue", durable = "true"),
-        exchange = @Exchange(value = "offtaker.exchange", type = ExchangeTypes.TOPIC, durable = "true"),
-        key      = "bid.accepted"
+            value    = @Queue(value = "investment.bid-accepted.queue", durable = "true"),
+            exchange = @Exchange(value = "offtaker.exchange", type = ExchangeTypes.TOPIC, durable = "true"),
+            key      = "bid.accepted"
     ))
     @Transactional
     public void onBidAccepted(Map<String, Object> event) {
@@ -53,7 +53,6 @@ public class OfftakerSettlementEventListener {
             if (farmIdStr == null) return;
             UUID farmId = UUID.fromString(farmIdStr);
 
-            // findAllOpen() returns List — iterate directly, no ifPresent()
             List<FarmListing> listings = listingRepository.findAllOpen();
             for (FarmListing listing : listings) {
                 if (!listing.getFarmId().equals(farmId)) continue;
@@ -63,8 +62,9 @@ public class OfftakerSettlementEventListener {
                 listingRepository.save(listing);
                 log.info("IS: listing {} → ACTIVE after bid.accepted farm={}", listing.getId(), farmId);
 
-                // Activate all ESCROW_LOCKED investments for this farm
-                List<Investment> investments = investmentRepository.findByInvestorId(farmId);
+                // FIX: was findByInvestorId(farmId) — wrong method, wrong argument.
+                // Must query by farmId to find all investments for this farm.
+                List<Investment> investments = investmentRepository.findAllByFarmId(farmId);
                 for (Investment inv : investments) {
                     if (inv.getStatus() == InvestmentStatus.ESCROW_LOCKED) {
                         inv.activate();
@@ -80,9 +80,9 @@ public class OfftakerSettlementEventListener {
 
     // ── settlement.completed: investments → COMPLETED + payout records ────────
     @RabbitListener(bindings = @QueueBinding(
-        value    = @Queue(value = "investment.settlement-completed.queue", durable = "true"),
-        exchange = @Exchange(value = "investment.exchange", type = ExchangeTypes.TOPIC, durable = "true"),
-        key      = "settlement.completed"
+            value    = @Queue(value = "investment.settlement-completed.queue", durable = "true"),
+            exchange = @Exchange(value = "investment.exchange", type = ExchangeTypes.TOPIC, durable = "true"),
+            key      = "settlement.completed"
     ))
     @Transactional
     public void onSettlementCompleted(Map<String, Object> event) {
@@ -97,7 +97,7 @@ public class OfftakerSettlementEventListener {
 
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> investorPayouts =
-                (List<Map<String, Object>>) event.getOrDefault("investor_payouts", List.of());
+                    (List<Map<String, Object>>) event.getOrDefault("investor_payouts", List.of());
 
             for (Map<String, Object> payout : investorPayouts) {
                 String investorIdStr = (String) payout.get("investor_id");
@@ -108,37 +108,36 @@ public class OfftakerSettlementEventListener {
                 BigDecimal profit     = new BigDecimal(payout.get("profit_etb").toString());
                 BigDecimal total      = new BigDecimal(payout.get("total_etb").toString());
 
-                // findByInvestorId returns List — iterate, no ifPresent()
                 List<Investment> investments = investmentRepository.findByInvestorId(investorId);
                 for (Investment inv : investments) {
                     if (!inv.getFarmId().equals(farmId)) continue;
                     if (inv.getStatus() != InvestmentStatus.ACTIVE) continue;
 
                     BigDecimal actualApr = inv.getAmountEtb().compareTo(BigDecimal.ZERO) > 0
-                        ? profit.divide(inv.getAmountEtb(), 4, RoundingMode.HALF_UP)
-                               .multiply(BigDecimal.valueOf(100))
-                        : BigDecimal.ZERO;
+                            ? profit.divide(inv.getAmountEtb(), 4, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100))
+                            : BigDecimal.ZERO;
 
                     inv.complete(actualApr, total);
                     investmentRepository.save(inv);
 
                     PayoutRecord record = PayoutRecord.builder()
-                        .id(UUID.randomUUID())
-                        .investmentId(inv.getId())
-                        .investorId(inv.getInvestorId())
-                        .farmId(inv.getFarmId())
-                        .listingId(listingId)
-                        .principalEtb(principal)
-                        .returnEtb(profit)
-                        .totalEtb(total)
-                        .actualApr(actualApr)
-                        .payoutReason("Harvest settlement")
-                        .paidAt(LocalDateTime.now())
-                        .build();
+                            .id(UUID.randomUUID())
+                            .investmentId(inv.getId())
+                            .investorId(inv.getInvestorId())
+                            .farmId(inv.getFarmId())
+                            .listingId(listingId)
+                            .principalEtb(principal)
+                            .returnEtb(profit)
+                            .totalEtb(total)
+                            .actualApr(actualApr)
+                            .payoutReason("Harvest settlement")
+                            .paidAt(LocalDateTime.now())
+                            .build();
                     payoutRepository.save(record);
 
                     log.info("IS: investment {} COMPLETED investor={} payout={} ETB",
-                        inv.getId(), investorId, total);
+                            inv.getId(), investorId, total);
                     break; // one active investment per investor per farm
                 }
             }

@@ -37,9 +37,6 @@ public class ListingServiceImpl implements ListingServicePort {
     private final GeospatialServicePort geospatialServicePort;
     private final EventPublisherPort eventPublisher;
 
-    // @Lazy breaks the circular dependency:
-    // ListingServiceImpl -> InvestmentServicePort (InvestmentServiceImpl)
-    // InvestmentServiceImpl -> EscrowServicePort -> (no cycle)
     @Lazy
     @Autowired
     private InvestmentServicePort investmentService;
@@ -63,37 +60,37 @@ public class ListingServiceImpl implements ListingServicePort {
 
         listingRepository.findByInputNeedId(inputNeedId).ifPresent(existing -> {
             throw new BusinessException(
-                "Listing already exists for input need: " + inputNeedId,
-                "DUPLICATE_LISTING");
+                    "Listing already exists for input need: " + inputNeedId,
+                    "DUPLICATE_LISTING");
         });
 
         BigDecimal baseApr = calculateBaseApr(agriScore);
 
         FarmListing listing = FarmListing.builder()
-            .id(UUID.randomUUID())
-            .farmId(farmId)
-            .farmerId(farmerId)
-            .inputNeedId(inputNeedId)
-            .cropCycleId(cropCycleId)
-            .cropType(cropType)
-            .region(region)
-            .kebeleCode(kebeleCode)
-            .seasonName(seasonName)
-            .totalAmountEtb(totalAmountEtb)
-            .fundedAmountEtb(BigDecimal.ZERO)
-            .fundingPct(BigDecimal.ZERO)
-            .baseApr(baseApr)
-            .currentApr(baseApr)
-            .ndviBonus(BigDecimal.ZERO)
-            .weatherBonus(BigDecimal.ZERO)
-            .ndviPenalty(BigDecimal.ZERO)
-            .droughtRisk(BigDecimal.ZERO)
-            .agriScore(agriScore)
-            .status(ListingStatus.OPEN)
-            .fundingDeadline(LocalDateTime.now().plusDays(30))
-            .createdAt(LocalDateTime.now())
-            .updatedAt(LocalDateTime.now())
-            .build();
+                .id(UUID.randomUUID())
+                .farmId(farmId)
+                .farmerId(farmerId)
+                .inputNeedId(inputNeedId)
+                .cropCycleId(cropCycleId)
+                .cropType(cropType)
+                .region(region)
+                .kebeleCode(kebeleCode)
+                .seasonName(seasonName)
+                .totalAmountEtb(totalAmountEtb)
+                .fundedAmountEtb(BigDecimal.ZERO)
+                .fundingPct(BigDecimal.ZERO)
+                .baseApr(baseApr)
+                .currentApr(baseApr)
+                .ndviBonus(BigDecimal.ZERO)
+                .weatherBonus(BigDecimal.ZERO)
+                .ndviPenalty(BigDecimal.ZERO)
+                .droughtRisk(BigDecimal.ZERO)
+                .agriScore(agriScore)
+                .status(ListingStatus.OPEN)
+                .fundingDeadline(LocalDateTime.now().plusDays(30))
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
 
         FarmListing saved = listingRepository.save(listing);
         log.info("IS-04: Listing created: {}", saved.getId());
@@ -121,19 +118,19 @@ public class ListingServiceImpl implements ListingServicePort {
         }
 
         return listings.stream()
-            .filter(l -> l.getStatus() == ListingStatus.OPEN
-                || l.getStatus() == ListingStatus.PARTIALLY_FUNDED)
-            .filter(l -> minApr == null || l.getCurrentApr().compareTo(minApr) >= 0)
-            .filter(l -> maxApr == null || l.getCurrentApr().compareTo(maxApr) <= 0)
-            .collect(Collectors.toList());
+                .filter(l -> l.getStatus() == ListingStatus.OPEN
+                        || l.getStatus() == ListingStatus.PARTIALLY_FUNDED)
+                .filter(l -> minApr == null || l.getCurrentApr().compareTo(minApr) >= 0)
+                .filter(l -> maxApr == null || l.getCurrentApr().compareTo(maxApr) <= 0)
+                .collect(Collectors.toList());
     }
 
     @Override
     @Transactional(readOnly = true)
     public FarmListing getListingById(UUID listingId) {
         return listingRepository.findById(listingId)
-            .orElseThrow(() -> new BusinessException(
-                "Listing not found: " + listingId, "LISTING_NOT_FOUND"));
+                .orElseThrow(() -> new BusinessException(
+                        "Listing not found: " + listingId, "LISTING_NOT_FOUND"));
     }
 
     @Override
@@ -143,33 +140,30 @@ public class ListingServiceImpl implements ListingServicePort {
                                       BigDecimal amountEtb,
                                       String notes) {
         log.info("IS-05: Investing {} ETB in listing: {} by investor: {}",
-            amountEtb, listingId, investorId);
+                amountEtb, listingId, investorId);
 
         FarmListing listing = listingRepository.findById(listingId)
-            .orElseThrow(() -> new BusinessException(
-                "Listing not found: " + listingId, "LISTING_NOT_FOUND"));
+                .orElseThrow(() -> new BusinessException(
+                        "Listing not found: " + listingId, "LISTING_NOT_FOUND"));
 
         if (amountEtb.compareTo(minAmountEtb) < 0) {
             throw new BusinessException(
-                "Minimum investment is " + minAmountEtb + " ETB", "AMOUNT_TOO_LOW");
+                    "Minimum investment is " + minAmountEtb + " ETB", "AMOUNT_TOO_LOW");
         }
 
         BigDecimal remaining = listing.getTotalAmountEtb().subtract(listing.getFundedAmountEtb());
         if (amountEtb.compareTo(remaining) > 0) {
             throw new BusinessException(
-                "Investment exceeds remaining funding needed: " + remaining + " ETB",
-                "EXCEEDS_REMAINING");
+                    "Investment exceeds remaining funding needed: " + remaining + " ETB",
+                    "EXCEEDS_REMAINING");
         }
 
-        /* SRS §4.1.1: investment_pct = amount / total_listing_amount */
-        BigDecimal investmentPct = amountEtb
-            .divide(listing.getTotalAmountEtb(), 5, java.math.RoundingMode.HALF_UP);
         Investment investment = investmentService.placeInvestment(
-            investorId,
-            listing.getFarmId(),
-            listing.getInputNeedId(),
-            amountEtb,
-            notes);
+                investorId,
+                listing.getFarmId(),
+                listing.getInputNeedId(),
+                amountEtb,
+                notes);
 
         listing.addFunding(amountEtb);
         FarmListing savedListing = listingRepository.save(listing);
@@ -186,13 +180,13 @@ public class ListingServiceImpl implements ListingServicePort {
     @Transactional(readOnly = true)
     public Object getNdviHistory(UUID listingId) {
         FarmListing listing = listingRepository.findById(listingId)
-            .orElseThrow(() -> new BusinessException(
-                "Listing not found: " + listingId, "LISTING_NOT_FOUND"));
+                .orElseThrow(() -> new BusinessException(
+                        "Listing not found: " + listingId, "LISTING_NOT_FOUND"));
         try {
             return geospatialServicePort.getNdviTimeSeries(listing.getFarmId(), 90);
         } catch (Exception e) {
             log.warn("Could not fetch NDVI history for listing {}: {}",
-                listingId, e.getMessage());
+                    listingId, e.getMessage());
             return java.util.List.of();
         }
     }
@@ -206,8 +200,8 @@ public class ListingServiceImpl implements ListingServicePort {
                                  BigDecimal droughtRisk) {
         log.info("IS-10: Updating APR for listing: {}", listingId);
         FarmListing listing = listingRepository.findById(listingId)
-            .orElseThrow(() -> new BusinessException(
-                "Listing not found: " + listingId, "LISTING_NOT_FOUND"));
+                .orElseThrow(() -> new BusinessException(
+                        "Listing not found: " + listingId, "LISTING_NOT_FOUND"));
         listing.recalculateApr(ndviBonus, weatherBonus, ndviPenalty, droughtRisk);
         return listingRepository.save(listing);
     }
@@ -219,15 +213,12 @@ public class ListingServiceImpl implements ListingServicePort {
         List<FarmListing> expired = listingRepository.findExpiredOpenListings();
         for (FarmListing listing : expired) {
             log.warn("IS-11: Listing {} expired with {}% funded",
-                listing.getId(), listing.getFundingPct());
+                    listing.getId(), listing.getFundingPct());
             listing.markFundingFailed();
             listingRepository.save(listing);
 
-            // Find investments for this farm and cancel them
-            List<Investment> investments = investmentRepository.findByFarmId(listing.getFarmId())
-                .map(inv -> java.util.List.of(inv))
-                .orElse(java.util.List.of());
-
+            // FIX: use findAllByFarmId — findByFarmId returns Optional (single result)
+            List<Investment> investments = investmentRepository.findAllByFarmId(listing.getFarmId());
             for (Investment investment : investments) {
                 if (investment.getStatus() != InvestmentStatus.CANCELLED) {
                     try {
@@ -236,7 +227,7 @@ public class ListingServiceImpl implements ListingServicePort {
                         investmentRepository.save(investment);
                     } catch (Exception e) {
                         log.error("IS-11: Failed to cancel investment {}: {}",
-                            investment.getId(), e.getMessage());
+                                investment.getId(), e.getMessage());
                     }
                 }
             }
@@ -255,7 +246,7 @@ public class ListingServiceImpl implements ListingServicePort {
     @Transactional(readOnly = true)
     public Investment getInvestmentDetails(UUID investmentId) {
         return investmentRepository.findById(investmentId)
-            .orElseThrow(() -> new InvestmentNotFoundException(investmentId.toString()));
+                .orElseThrow(() -> new InvestmentNotFoundException(investmentId.toString()));
     }
 
     @Override
@@ -264,19 +255,17 @@ public class ListingServiceImpl implements ListingServicePort {
         return payoutRepository.findByInvestorId(investorId);
     }
 
-    /** IS-10: Get all open listings for a farm — used by weather/NDVI APR listener */
     @Override
     @Transactional(readOnly = true)
     public List<FarmListing> getActiveListingsByFarmId(UUID farmId) {
         log.info("IS-10: getActiveListingsByFarmId farm={}", farmId);
         return listingRepository.findAllOpen().stream()
-            .filter(l -> l.getFarmId().equals(farmId))
-            .filter(l -> l.getStatus() == ListingStatus.OPEN
-                || l.getStatus() == ListingStatus.PARTIALLY_FUNDED)
-            .collect(Collectors.toList());
+                .filter(l -> l.getFarmId().equals(farmId))
+                .filter(l -> l.getStatus() == ListingStatus.OPEN
+                        || l.getStatus() == ListingStatus.PARTIALLY_FUNDED)
+                .collect(Collectors.toList());
     }
 
-    /** WS-04: Cancel all active listings for a farm (drought parametric insurance) */
     @Override
     @Transactional
     public void cancelListingsForFarm(UUID farmId, String reason) {
@@ -286,10 +275,9 @@ public class ListingServiceImpl implements ListingServicePort {
             try {
                 listing.markFundingFailed();
                 listingRepository.save(listing);
-                List<Investment> investments = investmentRepository
-                    .findByFarmId(listing.getFarmId())
-                    .map(inv -> java.util.List.of(inv))
-                    .orElse(java.util.List.of());
+
+                // FIX: use findAllByFarmId — findByFarmId returns Optional (single result)
+                List<Investment> investments = investmentRepository.findAllByFarmId(listing.getFarmId());
                 for (Investment inv : investments) {
                     if (inv.getStatus() != InvestmentStatus.CANCELLED) {
                         escrowServicePort.cancel(inv.getId());
