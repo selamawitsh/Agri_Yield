@@ -5,6 +5,7 @@ import com.agriyield.offtakerservice.application.port.outgoing.*;
 import com.agriyield.offtakerservice.domain.enums.DispatchStatus;
 import com.agriyield.offtakerservice.domain.exception.BusinessException;
 import com.agriyield.offtakerservice.domain.exception.ResourceNotFoundException;
+import com.agriyield.offtakerservice.domain.model.Bid;
 import com.agriyield.offtakerservice.domain.model.PurchaseAgreement;
 import com.agriyield.offtakerservice.domain.model.TruckDispatch;
 import lombok.RequiredArgsConstructor;
@@ -36,10 +37,13 @@ public class DispatchServiceImpl implements DispatchServicePort {
                                           LocalDate scheduledPickupDate) {
 
         PurchaseAgreement agreement = agreementRepository.findById(agreementId)
-                .orElseThrow(() -> new ResourceNotFoundException("Agreement not found: " + agreementId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Agreement not found: " + agreementId));
 
         if (!agreement.isFullyExecuted()) {
-            throw new BusinessException("Agreement must be fully signed before dispatching trucks", "AGREEMENT_NOT_EXECUTED");
+            throw new BusinessException(
+                    "Agreement must be fully signed before dispatching trucks",
+                    "AGREEMENT_NOT_EXECUTED");
         }
 
         TruckDispatch dispatch = TruckDispatch.builder()
@@ -55,7 +59,17 @@ public class DispatchServiceImpl implements DispatchServicePort {
                 .build();
 
         TruckDispatch saved = dispatchRepository.save(dispatch);
-        log.info("Dispatch scheduled: dispatchId={} agreementId={}", saved.getId(), agreementId);
+
+        // FIX: SRS §5.2 requires logistics.dispatched event on offtaker.exchange.
+        // This was completely missing — notification-service never received it,
+        // so offtaker logistics team never got the harvest.predicted notification.
+        eventPublisher.publishLogisticsDispatched(
+                saved.getId(), agreementId, offtakerId,
+                driverFaydaId, truckCount,
+                scheduledPickupDate.toString());
+
+        log.info("Dispatch scheduled and event published: dispatchId={} agreementId={}",
+                saved.getId(), agreementId);
         return saved;
     }
 
@@ -88,17 +102,20 @@ public class DispatchServiceImpl implements DispatchServicePort {
         TruckDispatch activeDispatch = dispatches.stream()
                 .filter(d -> d.getStatus() == DispatchStatus.LOADED)
                 .findFirst()
-                .orElseThrow(() -> new BusinessException("No LOADED dispatch found for agreement", "NO_LOADED_DISPATCH"));
+                .orElseThrow(() -> new BusinessException(
+                        "No LOADED dispatch found for agreement — farmer must confirm loading first",
+                        "NO_LOADED_DISPATCH"));
 
         activeDispatch.confirmDelivery();
         dispatchRepository.save(activeDispatch);
 
-        // Calculate payment and trigger settlement
         PurchaseAgreement agreement = agreementRepository.findById(agreementId)
-                .orElseThrow(() -> new ResourceNotFoundException("Agreement not found: " + agreementId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Agreement not found: " + agreementId));
 
-        var bid = bidRepository.findById(agreement.getBidId())
-                .orElseThrow(() -> new ResourceNotFoundException("Bid not found"));
+        Bid bid = bidRepository.findById(agreement.getBidId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Bid not found for agreement: " + agreementId));
 
         BigDecimal totalPayment = actualQuantityQuintals.multiply(bid.getPricePerQuintalEtb());
 
@@ -111,7 +128,8 @@ public class DispatchServiceImpl implements DispatchServicePort {
         bid.complete();
         bidRepository.save(bid);
 
-        log.info("Delivery confirmed: agreementId={} totalPayment={}", agreementId, totalPayment);
+        log.info("Delivery confirmed — settlement initiated: agreementId={} totalPayment={}",
+                agreementId, totalPayment);
         return activeDispatch;
     }
 
@@ -122,6 +140,7 @@ public class DispatchServiceImpl implements DispatchServicePort {
 
     private TruckDispatch findDispatchOrThrow(UUID dispatchId) {
         return dispatchRepository.findById(dispatchId)
-                .orElseThrow(() -> new ResourceNotFoundException("Dispatch not found: " + dispatchId));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Dispatch not found: " + dispatchId));
     }
 }
