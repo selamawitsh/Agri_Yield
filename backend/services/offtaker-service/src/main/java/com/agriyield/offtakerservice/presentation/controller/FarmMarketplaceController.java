@@ -1,5 +1,6 @@
 package com.agriyield.offtakerservice.presentation.controller;
 
+import com.agriyield.offtakerservice.application.port.outgoing.AgreementRepositoryPort;
 import com.agriyield.offtakerservice.application.port.outgoing.FarmOpportunityRepositoryPort;
 import com.agriyield.offtakerservice.domain.model.FarmOpportunity;
 import com.agriyield.offtakerservice.domain.exception.ResourceNotFoundException;
@@ -22,21 +23,37 @@ public class FarmMarketplaceController {
     private final FarmOpportunityRepositoryPort opportunityRepository;
     private final JwtUtils jwtUtils;
 
-    // UC-OFF-01: Browse Available Farms
+    /**
+     * UC-OFF-01: Browse Available Farms
+     * FIX: Added all missing SRS §6.4 filter params:
+     *   - minNdvi (was missing)
+     *   - harvestDateFrom (was missing)
+     *   - harvestDateTo (was missing)
+     *   - minYieldQuintals (was missing)
+     */
     @GetMapping
     public ResponseEntity<ApiResponse<List<FarmMarketplaceResponse>>> browseFarms(
             @RequestParam(required = false) String cropType,
             @RequestParam(required = false) String region,
             @RequestParam(required = false) Boolean harvestReady,
+            @RequestParam(required = false) Double minNdvi,
+            @RequestParam(required = false) String harvestDateFrom,
+            @RequestParam(required = false) String harvestDateTo,
+            @RequestParam(required = false) Double minYieldQuintals,
             HttpServletRequest request) {
 
         jwtUtils.extractUserId(request);
 
-        String crop = (cropType != null && !cropType.isBlank()) ? cropType : null;
-        String reg  = (region   != null && !region.isBlank())   ? region   : null;
-
         List<FarmMarketplaceResponse> results = opportunityRepository
-                .search(crop, reg, harvestReady)
+                .search(
+                        cropType  != null && !cropType.isBlank()  ? cropType  : null,
+                        region    != null && !region.isBlank()    ? region    : null,
+                        harvestReady,
+                        minNdvi,
+                        harvestDateFrom,
+                        harvestDateTo,
+                        minYieldQuintals
+                )
                 .stream().map(this::toResponse).toList();
 
         return ResponseEntity.ok(ApiResponse.success(results));
@@ -62,24 +79,19 @@ public class FarmMarketplaceController {
                 .farmId(o.getFarmId().toString())
                 .farmerId(o.getFarmerId())
                 .cropType(o.getCropType())
-                .areaHectares(o.getAreaHectares() != null
-                        ? o.getAreaHectares().doubleValue() : 0.0)
+                .areaHectares(o.getAreaHectares() != null ? o.getAreaHectares().doubleValue() : 0.0)
                 .region(o.getRegion())
                 .kebeleCode(o.getKebeleCode())
-                .gpsCentroidLat(o.getGpsCentroidLat() != null
-                        ? o.getGpsCentroidLat().doubleValue() : 0.0)
-                .gpsCentroidLng(o.getGpsCentroidLng() != null
-                        ? o.getGpsCentroidLng().doubleValue() : 0.0)
+                .gpsCentroidLat(o.getGpsCentroidLat() != null ? o.getGpsCentroidLat().doubleValue() : 0.0)
+                .gpsCentroidLng(o.getGpsCentroidLng() != null ? o.getGpsCentroidLng().doubleValue() : 0.0)
                 .agriScore(o.getAgriScore())
                 .cropCycleId(o.getCropCycleId())
                 .cropCycleStatus(o.getCropCycleStatus())
-                .currentNdvi(o.getCurrentNdvi() != null
-                        ? o.getCurrentNdvi().doubleValue() : 0.0)
+                .currentNdvi(o.getCurrentNdvi() != null ? o.getCurrentNdvi().doubleValue() : 0.0)
                 .ndviHealthStatus(o.getNdviHealthStatus())
                 .predictedYieldMeanQuintals(o.getPredictedYieldMeanQuintals() != null
                         ? o.getPredictedYieldMeanQuintals().doubleValue() : 0.0)
-                .yieldConfidencePct(o.getYieldConfidencePct() != null
-                        ? o.getYieldConfidencePct() : 0)
+                .yieldConfidencePct(o.getYieldConfidencePct() != null ? o.getYieldConfidencePct() : 0)
                 .harvestReady(o.isHarvestReady())
                 .estimatedHarvestFrom(o.getEstimatedHarvestDateFrom())
                 .estimatedHarvestTo(o.getEstimatedHarvestDateTo())
