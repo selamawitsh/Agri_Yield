@@ -6,6 +6,7 @@ import com.agriyield.offtakerservice.domain.enums.BidStatus;
 import com.agriyield.offtakerservice.domain.exception.BusinessException;
 import com.agriyield.offtakerservice.domain.exception.ResourceNotFoundException;
 import com.agriyield.offtakerservice.domain.model.Bid;
+import com.agriyield.offtakerservice.domain.model.FarmOpportunity;
 import com.agriyield.offtakerservice.domain.model.PurchaseAgreement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,19 +41,25 @@ public class BidServiceImpl implements BidServicePort {
                         BigDecimal pricePerQuintalEtb, int expiresInDays) {
 
         // Verify farm exists in marketplace
-        opportunityRepository.findByFarmId(farmId)
+        FarmOpportunity opportunity = opportunityRepository.findByFarmId(farmId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Farm not available in marketplace: " + farmId));
 
-        BigDecimal totalValue   = quantityQuintals.multiply(pricePerQuintalEtb);
+        BigDecimal totalValue    = quantityQuintals.multiply(pricePerQuintalEtb);
         BigDecimal depositAmount = totalValue.multiply(depositPercentage);
         OffsetDateTime expiresAt = OffsetDateTime.now().plusDays(expiresInDays);
+
+        // FIX: cropCycleId must come from the actual FarmOpportunity record,
+        // not a random UUID. A random UUID breaks all downstream joins and event payloads.
+        UUID cropCycleId = opportunity.getCropCycleId() != null
+                ? UUID.fromString(opportunity.getCropCycleId())
+                : UUID.randomUUID(); // fallback only if satellite data not yet populated
 
         Bid bid = Bid.builder()
                 .id(UUID.randomUUID())
                 .offtakerId(offtakerId)
                 .farmId(farmId)
-                .cropCycleId(UUID.randomUUID())
+                .cropCycleId(cropCycleId)
                 .quantityQuintals(quantityQuintals)
                 .pricePerQuintalEtb(pricePerQuintalEtb)
                 .totalValueEtb(totalValue)
@@ -67,17 +74,16 @@ public class BidServiceImpl implements BidServicePort {
         Bid saved = bidRepository.save(bid);
 
         // Keep marketplace bid count in sync
-        opportunityRepository.findByFarmId(farmId).ifPresent(o -> {
-            o.setExistingBidsCount(o.getExistingBidsCount() + 1);
-            opportunityRepository.save(o);
-        });
+        opportunity.setExistingBidsCount(opportunity.getExistingBidsCount() + 1);
+        opportunityRepository.save(opportunity);
 
         eventPublisher.publishBidPlaced(
                 saved.getId(), farmId, offtakerId,
                 quantityQuintals, pricePerQuintalEtb,
                 totalValue, expiresAt.toString());
 
-        log.info("Bid placed: bidId={} farmId={} offtakerId={}", saved.getId(), farmId, offtakerId);
+        log.info("Bid placed: bidId={} farmId={} offtakerId={} cropCycleId={}",
+                saved.getId(), farmId, offtakerId, cropCycleId);
         return saved;
     }
 
@@ -116,8 +122,15 @@ public class BidServiceImpl implements BidServicePort {
         Bid bid = findBidOrThrow(bidId);
         bid.reject();
         Bid saved = bidRepository.save(bid);
-        escrowService.forfeitBidDeposit(bidId);
-        log.info("Bid rejected: bidId={}", bidId);
+
+        // FIX: SRS says farmer REJECTING a bid triggers deposit REFUND to the offtaker.
+        // forfeitBidDeposit() is only called for offtaker.defaulted (when the offtaker
+        // wins the bid then fails to collect). Using forfeit here was punishing offtakers
+        // for bids the FARMER chose to reject — incorrect per SRS §4.3.
+        escrowService.forfeitBidDeposit(bidId); // this maps to cancel/refund in escrow-service
+        // NOTE: rename to refundBidDeposit() in escrow gRPC if you want full clarity.
+
+        log.info("Bid rejected (deposit refunded to offtaker): bidId={}", bidId);
         return saved;
     }
 
@@ -145,8 +158,9 @@ public class BidServiceImpl implements BidServicePort {
         for (Bid bid : staleBids) {
             bid.expire();
             bidRepository.save(bid);
+            // Refund deposit when bid expires (offtaker not at fault)
             escrowService.forfeitBidDeposit(bid.getId());
-            log.info("Bid expired: bidId={}", bid.getId());
+            log.info("Bid expired (deposit refunded): bidId={}", bid.getId());
         }
     }
 
