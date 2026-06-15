@@ -7,6 +7,7 @@ import com.agriyield.offtakerservice.infrastructure.repository.JpaFarmOpportunit
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,9 +35,22 @@ public class FarmOpportunityRepositoryAdapter implements FarmOpportunityReposito
                 .stream().map(this::toDomain).toList();
     }
 
+    /**
+     * FIX: Implements all SRS §6.4 filter parameters.
+     * Previous signature only had: cropType, region, harvestReady.
+     * Added: minNdvi, harvestDateFrom, harvestDateTo, minYieldQuintals.
+     * All filtering done in Java to avoid Hibernate null-as-bytea issues with JPQL.
+     */
     @Override
-    public List<FarmOpportunity> search(String cropType, String region, Boolean harvestReady) {
-        // Filter in Java to avoid Hibernate null-as-bytea issue with JPQL IS NULL checks
+    public List<FarmOpportunity> search(
+            String cropType,
+            String region,
+            Boolean harvestReady,
+            Double minNdvi,
+            String harvestDateFrom,
+            String harvestDateTo,
+            Double minYieldQuintals) {
+
         Stream<FarmOpportunityEntity> stream = jpaRepository
                 .findAllByOrderByLastUpdatedDesc().stream();
 
@@ -50,6 +64,22 @@ public class FarmOpportunityRepositoryAdapter implements FarmOpportunityReposito
         }
         if (harvestReady != null) {
             stream = stream.filter(f -> f.isHarvestReady() == harvestReady);
+        }
+        if (minNdvi != null) {
+            stream = stream.filter(f -> f.getCurrentNdvi() != null &&
+                    f.getCurrentNdvi().doubleValue() >= minNdvi);
+        }
+        if (harvestDateFrom != null && !harvestDateFrom.isBlank()) {
+            stream = stream.filter(f -> f.getEstimatedHarvestDateFrom() != null &&
+                    f.getEstimatedHarvestDateFrom().compareTo(harvestDateFrom) >= 0);
+        }
+        if (harvestDateTo != null && !harvestDateTo.isBlank()) {
+            stream = stream.filter(f -> f.getEstimatedHarvestDateTo() != null &&
+                    f.getEstimatedHarvestDateTo().compareTo(harvestDateTo) <= 0);
+        }
+        if (minYieldQuintals != null) {
+            stream = stream.filter(f -> f.getPredictedYieldMeanQuintals() != null &&
+                    f.getPredictedYieldMeanQuintals().doubleValue() >= minYieldQuintals);
         }
 
         return stream.map(this::toDomain).toList();
@@ -108,8 +138,7 @@ public class FarmOpportunityRepositoryAdapter implements FarmOpportunityReposito
                 .estimatedHarvestDateFrom(o.getEstimatedHarvestDateFrom())
                 .estimatedHarvestDateTo(o.getEstimatedHarvestDateTo())
                 .existingBidsCount(o.getExistingBidsCount())
-                .createdAt(o.getCreatedAt() != null ? o.getCreatedAt()
-                        : java.time.OffsetDateTime.now())
+                .createdAt(o.getCreatedAt() != null ? o.getCreatedAt() : OffsetDateTime.now())
                 .build();
     }
 }
