@@ -15,10 +15,14 @@ public class RabbitMQConfig {
     public static final String GEOSPATIAL_EXCHANGE = "geospatial.exchange";
 
     // ── Routing keys published ─────────────────────────────────
-    public static final String BID_PLACED_KEY        = "bid.placed";
-    public static final String BID_ACCEPTED_KEY      = "bid.accepted";
-    public static final String HARVEST_CONFIRMED_KEY = "harvest.confirmed";
-    public static final String OFFTAKER_DEFAULTED_KEY = "offtaker.defaulted";
+    public static final String BID_PLACED_KEY           = "bid.placed";
+    public static final String BID_ACCEPTED_KEY         = "bid.accepted";
+    public static final String HARVEST_CONFIRMED_KEY    = "harvest.confirmed";
+    public static final String OFFTAKER_DEFAULTED_KEY   = "offtaker.defaulted";
+
+    // FIX: LOGISTICS_DISPATCHED_KEY was completely missing.
+    // SRS §5.2 lists logistics.dispatched as a required event.
+    public static final String LOGISTICS_DISPATCHED_KEY = "logistics.dispatched";
 
     // ── Queues consumed ────────────────────────────────────────
     public static final String HARVEST_PREDICTED_QUEUE = "offtaker.harvest-predicted.queue";
@@ -51,19 +55,19 @@ public class RabbitMQConfig {
     }
 
     @Bean public Binding harvestPredictedBinding(Queue harvestPredictedQueue,
-                                                  TopicExchange geospatialExchange) {
+                                                 TopicExchange geospatialExchange) {
         return BindingBuilder.bind(harvestPredictedQueue)
                 .to(geospatialExchange).with(HARVEST_PREDICTED_KEY);
     }
 
     @Bean public Binding yieldPredictedBinding(Queue yieldPredictedQueue,
-                                                TopicExchange geospatialExchange) {
+                                               TopicExchange geospatialExchange) {
         return BindingBuilder.bind(yieldPredictedQueue)
                 .to(geospatialExchange).with(YIELD_PREDICTED_KEY);
     }
 
     @Bean public Binding ndviUpdatedBinding(Queue ndviUpdatedQueue,
-                                             TopicExchange geospatialExchange) {
+                                            TopicExchange geospatialExchange) {
         return BindingBuilder.bind(ndviUpdatedQueue)
                 .to(geospatialExchange).with(NDVI_UPDATED_KEY);
     }
