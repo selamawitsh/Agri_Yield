@@ -22,80 +22,108 @@ public class OfftakerEventPublisher implements EventPublisherPort {
 
     @Override
     public void publishBidPlaced(UUID bidId, UUID farmId, UUID offtakerId,
-                                  BigDecimal quantityQuintals, BigDecimal pricePerQuintalEtb,
-                                  BigDecimal totalValueEtb, String expiresAt) {
+                                 BigDecimal quantityQuintals, BigDecimal pricePerQuintalEtb,
+                                 BigDecimal totalValueEtb, String expiresAt) {
         Map<String, Object> payload = new HashMap<>();
-        payload.put("event_type", "bid.placed");
-        payload.put("bid_id", bidId.toString());
-        payload.put("farm_id", farmId.toString());
-        payload.put("offtaker_id", offtakerId.toString());
-        payload.put("quantity_quintals", quantityQuintals);
+        payload.put("event_type",           "bid.placed");
+        payload.put("bid_id",               bidId.toString());
+        payload.put("farm_id",              farmId.toString());
+        payload.put("offtaker_id",          offtakerId.toString());
+        payload.put("quantity_quintals",    quantityQuintals);
         payload.put("price_per_quintal_etb", pricePerQuintalEtb);
-        payload.put("total_value_etb", totalValueEtb);
-        payload.put("expires_at", expiresAt);
-        payload.put("timestamp", OffsetDateTime.now().toString());
+        payload.put("total_value_etb",      totalValueEtb);
+        payload.put("expires_at",           expiresAt);
+        payload.put("timestamp",            OffsetDateTime.now().toString());
 
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.OFFTAKER_EXCHANGE,
                 RabbitMQConfig.BID_PLACED_KEY,
                 payload);
-        log.info("Published bid.placed for bidId={}", bidId);
+        log.info("Published bid.placed: bidId={}", bidId);
     }
 
     @Override
     public void publishBidAccepted(UUID bidId, UUID farmId, UUID farmerId,
-                                    UUID offtakerId, UUID agreementId) {
+                                   UUID offtakerId, UUID agreementId) {
         Map<String, Object> payload = new HashMap<>();
-        payload.put("event_type", "bid.accepted");
-        payload.put("bid_id", bidId.toString());
-        payload.put("farm_id", farmId.toString());
-        payload.put("farmer_id", farmerId.toString());
-        payload.put("offtaker_id", offtakerId.toString());
-        payload.put("agreement_id", agreementId.toString());
-        payload.put("timestamp", OffsetDateTime.now().toString());
+        payload.put("event_type",    "bid.accepted");
+        payload.put("bid_id",        bidId.toString());
+        payload.put("farm_id",       farmId.toString());
+        payload.put("farmer_id",     farmerId.toString());
+        payload.put("offtaker_id",   offtakerId.toString());
+        payload.put("agreement_id",  agreementId.toString());
+        payload.put("timestamp",     OffsetDateTime.now().toString());
 
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.OFFTAKER_EXCHANGE,
                 RabbitMQConfig.BID_ACCEPTED_KEY,
                 payload);
-        log.info("Published bid.accepted for bidId={}", bidId);
+        log.info("Published bid.accepted: bidId={}", bidId);
+    }
+
+    /**
+     * FIX: This method and its routing key were completely missing.
+     * SRS §5.2 explicitly requires logistics.dispatched on offtaker.exchange.
+     * notification-service subscribes to ALL events — without this, the off-taker
+     * logistics team never gets the dispatch confirmation notification.
+     */
+    @Override
+    public void publishLogisticsDispatched(UUID dispatchId, UUID agreementId,
+                                           UUID offtakerId, String driverFaydaId,
+                                           int truckCount, String scheduledPickupDate) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("event_type",             "logistics.dispatched");
+        payload.put("dispatch_id",            dispatchId.toString());
+        payload.put("agreement_id",           agreementId.toString());
+        payload.put("offtaker_id",            offtakerId.toString());
+        payload.put("driver_fayda_id",        driverFaydaId);
+        payload.put("truck_count",            truckCount);
+        payload.put("scheduled_pickup_date",  scheduledPickupDate);
+        payload.put("timestamp",              OffsetDateTime.now().toString());
+
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.OFFTAKER_EXCHANGE,
+                RabbitMQConfig.LOGISTICS_DISPATCHED_KEY,
+                payload);
+        log.info("Published logistics.dispatched: dispatchId={} agreementId={}",
+                dispatchId, agreementId);
     }
 
     @Override
     public void publishHarvestConfirmed(UUID farmId, UUID agreementId,
-                                         BigDecimal actualQuantityQuintals,
-                                         String qualityGrade, BigDecimal totalPaymentEtb) {
+                                        BigDecimal actualQuantityQuintals,
+                                        String qualityGrade, BigDecimal totalPaymentEtb) {
         Map<String, Object> payload = new HashMap<>();
-        payload.put("event_type", "harvest.confirmed");
-        payload.put("farm_id", farmId.toString());
-        payload.put("agreement_id", agreementId.toString());
+        payload.put("event_type",               "harvest.confirmed");
+        payload.put("farm_id",                  farmId.toString());
+        payload.put("agreement_id",             agreementId.toString());
         payload.put("actual_quantity_quintals", actualQuantityQuintals);
-        payload.put("quality_grade", qualityGrade);
-        payload.put("total_payment_etb", totalPaymentEtb);
-        payload.put("confirmed_at", OffsetDateTime.now().toString());
+        payload.put("quality_grade",            qualityGrade);
+        payload.put("total_payment_etb",        totalPaymentEtb);
+        payload.put("confirmed_at",             OffsetDateTime.now().toString());
 
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.OFFTAKER_EXCHANGE,
                 RabbitMQConfig.HARVEST_CONFIRMED_KEY,
                 payload);
-        log.info("Published harvest.confirmed for farmId={}", farmId);
+        log.info("Published harvest.confirmed: farmId={}", farmId);
     }
 
     @Override
     public void publishOfftakerDefaulted(UUID bidId, UUID farmId,
-                                          UUID offtakerId, BigDecimal forfeitAmountEtb) {
+                                         UUID offtakerId, BigDecimal forfeitAmountEtb) {
         Map<String, Object> payload = new HashMap<>();
-        payload.put("event_type", "offtaker.defaulted");
-        payload.put("bid_id", bidId.toString());
-        payload.put("farm_id", farmId.toString());
-        payload.put("offtaker_id", offtakerId.toString());
+        payload.put("event_type",       "offtaker.defaulted");
+        payload.put("bid_id",           bidId.toString());
+        payload.put("farm_id",          farmId.toString());
+        payload.put("offtaker_id",      offtakerId.toString());
         payload.put("forfeit_amount_etb", forfeitAmountEtb);
-        payload.put("timestamp", OffsetDateTime.now().toString());
+        payload.put("timestamp",        OffsetDateTime.now().toString());
 
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.OFFTAKER_EXCHANGE,
                 RabbitMQConfig.OFFTAKER_DEFAULTED_KEY,
                 payload);
-        log.info("Published offtaker.defaulted for bidId={}", bidId);
+        log.info("Published offtaker.defaulted: bidId={}", bidId);
     }
 }
