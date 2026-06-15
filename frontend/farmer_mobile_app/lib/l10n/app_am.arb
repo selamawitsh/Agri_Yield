@@ -1,0 +1,107 @@
+{
+  "@@locale": "am",
+
+  "appName": "አግሪ-ይልድ",
+  "tagline": "የኢትዮጵያ ገበሬዎችን ማብቃት",
+
+  "selectLanguage": "ቋንቋዎን ይምረጡ",
+  "selectLanguageSubtitle": "ይህን በኋላ በቅንብሮች ውስጥ መቀየር ይችላሉ",
+  "continueButton": "ቀጥል",
+
+  "login": "ግባ",
+  "register": "ተመዝገብ",
+  "phoneNumber": "ስልክ ቁጥር",
+  "password": "የሚስጥር ቃል",
+  "fullName": "ሙሉ ስም",
+  "faydaId": "የፋይዳ ብሔራዊ መታወቂያ",
+  "forgotPassword": "የሚስጥር ቃል ረሳህ?",
+  "loginButton": "ግባ",
+  "registerButton": "መለያ ፍጠር",
+  "otpTitle": "OTP አስገባ",
+  "otpSubtitle": "6 አሃዝ ኮድ ወደ {phone} ተልኳል",
+  "@otpSubtitle": {
+    "placeholders": {
+      "phone": { "type": "String" }
+    }
+  },
+  "otpVerify": "አረጋግጥ",
+  "alreadyHaveAccount": "መለያ አለህ?",
+  "dontHaveAccount": "መለያ የለህም?",
+
+  "home": "ዋና ገጽ",
+  "myFarms": "የእኔ እርሻዎች",
+  "vouchers": "ቫውቸሮች",
+  "weather": "የአየር ሁኔታ",
+  "profile": "መገለጫ",
+  "advisor": "AI አማካሪ",
+  "bids": "ጨረታዎች",
+  "earnings": "ገቢ",
+
+  "farmStatus": "የእርሻ ሁኔታ",
+  "ndviScore": "NDVI ነጥብ",
+  "agriScore": "አግሪ-ነጥብ",
+  "season": "ወቅት",
+  "funded": "ተሸፍኗል",
+  "investors": "ባለሀብቶች",
+  "activeVouchers": "ንቁ ቫውቸሮች",
+
+  "registerFarm": "እርሻ ተመዝግብ",
+  "farmName": "የእርሻ ስም",
+  "cropType": "የሰብል አይነት",
+  "kebeleCode": "የቀበሌ ኮድ",
+  "region": "ክልል",
+  "expectedHarvest": "የተጠበቀ የምርት ቀን",
+  "drawPolygon": "የእርሻ ድንበር ይሳሉ",
+  "uploadPhotos": "የእርሻ ፎቶዎች ይስቀሉ",
+  "submitFarm": "እርሻ አስገባ",
+
+  "inputNeeds": "የግብዓት ፍላጎቶች",
+  "addItem": "ንጥል ጨምር",
+  "productName": "የምርት ስም",
+  "category": "ምድብ",
+  "quantity": "መጠን",
+  "unit": "ክፍል",
+  "estimatedPrice": "የተገመተ ዋጋ (ብር)",
+  "submitNeeds": "ፍላጎቶች አስገባ",
+
+  "voucherWallet": "የቫውቸር ቦርሳ",
+  "active": "ንቁ",
+  "pending": "በመጠባበቅ ላይ",
+  "redeemed": "ተቀብሏል",
+  "expired": "ጊዜው አልፏል",
+  "showQrCode": "QR ኮድ አሳይ",
+  "voucherCode": "ኮድ",
+  "validUntil": "እስከ {date} ድረስ ይሰራል",
+  "@validUntil": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+
+  "weatherAlerts": "የአየር ማስጠንቀቂያዎች",
+  "forecast": "የ7 ቀን ትንበያ",
+  "temperature": "የሙቀት መጠን",
+  "rainfall": "የዝናብ መጠን",
+  "humidity": "እርጥበት",
+
+  "settings": "ቅንብሮች",
+  "language": "ቋንቋ",
+  "notifications": "ማሳወቂያዎች",
+  "linkedAccounts": "የተያያዙ መለያዎች",
+  "changePassword": "የሚስጥር ቃል ቀይር",
+  "logout": "ውጣ",
+
+  "offlineBanner": "ከኢንተርኔት ተቋርጠዋል — የተቀመጡ መረጃዎችን እያሳዩ ነው",
+  "syncingData": "መረጃ በማመሳሰል ላይ...",
+  "noData": "ምንም መረጃ የለም",
+  "retry": "እንደገና ሞክር",
+  "save": "አስቀምጥ",
+  "cancel": "ሰርዝ",
+  "confirm": "አረጋግጥ",
+  "back": "ተመለስ",
+  "next": "ቀጥል",
+  "submit": "አስገባ",
+  "loading": "በመጫን ላይ...",
+  "errorOccurred": "ስህተት ተፈጥሯል። እንደገና ይሞክሩ።",
+  "etb": "ብር"
+}

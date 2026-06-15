@@ -1,0 +1,107 @@
+{
+  "@@locale": "om",
+
+  "appName": "Agri-Yield",
+  "tagline": "Qonnaan Bultoota Itoophiyaa Gargaaruu",
+
+  "selectLanguage": "Afaan filadhu",
+  "selectLanguageSubtitle": "Kana booda Qindaa'ina keessatti jijjiiruu dandeessa",
+  "continueButton": "Itti fufi",
+
+  "login": "Seeni",
+  "register": "Galmeessi",
+  "phoneNumber": "Lakkoofsa Bilbilaa",
+  "password": "Jecha Darbii",
+  "fullName": "Maqaa Guutuu",
+  "faydaId": "Eenyummaa Biyyaalessaa Faydaa",
+  "forgotPassword": "Jecha darbii dagatte?",
+  "loginButton": "Seeni",
+  "registerButton": "Herrega Uumi",
+  "otpTitle": "OTP Galchi",
+  "otpSubtitle": "Koodii lakkoofsa 6 {phone} irraa ergame",
+  "@otpSubtitle": {
+    "placeholders": {
+      "phone": { "type": "String" }
+    }
+  },
+  "otpVerify": "Mirkaneessi",
+  "alreadyHaveAccount": "Herrega qabdaa?",
+  "dontHaveAccount": "Herrega hin qabduu?",
+
+  "home": "Fuula Mana",
+  "myFarms": "Lafa Qonnaa Koo",
+  "vouchers": "Waraqaa Ragaa",
+  "weather": "Haala Qilleensaa",
+  "profile": "Profaayilii",
+  "advisor": "Gorsaa AI",
+  "bids": "Dhiyeessii",
+  "earnings": "Galii",
+
+  "farmStatus": "Haala Lafa Qonnaa",
+  "ndviScore": "Qabxii NDVI",
+  "agriScore": "Qabxii Agri",
+  "season": "Yeroo",
+  "funded": "Maallaqni Argame",
+  "investors": "Mamuultota",
+  "activeVouchers": "Waraqaa Ragaa Hojjechaa Jiran",
+
+  "registerFarm": "Lafa Qonnaa Galmeessi",
+  "farmName": "Maqaa Lafa Qonnaa",
+  "cropType": "Gosa Midhaan",
+  "kebeleCode": "Koodii Ganda",
+  "region": "Naannoo",
+  "expectedHarvest": "Guyyaa Midhaan Sassaabuu Eegamu",
+  "drawPolygon": "Daangaa Lafa Qonnaa Kaabi",
+  "uploadPhotos": "Suuraa Lafa Qonnaa Fe'i",
+  "submitFarm": "Lafa Qonnaa Galchi",
+
+  "inputNeeds": "Fedhii Meeshaalee",
+  "addItem": "Meeshaa Dabalii",
+  "productName": "Maqaa Meeshaa",
+  "category": "Gosa",
+  "quantity": "Baay'ina",
+  "unit": "Safartuuu",
+  "estimatedPrice": "Gatii Tilmaamame (ETB)",
+  "submitNeeds": "Fedhii Galchi",
+
+  "voucherWallet": "Hordofaa Waraqaa Ragaa",
+  "active": "Hojjechaa Jira",
+  "pending": "Eegaa Jira",
+  "redeemed": "Fudhataame",
+  "expired": "Yeroon Darbeera",
+  "showQrCode": "Koodii QR Agarsiisi",
+  "voucherCode": "Koodii",
+  "validUntil": "Hanga {date} hojjeta",
+  "@validUntil": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+
+  "weatherAlerts": "Akeekkachiisa Haala Qilleensaa",
+  "forecast": "Tilmaama Guyyaa 7",
+  "temperature": "Ho'a",
+  "rainfall": "Rooba",
+  "humidity": "Jiidha",
+
+  "settings": "Qindaa'ina",
+  "language": "Afaan",
+  "notifications": "Beeksisa",
+  "linkedAccounts": "Herregaalee Walqabatan",
+  "changePassword": "Jecha Darbii Jijjiiri",
+  "logout": "Ba'i",
+
+  "offlineBanner": "Interneetii irraa citteetta — Deetaa kuufame agarsiisaa jira",
+  "syncingData": "Deetaa walqixxeessaa jira...",
+  "noData": "Deetaa hin jiru",
+  "retry": "Irra deebi'i yaalii",
+  "save": "Kuusi",
+  "cancel": "Haquu",
+  "confirm": "Mirkaneessi",
+  "back": "Deebi'i",
+  "next": "Itti fufi",
+  "submit": "Galchi",
+  "loading": "Fe'aa jira...",
+  "errorOccurred": "Dogoggora uumame. Irra deebi'i yaalii.",
+  "etb": "ETB"
+}

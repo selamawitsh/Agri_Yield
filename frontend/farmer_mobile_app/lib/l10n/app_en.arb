@@ -1,0 +1,107 @@
+{
+  "@@locale": "en",
+
+  "appName": "Agri-Yield",
+  "tagline": "Empowering Ethiopian Farmers",
+
+  "selectLanguage": "Choose your language",
+  "selectLanguageSubtitle": "You can change this later in Settings",
+  "continueButton": "Continue",
+
+  "login": "Login",
+  "register": "Register",
+  "phoneNumber": "Phone Number",
+  "password": "Password",
+  "fullName": "Full Name",
+  "faydaId": "Fayda National ID",
+  "forgotPassword": "Forgot password?",
+  "loginButton": "Sign In",
+  "registerButton": "Create Account",
+  "otpTitle": "Enter OTP",
+  "otpSubtitle": "A 6-digit code was sent to {phone}",
+  "@otpSubtitle": {
+    "placeholders": {
+      "phone": { "type": "String" }
+    }
+  },
+  "otpVerify": "Verify",
+  "alreadyHaveAccount": "Already have an account?",
+  "dontHaveAccount": "Don't have an account?",
+
+  "home": "Home",
+  "myFarms": "My Farms",
+  "vouchers": "Vouchers",
+  "weather": "Weather",
+  "profile": "Profile",
+  "advisor": "AI Advisor",
+  "bids": "Bids",
+  "earnings": "Earnings",
+
+  "farmStatus": "Farm Status",
+  "ndviScore": "NDVI Score",
+  "agriScore": "Agri-Score",
+  "season": "Season",
+  "funded": "Funded",
+  "investors": "Investors",
+  "activeVouchers": "Active Vouchers",
+
+  "registerFarm": "Register Farm",
+  "farmName": "Farm Name",
+  "cropType": "Crop Type",
+  "kebeleCode": "Kebele Code",
+  "region": "Region",
+  "expectedHarvest": "Expected Harvest Date",
+  "drawPolygon": "Draw Farm Boundary",
+  "uploadPhotos": "Upload Farm Photos",
+  "submitFarm": "Submit Farm",
+
+  "inputNeeds": "Input Needs",
+  "addItem": "Add Item",
+  "productName": "Product Name",
+  "category": "Category",
+  "quantity": "Quantity",
+  "unit": "Unit",
+  "estimatedPrice": "Estimated Price (ETB)",
+  "submitNeeds": "Submit Needs",
+
+  "voucherWallet": "Voucher Wallet",
+  "active": "Active",
+  "pending": "Pending",
+  "redeemed": "Redeemed",
+  "expired": "Expired",
+  "showQrCode": "Show QR Code",
+  "voucherCode": "Code",
+  "validUntil": "Valid until {date}",
+  "@validUntil": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+
+  "weatherAlerts": "Weather Alerts",
+  "forecast": "7-Day Forecast",
+  "temperature": "Temperature",
+  "rainfall": "Rainfall",
+  "humidity": "Humidity",
+
+  "settings": "Settings",
+  "language": "Language",
+  "notifications": "Notifications",
+  "linkedAccounts": "Linked Accounts",
+  "changePassword": "Change Password",
+  "logout": "Logout",
+
+  "offlineBanner": "You are offline — showing cached data",
+  "syncingData": "Syncing data...",
+  "noData": "No data available",
+  "retry": "Retry",
+  "save": "Save",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "back": "Back",
+  "next": "Next",
+  "submit": "Submit",
+  "loading": "Loading...",
+  "errorOccurred": "Something went wrong. Please try again.",
+  "etb": "ETB"
+}
