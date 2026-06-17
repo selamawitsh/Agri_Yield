@@ -8,7 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -71,6 +73,32 @@ public class GeospatialServiceGrpcClient implements GeospatialServicePort {
         } catch (StatusRuntimeException e) {
             log.error("GeospatialService.getHarvestReadiness failed farmId={}: {}", farmId, e.getMessage());
             return Map.of("isReady", false);
+        }
+    }
+
+    @Override
+    public List<Map<String, Object>> getNdviHistory(String farmId, int limitDays) {
+        try {
+            GeospatialServiceProto.NdviTimeSeriesResponse response =
+                geospatialStub.getNdviTimeSeries(
+                    GeospatialServiceProto.NdviTimeSeriesRequest.newBuilder()
+                        .setFarmId(farmId)
+                        .setLimitDays(limitDays)
+                        .build());
+
+            List<Map<String, Object>> history = new ArrayList<>();
+            for (GeospatialServiceProto.NdviDataPoint point : response.getReadingsList()) {
+                Map<String, Object> reading = new HashMap<>();
+                reading.put("date", point.getDate());
+                reading.put("ndviValue", point.getNdviValue());
+                reading.put("cloudCoverage", point.getCloudCoverage());
+                history.add(reading);
+            }
+            return history;
+
+        } catch (StatusRuntimeException e) {
+            log.warn("GeospatialService.getNdviHistory failed farmId={}: {}", farmId, e.getMessage());
+            return List.of();
         }
     }
 }
