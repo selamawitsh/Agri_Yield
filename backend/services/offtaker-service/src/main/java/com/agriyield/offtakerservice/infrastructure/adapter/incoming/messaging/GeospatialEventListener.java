@@ -1,6 +1,7 @@
 package com.agriyield.offtakerservice.infrastructure.adapter.incoming.messaging;
 
 import com.agriyield.offtakerservice.application.port.outgoing.FarmOpportunityRepositoryPort;
+import com.agriyield.offtakerservice.application.port.outgoing.FarmServicePort;
 import com.agriyield.offtakerservice.domain.model.FarmOpportunity;
 import com.agriyield.offtakerservice.infrastructure.config.RabbitMQConfig;
 import lombok.RequiredArgsConstructor;
@@ -19,8 +20,8 @@ import java.util.UUID;
 public class GeospatialEventListener {
 
     private final FarmOpportunityRepositoryPort opportunityRepository;
+    private final FarmServicePort farmServicePort;
 
-    // UC-OFF-12: harvest.predicted → farm becomes visible in marketplace
     @RabbitListener(queues = RabbitMQConfig.HARVEST_PREDICTED_QUEUE)
     public void onHarvestPredicted(Map<String, Object> payload) {
         String farmIdStr = (String) payload.get("farm_id");
@@ -29,13 +30,8 @@ public class GeospatialEventListener {
         log.info("harvest.predicted received for farmId={}", farmIdStr);
         UUID farmId = UUID.fromString(farmIdStr);
 
-        FarmOpportunity opportunity = opportunityRepository.findByFarmId(farmId)
-                .orElseGet(() -> FarmOpportunity.builder()
-                        .farmId(farmId)
-                        .agriScore(50)
-                        .existingBidsCount(0)
-                        .createdAt(OffsetDateTime.now())
-                        .build());
+        FarmOpportunity opportunity = findOrCreateOpportunity(farmId);
+        backfillStaticFieldsIfMissing(opportunity);
 
         opportunity.setHarvestReady(true);
         opportunity.setEstimatedHarvestDateFrom(
@@ -52,7 +48,6 @@ public class GeospatialEventListener {
         log.info("Farm opportunity upserted (harvest ready): farmId={}", farmId);
     }
 
-    // yield.predicted → enriches the opportunity with yield data
     @RabbitListener(queues = RabbitMQConfig.YIELD_PREDICTED_QUEUE)
     public void onYieldPredicted(Map<String, Object> payload) {
         String farmIdStr = (String) payload.get("farm_id");
@@ -61,13 +56,8 @@ public class GeospatialEventListener {
         log.info("yield.predicted received for farmId={}", farmIdStr);
         UUID farmId = UUID.fromString(farmIdStr);
 
-        FarmOpportunity opportunity = opportunityRepository.findByFarmId(farmId)
-                .orElseGet(() -> FarmOpportunity.builder()
-                        .farmId(farmId)
-                        .agriScore(50)
-                        .existingBidsCount(0)
-                        .createdAt(OffsetDateTime.now())
-                        .build());
+        FarmOpportunity opportunity = findOrCreateOpportunity(farmId);
+        backfillStaticFieldsIfMissing(opportunity);
 
         opportunity.setPredictedYieldMinQuintals(
                 toBigDecimal(payload.get("predicted_min_quintals")));
@@ -88,7 +78,6 @@ public class GeospatialEventListener {
         log.info("Farm opportunity enriched with yield data: farmId={}", farmId);
     }
 
-    // ndvi.updated → keeps NDVI current in the marketplace listing
     @RabbitListener(queues = RabbitMQConfig.NDVI_UPDATED_QUEUE)
     public void onNdviUpdated(Map<String, Object> payload) {
         String farmIdStr = (String) payload.get("farm_id");
@@ -97,6 +86,8 @@ public class GeospatialEventListener {
         UUID farmId = UUID.fromString(farmIdStr);
 
         opportunityRepository.findByFarmId(farmId).ifPresent(opportunity -> {
+            backfillStaticFieldsIfMissing(opportunity);
+
             Object ndvi = payload.get("ndvi_value");
             if (ndvi != null) opportunity.setCurrentNdvi(toBigDecimal(ndvi));
 
@@ -106,6 +97,69 @@ public class GeospatialEventListener {
             opportunityRepository.save(opportunity);
             log.info("Farm opportunity NDVI updated: farmId={}", farmId);
         });
+    }
+
+    private FarmOpportunity findOrCreateOpportunity(UUID farmId) {
+        return opportunityRepository.findByFarmId(farmId)
+                .orElseGet(() -> FarmOpportunity.builder()
+                        .farmId(farmId)
+                        .agriScore(50)
+                        .existingBidsCount(0)
+                        .createdAt(OffsetDateTime.now())
+                        .build());
+    }
+
+    private void backfillStaticFieldsIfMissing(FarmOpportunity opportunity) {
+        boolean missingStaticData = isBlank(opportunity.getCropType())
+                || isBlank(opportunity.getRegion())
+                || isBlank(opportunity.getFarmerId());
+
+        if (!missingStaticData) {
+            return;
+        }
+
+        try {
+            Map<String, Object> farmData = farmServicePort.getFarmById(opportunity.getFarmId().toString());
+
+            if (isBlank(opportunity.getCropType())) {
+                opportunity.setCropType((String) farmData.get("cropType"));
+            }
+            if (isBlank(opportunity.getRegion())) {
+                opportunity.setRegion((String) farmData.get("region"));
+            }
+            if (isBlank(opportunity.getFarmerId())) {
+                opportunity.setFarmerId((String) farmData.get("farmerId"));
+            }
+            if (isBlank(opportunity.getKebeleCode())) {
+                opportunity.setKebeleCode((String) farmData.get("kebeleCode"));
+            }
+            if (opportunity.getGpsCentroidLat() == null
+                    || opportunity.getGpsCentroidLat().compareTo(BigDecimal.ZERO) == 0) {
+                opportunity.setGpsCentroidLat(toBigDecimal(farmData.get("gpsCentroidLat")));
+            }
+            if (opportunity.getGpsCentroidLng() == null
+                    || opportunity.getGpsCentroidLng().compareTo(BigDecimal.ZERO) == 0) {
+                opportunity.setGpsCentroidLng(toBigDecimal(farmData.get("gpsCentroidLng")));
+            }
+            if (opportunity.getAreaHectares() == null
+                    || opportunity.getAreaHectares().compareTo(BigDecimal.ZERO) == 0) {
+                opportunity.setAreaHectares(toBigDecimal(farmData.get("areaHectares")));
+            }
+            if (isBlank(opportunity.getCropCycleStatus())) {
+                opportunity.setCropCycleStatus("GROWING");
+            }
+
+            log.info("Backfilled static farm data for farmId={}: cropType={} region={}",
+                    opportunity.getFarmId(), opportunity.getCropType(), opportunity.getRegion());
+
+        } catch (Exception e) {
+            log.warn("Could not backfill farm static data for farmId={}: {}",
+                    opportunity.getFarmId(), e.getMessage());
+        }
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 
     private BigDecimal toBigDecimal(Object val) {
