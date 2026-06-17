@@ -6,7 +6,9 @@ import com.agriyield.weatherservice.infrastructure.adapter.outgoing.persistence.
 import com.agriyield.weatherservice.infrastructure.adapter.outgoing.persistence.mapper.WeatherEntityMapper;
 import com.agriyield.weatherservice.infrastructure.repository.JpaDroughtConditionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -14,6 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DroughtConditionRepositoryAdapter implements DroughtConditionRepositoryPort {
@@ -23,17 +26,17 @@ public class DroughtConditionRepositoryAdapter implements DroughtConditionReposi
 
     @Override
     public DroughtCondition save(DroughtCondition condition) {
-
-        System.out.println("===== DROUGHT SAVE =====");
-        System.out.println("DOMAIN ID      = " + condition.getId());
-        System.out.println("DOMAIN FARM ID = " + condition.getFarmId());
-
+        // FIX: guard — never save a domain object with a null ID.
+        // This would cause @GeneratedValue to assign a new ID on every call
+        // which broke the unique constraint on farm_id.
+        if (condition.getId() == null) {
+            throw new IllegalStateException(
+                    "DroughtCondition must have an ID before saving. " +
+                            "Assign via UUID.randomUUID() in findOrCreateByFarmId.");
+        }
         DroughtConditionEntity entity = mapper.toEntity(condition);
-
-        System.out.println("ENTITY ID      = " + entity.getId());
-        System.out.println("ENTITY FARM ID = " + entity.getFarmId());
-
-        return mapper.toDomain(jpaRepository.save(entity));
+        DroughtConditionEntity saved = jpaRepository.save(entity);
+        return mapper.toDomain(saved);
     }
 
     @Override
@@ -51,22 +54,20 @@ public class DroughtConditionRepositoryAdapter implements DroughtConditionReposi
     }
 
     @Override
+    @Transactional
     public DroughtCondition findOrCreateByFarmId(UUID farmId) {
-
-        System.out.println("Looking for farm: " + farmId);
-
         return jpaRepository.findByFarmId(farmId)
                 .map(entity -> {
-                    System.out.println(
-                            "FOUND existing drought condition: "
-                                    + entity.getId());
+                    log.debug("Found existing drought condition for farm: {}", farmId);
                     return mapper.toDomain(entity);
                 })
                 .orElseGet(() -> {
+                    log.info("Creating new drought condition for farm: {}", farmId);
 
-                    System.out.println(
-                            "NOT FOUND - creating new drought condition");
-
+                    // FIX: assign the ID here in the domain object so that:
+                    // 1. The entity gets the same ID every time for this farm
+                    // 2. Hibernate sees a non-null ID and uses merge/save correctly
+                    // 3. No second INSERT attempt happens for the same farm_id
                     DroughtCondition newCondition = DroughtCondition.builder()
                             .id(UUID.randomUUID())
                             .farmId(farmId)
@@ -76,7 +77,12 @@ public class DroughtConditionRepositoryAdapter implements DroughtConditionReposi
                             .lastChecked(OffsetDateTime.now())
                             .build();
 
-                    return save(newCondition);
+                    // Save directly via JPA to avoid any double-save path
+                    DroughtConditionEntity entity = mapper.toEntity(newCondition);
+                    DroughtConditionEntity saved = jpaRepository.save(entity);
+                    log.info("Created drought condition id={} for farm={}",
+                            saved.getId(), farmId);
+                    return mapper.toDomain(saved);
                 });
     }
 }
