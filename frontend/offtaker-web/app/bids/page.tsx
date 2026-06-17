@@ -6,18 +6,16 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import Navbar from '@/components/Navbar';
 import StatusBadge from '@/components/StatusBadge';
-import { getMyBids, getAgreement, signAgreement } from '@/lib/api';
-import type { Bid, Agreement } from '@/lib/types';
+import { getMyBids } from '@/lib/api';
+import type { Bid } from '@/lib/types';
 
 type TabKey = 'ALL' | 'PENDING' | 'ACCEPTED' | 'CONTRACT_SIGNED' | 'COMPLETED' | 'EXPIRED';
 
 export default function BidsPage() {
   const router = useRouter();
-  const [bids,       setBids]       = useState<Bid[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [tab,        setTab]        = useState<TabKey>('ALL');
-  const [agreements, setAgreements] = useState<Record<string, Agreement>>({});
-  const [signing,    setSigning]    = useState<string | null>(null);
+  const [bids,    setBids]    = useState<Bid[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab,     setTab]     = useState<TabKey>('ALL');
 
   useEffect(() => {
     if (!localStorage.getItem('access_token')) { router.push('/login'); return; }
@@ -27,35 +25,12 @@ export default function BidsPage() {
   const load = async () => {
     try {
       const res = await getMyBids();
-      if (res.data.success) {
-        const data = res.data.data || [];
-        setBids(data);
-        // Pre-fetch agreements for accepted bids
-        const acceptedBids = data.filter(b => ['ACCEPTED','CONTRACT_SIGNED'].includes(b.status));
-        for (const bid of acceptedBids) {
-          try {
-            // Agreement ID is not directly on bid — we'll load on expand
-          } catch {}
-        }
-      }
-    } catch (err: any) {
+      if (res.data.success) setBids(res.data.data || []);
+    } catch {
       toast.error('Failed to load bids');
-    } finally { setLoading(false); }
-  };
-
-  const handleSign = async (agreementId: string) => {
-    setSigning(agreementId);
-    try {
-      const res = await signAgreement(agreementId);
-      if (res.data.success) {
-        toast.success(res.data.data.fullyExecuted
-          ? 'Contract fully executed! Both parties signed.'
-          : 'Your signature recorded. Waiting for the other party.');
-        load();
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Signing failed');
-    } finally { setSigning(null); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const TABS: { key: TabKey; label: string }[] = [
@@ -69,7 +44,8 @@ export default function BidsPage() {
 
   const filtered = bids.filter(b => tab === 'ALL' || b.status === tab);
 
-  const totalActive = bids.filter(b => ['PENDING','ACCEPTED','CONTRACT_SIGNED'].includes(b.status))
+  const totalActive = bids
+    .filter(b => ['PENDING', 'ACCEPTED', 'CONTRACT_SIGNED'].includes(b.status))
     .reduce((s, b) => s + b.totalValueEtb, 0);
 
   if (loading) return (
@@ -94,7 +70,6 @@ export default function BidsPage() {
           </Link>
         </div>
 
-        {/* Summary */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
             <p className="text-gray-400 text-xs uppercase tracking-wide font-medium">Total Bids</p>
@@ -106,11 +81,12 @@ export default function BidsPage() {
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
             <p className="text-gray-400 text-xs uppercase tracking-wide font-medium">Completed</p>
-            <p className="text-2xl font-bold text-green-600 mt-1">{bids.filter(b => b.status === 'COMPLETED').length}</p>
+            <p className="text-2xl font-bold text-green-600 mt-1">
+              {bids.filter(b => b.status === 'COMPLETED').length}
+            </p>
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 bg-white rounded-xl shadow-sm border border-gray-100 p-1 mb-5 flex-wrap">
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
@@ -136,7 +112,9 @@ export default function BidsPage() {
         ) : (
           <div className="space-y-4">
             {filtered.map(bid => {
-              const expiresIn = Math.ceil((new Date(bid.expiresAt).getTime() - Date.now()) / 86400000);
+              const expiresIn = Math.ceil(
+                (new Date(bid.expiresAt).getTime() - Date.now()) / 86400000);
+
               return (
                 <div key={bid.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                   <div className="flex justify-between items-start mb-3">
@@ -144,7 +122,9 @@ export default function BidsPage() {
                       <p className="font-bold text-gray-800">
                         {bid.quantityQuintals} quintals @ {bid.pricePerQuintalEtb.toLocaleString()} ETB/qt
                       </p>
-                      <p className="text-xs text-gray-400 font-mono mt-0.5">Farm: {bid.farmId.slice(0,12)}…</p>
+                      <p className="text-xs text-gray-400 font-mono mt-0.5">
+                        Farm: {bid.farmId.slice(0, 12)}…
+                      </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <StatusBadge status={bid.status} />
@@ -173,22 +153,29 @@ export default function BidsPage() {
                     </div>
                   </div>
 
-                  {/* Agreement section for accepted bids */}
-                  {bid.status === 'ACCEPTED' && (
+                  {bid.status === 'ACCEPTED' && bid.agreementId && (
                     <div className="mt-3 bg-blue-50 border border-blue-100 rounded-xl p-3">
                       <p className="text-sm font-semibold text-blue-800 mb-2">📄 Contract ready for signing</p>
-                      <p className="text-xs text-blue-600 mb-3">The farmer has accepted your bid. Sign the purchase agreement to proceed.</p>
-                      <Link href={`/agreements/${bid.id}`}
+                      <p className="text-xs text-blue-600 mb-3">
+                        The farmer has accepted your bid. Sign the purchase agreement to proceed.
+                      </p>
+                      <Link href={`/agreements/${bid.agreementId}`}
                         className="inline-block bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-800 transition">
-                        View & Sign Agreement →
+                        View &amp; Sign Agreement →
                       </Link>
                     </div>
                   )}
 
-                  {bid.status === 'CONTRACT_SIGNED' && (
+                  {bid.status === 'ACCEPTED' && !bid.agreementId && (
+                    <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3">
+                      <p className="text-sm text-amber-700">⏳ Agreement being generated — refresh in a moment.</p>
+                    </div>
+                  )}
+
+                  {bid.status === 'CONTRACT_SIGNED' && bid.agreementId && (
                     <div className="mt-3 bg-green-50 border border-green-100 rounded-xl p-3 flex justify-between items-center">
                       <p className="text-sm font-semibold text-green-800">✅ Contract signed — schedule pickup</p>
-                      <Link href={`/logistics?agreementId=${bid.id}`}
+                      <Link href={`/logistics?agreementId=${bid.agreementId}`}
                         className="bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-800 transition">
                         Schedule Dispatch →
                       </Link>
@@ -201,7 +188,9 @@ export default function BidsPage() {
                       View Farm →
                     </button>
                     <span className="text-gray-200">|</span>
-                    <p className="text-xs text-gray-400 font-mono self-center">ID: {bid.id.slice(0,12)}…</p>
+                    <p className="text-xs text-gray-400 font-mono self-center">
+                      Bid: {bid.id.slice(0, 12)}…
+                    </p>
                   </div>
                 </div>
               );
