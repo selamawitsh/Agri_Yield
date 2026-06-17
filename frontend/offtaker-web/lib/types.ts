@@ -10,7 +10,7 @@ export interface UserProfile {
   accountStatus: string;
   preferredLanguage: string;
   createdAt: string;
-  bankAccounts: BankAccount[];
+  bankAccounts?: BankAccount[];
   defaultBankAccount?: BankAccount;
 }
 export type User = UserProfile;
@@ -26,7 +26,7 @@ export interface BankAccount {
   createdAt: string;
 }
 
-// ── Farm Marketplace (GET /api/v1/offtaker/farms/{farmId}) ───────────────────
+// ── Farm Marketplace ──────────────────────────────────────────────────────────
 
 export interface FarmMarketplace {
   farmId: string;
@@ -47,9 +47,22 @@ export interface FarmMarketplace {
   harvestReady: boolean;
   estimatedHarvestFrom: string | null;
   estimatedHarvestTo: string | null;
+  existingBidsCount: number;
 }
 
-// ── Bids ─────────────────────────────────────────────────────────────────────
+// ── SRS §6.4 filter params for GET /offtaker/farms ───────────────────────────
+
+export interface FarmBrowseParams {
+  cropType?: string;
+  region?: string;
+  harvestReady?: boolean;
+  minNdvi?: number;
+  harvestDateFrom?: string;
+  harvestDateTo?: string;
+  minYieldQuintals?: number;
+}
+
+// ── Bids ──────────────────────────────────────────────────────────────────────
 
 export type BidStatus =
   | 'PENDING' | 'ACCEPTED' | 'REJECTED'
@@ -59,6 +72,7 @@ export interface Bid {
   id: string;
   offtakerId: string;
   farmId: string;
+  cropCycleId?: string;
   quantityQuintals: number;
   pricePerQuintalEtb: number;
   totalValueEtb: number;
@@ -67,6 +81,7 @@ export interface Bid {
   expiresAt: string;
   acceptedAt: string | null;
   createdAt: string;
+  agreementId: string | null;
 }
 
 export interface PlaceBidPayload {

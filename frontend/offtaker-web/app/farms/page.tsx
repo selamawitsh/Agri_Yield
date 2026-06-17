@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
 import Navbar from '@/components/Navbar';
 import NdviBadge from '@/components/NdviBadge';
 import StatusBadge from '@/components/StatusBadge';
 import { browseFarms, placeBid } from '@/lib/api';
-import type { FarmMarketplace } from '@/lib/types';
+import type { FarmMarketplace, FarmBrowseParams } from '@/lib/types';
+
+const FarmMap = dynamic(() => import('@/components/FarmMap'), { ssr: false });
 
 const CROP_TYPES = ['WHEAT', 'TEFF', 'BARLEY', 'MAIZE', 'SORGHUM', 'COFFEE', 'BEANS', 'MILLET'];
 
@@ -19,24 +21,28 @@ export default function FarmsPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
 
-  const [farms,       setFarms]       = useState<FarmMarketplace[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [cropType,    setCropType]    = useState('');
-  const [region,      setRegion]      = useState('');
-  const [harvestOnly, setHarvestOnly] = useState(false);
-  const [selected,    setSelected]    = useState<FarmMarketplace | null>(null);
-  const [showBid,     setShowBid]     = useState(false);
-  const [bidQty,      setBidQty]      = useState('');
-  const [bidPrice,    setBidPrice]    = useState('');
-  const [bidDays,     setBidDays]     = useState('7');
-  const [placing,     setPlacing]     = useState(false);
+  const [farms,            setFarms]            = useState<FarmMarketplace[]>([]);
+  const [loading,          setLoading]          = useState(true);
+  const [selected,         setSelected]         = useState<FarmMarketplace | null>(null);
+  const [showBid,          setShowBid]          = useState(false);
+  const [bidQty,           setBidQty]           = useState('');
+  const [bidPrice,         setBidPrice]         = useState('');
+  const [bidDays,          setBidDays]          = useState('7');
+  const [placing,          setPlacing]          = useState(false);
+
+  const [cropType,         setCropType]         = useState('');
+  const [region,           setRegion]           = useState('');
+  const [harvestOnly,      setHarvestOnly]      = useState(false);
+  const [minNdvi,          setMinNdvi]          = useState('');
+  const [harvestDateFrom,  setHarvestDateFrom]  = useState('');
+  const [harvestDateTo,    setHarvestDateTo]    = useState('');
+  const [minYieldQuintals, setMinYieldQuintals] = useState('');
 
   useEffect(() => {
     if (!localStorage.getItem('access_token')) { router.push('/login'); return; }
     load();
   }, []);
 
-  // If redirected from bids page with a lookup param, pre-select that farm
   useEffect(() => {
     const lookup = searchParams.get('lookup');
     if (lookup && farms.length > 0) {
@@ -48,10 +54,15 @@ export default function FarmsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string | boolean> = {};
-      if (cropType)    params.cropType    = cropType;
-      if (region)      params.region      = region;
-      if (harvestOnly) params.harvestReady = true;
+      const params: FarmBrowseParams = {};
+      if (cropType)          params.cropType         = cropType;
+      if (region)            params.region           = region;
+      if (harvestOnly)       params.harvestReady      = true;
+      if (minNdvi)           params.minNdvi           = parseFloat(minNdvi);
+      if (harvestDateFrom)   params.harvestDateFrom   = harvestDateFrom;
+      if (harvestDateTo)     params.harvestDateTo     = harvestDateTo;
+      if (minYieldQuintals)  params.minYieldQuintals  = parseFloat(minYieldQuintals);
+
       const res = await browseFarms(params);
       if (res.data.success) setFarms(res.data.data || []);
     } catch (err: any) {
@@ -59,7 +70,7 @@ export default function FarmsPage() {
     } finally {
       setLoading(false);
     }
-  }, [cropType, region, harvestOnly]);
+  }, [cropType, region, harvestOnly, minNdvi, harvestDateFrom, harvestDateTo, minYieldQuintals]);
 
   const handleFilter = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +94,7 @@ export default function FarmsPage() {
         expiresInDays:      days,
       });
       if (res.data.success) {
-        toast.success('Bid placed. 10% deposit locked in escrow.');
+        toast.success('Bid placed! 10% deposit locked in escrow.');
         setShowBid(false);
         setBidQty('');
         setBidPrice('');
@@ -96,8 +107,24 @@ export default function FarmsPage() {
     }
   };
 
-  const totalValue = bidQty && bidPrice
-    ? parseFloat(bidQty) * parseFloat(bidPrice) : 0;
+  const totalValue = bidQty && bidPrice ? parseFloat(bidQty) * parseFloat(bidPrice) : 0;
+
+  // FIX: GPS centroid is now populated correctly via the gRPC backfill fix.
+  // If a farm's GPS is still 0,0 (not yet backfilled), fall back to a
+  // region-based approximate center so the map never looks broken.
+  const regionCoords: Record<string, [number, number]> = {
+    'Oromia': [8.5, 39.3], 'Amhara': [11.5, 38.0], 'SNNPR': [6.8, 37.5],
+    'South Ethiopia': [6.8, 37.5], 'South West Ethiopia': [7.0, 35.5],
+    'Tigray': [14.0, 38.5], 'Somali': [7.5, 44.0], 'Afar': [11.8, 41.5],
+  };
+
+  const getMapCoords = (farm: FarmMarketplace): [number, number] => {
+    if (farm.gpsCentroidLat && farm.gpsCentroidLng &&
+        (farm.gpsCentroidLat !== 0 || farm.gpsCentroidLng !== 0)) {
+      return [farm.gpsCentroidLat, farm.gpsCentroidLng];
+    }
+    return regionCoords[farm.region] || [9.145, 40.489];
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
@@ -109,7 +136,7 @@ export default function FarmsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Farm Marketplace</h1>
             <p className="text-gray-500 text-sm mt-1">
-              Browse available farms. Farms appear here when harvest is predicted by satellite monitoring.
+              Farms appear here when satellite monitoring predicts harvest readiness.
             </p>
           </div>
           <button onClick={load}
@@ -118,40 +145,72 @@ export default function FarmsPage() {
           </button>
         </div>
 
-        {/* Filter bar */}
         <form onSubmit={handleFilter}
-          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-[140px]">
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Crop Type</label>
-            <select value={cropType} onChange={e => setCropType(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-              <option value="">All crops</option>
-              {CROP_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+          className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+          <div className="flex flex-wrap gap-3 items-end">
+
+            <div className="flex-1 min-w-[130px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Crop Type</label>
+              <select value={cropType} onChange={e => setCropType(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                <option value="">All crops</option>
+                {CROP_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            <div className="flex-1 min-w-[130px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Region</label>
+              <input type="text" value={region} onChange={e => setRegion(e.target.value)}
+                placeholder="e.g. Oromia"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+
+            <div className="flex-1 min-w-[120px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Min NDVI</label>
+              <input type="number" step="0.01" min="0" max="1" value={minNdvi}
+                onChange={e => setMinNdvi(e.target.value)}
+                placeholder="0.0 – 1.0"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+
+            <div className="flex-1 min-w-[120px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Min Yield (qt)</label>
+              <input type="number" step="1" min="0" value={minYieldQuintals}
+                onChange={e => setMinYieldQuintals(e.target.value)}
+                placeholder="e.g. 50"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Harvest From</label>
+              <input type="date" value={harvestDateFrom} onChange={e => setHarvestDateFrom(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+
+            <div className="flex-1 min-w-[140px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Harvest To</label>
+              <input type="date" value={harvestDateTo} onChange={e => setHarvestDateTo(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+
+            <div className="flex items-center gap-2 pb-0.5">
+              <input type="checkbox" id="harvestOnly" checked={harvestOnly}
+                onChange={e => setHarvestOnly(e.target.checked)}
+                className="w-4 h-4 accent-teal-600" />
+              <label htmlFor="harvestOnly" className="text-sm font-semibold text-gray-600 cursor-pointer whitespace-nowrap">
+                Harvest ready only
+              </label>
+            </div>
+
+            <button type="submit"
+              className="bg-teal-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-teal-600 transition">
+              Apply Filters
+            </button>
           </div>
-          <div className="flex-1 min-w-[140px]">
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Region</label>
-            <input type="text" value={region} onChange={e => setRegion(e.target.value)}
-              placeholder="e.g. Oromia"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-          </div>
-          <div className="flex items-center gap-2 pb-0.5">
-            <input type="checkbox" id="harvestOnly" checked={harvestOnly}
-              onChange={e => setHarvestOnly(e.target.checked)}
-              className="w-4 h-4 accent-teal-600" />
-            <label htmlFor="harvestOnly" className="text-sm font-semibold text-gray-600 cursor-pointer">
-              Harvest ready only
-            </label>
-          </div>
-          <button type="submit"
-            className="bg-teal-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-teal-600 transition">
-            Apply Filters
-          </button>
         </form>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Farm list */}
           <div className="lg:col-span-1 space-y-3">
             {loading ? (
               <div className="flex items-center justify-center py-20">
@@ -159,7 +218,7 @@ export default function FarmsPage() {
               </div>
             ) : farms.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
-                <p className="text-gray-400 font-medium text-sm">No farms available yet.</p>
+                <p className="text-gray-400 font-medium text-sm">No farms match your filters.</p>
                 <p className="text-gray-300 text-xs mt-1">
                   Farms appear once geospatial monitoring predicts harvest readiness.
                 </p>
@@ -202,17 +261,15 @@ export default function FarmsPage() {
             ))}
           </div>
 
-          {/* Detail panel */}
           <div className="lg:col-span-2">
             {!selected ? (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 text-center h-full flex flex-col items-center justify-center">
-                <p className="text-gray-300 text-5xl mb-4">&#9651;</p>
+                <p className="text-gray-300 text-5xl mb-4">🌾</p>
                 <p className="text-gray-400 font-medium">Select a farm to view details and place a bid</p>
               </div>
             ) : (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
-                {/* Header */}
                 <div className="bg-teal-800 p-6 text-white">
                   <div className="flex justify-between items-start">
                     <div>
@@ -220,9 +277,7 @@ export default function FarmsPage() {
                       <p className="text-teal-200 text-sm mt-0.5">
                         {selected.region} &middot; {selected.kebeleCode}
                       </p>
-                      <p className="text-teal-300 text-xs mt-1 font-mono">
-                        {selected.farmId}
-                      </p>
+                      <p className="text-teal-300 text-xs mt-1 font-mono">{selected.farmId}</p>
                     </div>
                     <div className="bg-white/20 rounded-xl p-3 text-center min-w-[64px]">
                       <p className="text-2xl font-black">{selected.agriScore}</p>
@@ -241,21 +296,40 @@ export default function FarmsPage() {
                   </div>
                 </div>
 
-                {/* Stats grid */}
+                {/* Farm Map — satellite view with NDVI-colored area circle.
+                    Same FarmMap component as investor-web, same ESRI satellite
+                    tiles, same NDVI color coding. */}
+                <div className="p-6 pb-0">
+                  <h3 className="font-bold text-gray-800 mb-3 text-sm">Farm Location — Satellite View</h3>
+                  <FarmMap
+                    lat={getMapCoords(selected)[0]}
+                    lng={getMapCoords(selected)[1]}
+                    label={`${selected.cropType} — ${selected.region}`}
+                    height={260}
+                    ndvi={selected.currentNdvi}
+                    areaHectares={selected.areaHectares}
+                  />
+                  <p className="text-xs text-gray-400 mt-2 text-center">
+                    📍 {selected.gpsCentroidLat && selected.gpsCentroidLat !== 0
+                      ? 'Exact farm coordinates from satellite registration'
+                      : `Approximate region center — ${selected.region}`}
+                  </p>
+                </div>
+
                 <div className="p-6">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
                     {[
-                      { label: 'Farm Area',         value: `${selected.areaHectares.toFixed(2)} ha` },
-                      { label: 'Current NDVI',      value: selected.currentNdvi.toFixed(3),           cls: NDVI_COLOR(selected.currentNdvi) },
-                      { label: 'Predicted Yield',   value: `${selected.predictedYieldMeanQuintals.toFixed(1)} quintals` },
-                      { label: 'Yield Confidence',  value: `${selected.yieldConfidencePct}%` },
-                      { label: 'Existing Bids',     value: selected.existingBidsCount.toString() },
-                      { label: 'GPS',               value: `${selected.gpsCentroidLat.toFixed(4)}, ${selected.gpsCentroidLng.toFixed(4)}` },
+                      { label: 'Farm Area',        value: `${selected.areaHectares.toFixed(2)} ha` },
+                      { label: 'Current NDVI',     value: selected.currentNdvi.toFixed(3), cls: NDVI_COLOR(selected.currentNdvi) },
+                      { label: 'Predicted Yield',  value: `${selected.predictedYieldMeanQuintals.toFixed(1)} quintals` },
+                      { label: 'Yield Confidence', value: `${selected.yieldConfidencePct}%` },
+                      { label: 'Existing Bids',    value: selected.existingBidsCount.toString() },
+                      { label: 'GPS',              value: `${selected.gpsCentroidLat.toFixed(4)}, ${selected.gpsCentroidLng.toFixed(4)}` },
                       ...(selected.estimatedHarvestFrom ? [{
                         label: 'Harvest Window',
-                        value: `${new Date(selected.estimatedHarvestFrom).toLocaleDateString()} - ${new Date(selected.estimatedHarvestTo!).toLocaleDateString()}`,
+                        value: `${new Date(selected.estimatedHarvestFrom).toLocaleDateString()} – ${new Date(selected.estimatedHarvestTo!).toLocaleDateString()}`,
                       }] : []),
-                      { label: 'Crop Cycle',        value: selected.cropCycleStatus },
+                      { label: 'Crop Cycle', value: selected.cropCycleStatus },
                     ].map(item => (
                       <div key={item.label} className="bg-gray-50 border border-gray-100 rounded-xl p-3">
                         <p className="text-gray-400 text-xs uppercase tracking-wide font-medium">{item.label}</p>
@@ -266,7 +340,6 @@ export default function FarmsPage() {
                     ))}
                   </div>
 
-                  {/* Bid form */}
                   {!showBid ? (
                     <button onClick={() => setShowBid(true)}
                       className="w-full bg-teal-700 text-white py-3 rounded-xl font-bold hover:bg-teal-600 transition text-sm">
@@ -278,9 +351,7 @@ export default function FarmsPage() {
                       <div className="flex justify-between items-center">
                         <h3 className="font-bold text-gray-800">Place Bid on {selected.cropType}</h3>
                         <button type="button" onClick={() => setShowBid(false)}
-                          className="text-gray-400 hover:text-gray-600 text-sm">
-                          Cancel
-                        </button>
+                          className="text-gray-400 hover:text-gray-600 text-sm">Cancel</button>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -303,9 +374,7 @@ export default function FarmsPage() {
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-gray-600 mb-1">
-                            Bid valid for
-                          </label>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1">Bid valid for</label>
                           <select value={bidDays} onChange={e => setBidDays(e.target.value)}
                             className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                             {[3, 5, 7, 14, 30].map(d => (

@@ -1,13 +1,18 @@
 import axios from 'axios';
 import type {
-  FarmMarketplace, Bid, PlaceBidPayload,
-  Agreement, Dispatch, ScheduleDispatchPayload, ConfirmDeliveryPayload,
+  FarmMarketplace, FarmBrowseParams,
+  Bid, PlaceBidPayload,
+  Agreement,
+  Dispatch, ScheduleDispatchPayload, ConfirmDeliveryPayload,
   UserProfile, BankAccount,
 } from './types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
-const api = axios.create({ baseURL: BASE_URL, headers: { 'Content-Type': 'application/json' } });
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+});
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -49,7 +54,8 @@ export default api;
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export const login = (p: { phone: string; password: string }) =>
-  api.post<{ success: boolean; data: { accessToken: string; refreshToken: string; expiresIn: number } }>('/auth/login', p);
+  api.post<{ success: boolean; data: { accessToken: string; refreshToken: string; expiresIn: number } }>(
+    '/auth/login', p);
 
 export const register = (p: { phone: string; faydaId: string; password: string; fullName: string; role: string }) =>
   api.post<{ success: boolean; message: string; data: string }>('/auth/register', p);
@@ -60,7 +66,8 @@ export const verifyOtp = (p: { phone: string; otpCode: string; purpose: string }
 export const logout = () => api.post('/auth/logout', {});
 
 export const refreshAccessToken = (refreshToken: string) =>
-  api.post<{ success: boolean; data: { accessToken: string } }>('/auth/refresh', { refresh_token: refreshToken });
+  api.post<{ success: boolean; data: { accessToken: string } }>(
+    '/auth/refresh', { refresh_token: refreshToken });
 
 // ── User ──────────────────────────────────────────────────────────────────────
 
@@ -77,7 +84,8 @@ export const addBankAccount = (p: { accountType: string; accountNumber: string; 
   api.post<{ success: boolean; data: BankAccount }>('/users/me/bank', p);
 
 export const verifyBankAccount = (accountId: string, verificationCode: string) =>
-  api.post<{ success: boolean; data: BankAccount }>('/users/me/bank/verify', { account_id: accountId, verification_code: verificationCode });
+  api.post<{ success: boolean; data: BankAccount }>(
+    '/users/me/bank/verify', { account_id: accountId, verification_code: verificationCode });
 
 export const setDefaultBankAccount = (accountId: string) =>
   api.post('/users/me/bank/default', { account_id: accountId });
@@ -85,14 +93,15 @@ export const setDefaultBankAccount = (accountId: string) =>
 export const deleteBankAccount = (accountId: string) =>
   api.delete(`/users/me/bank/${accountId}`);
 
-// ── Farm Marketplace ─────────────────────────────────────────────────────────
-// SRS §6.4: GET /api/v1/offtaker/farms/{farmId}
+// ── Farm Marketplace ──────────────────────────────────────────────────────────
+
+export const browseFarms = (params?: FarmBrowseParams) =>
+  api.get<{ success: boolean; data: FarmMarketplace[] }>('/offtaker/farms', { params });
 
 export const getFarmDetail = (farmId: string) =>
   api.get<{ success: boolean; data: FarmMarketplace }>(`/offtaker/farms/${farmId}`);
 
 // ── Bids ──────────────────────────────────────────────────────────────────────
-// SRS §6.4: POST /api/v1/offtaker/bids
 
 export const placeBid = (payload: PlaceBidPayload) =>
   api.post<{ success: boolean; data: Bid }>('/offtaker/bids', payload);
@@ -103,8 +112,10 @@ export const getMyBids = () =>
 export const getBidById = (bidId: string) =>
   api.get<{ success: boolean; data: Bid }>(`/offtaker/bids/${bidId}`);
 
+export const getBidsForFarm = (farmId: string) =>
+  api.get<{ success: boolean; data: Bid[] }>(`/offtaker/bids/farm/${farmId}`);
+
 // ── Agreements ────────────────────────────────────────────────────────────────
-// SRS §6.4: POST /api/v1/agreements/{agreementId}/sign
 
 export const getAgreement = (agreementId: string) =>
   api.get<{ success: boolean; data: Agreement }>(`/agreements/${agreementId}`);
@@ -113,7 +124,6 @@ export const signAgreement = (agreementId: string) =>
   api.post<{ success: boolean; data: Agreement }>(`/agreements/${agreementId}/sign`);
 
 // ── Dispatches ────────────────────────────────────────────────────────────────
-// SRS §6.4: POST /api/v1/offtaker/dispatches
 
 export const scheduleDispatch = (payload: ScheduleDispatchPayload) =>
   api.post<{ success: boolean; data: Dispatch }>('/offtaker/dispatches', payload);
@@ -122,7 +132,8 @@ export const getDispatchesForAgreement = (agreementId: string) =>
   api.get<{ success: boolean; data: Dispatch[] }>(`/offtaker/dispatches/${agreementId}`);
 
 export const confirmDelivery = (agreementId: string, payload: ConfirmDeliveryPayload) =>
-  api.post<{ success: boolean; data: Dispatch }>(`/offtaker/deliveries/${agreementId}/confirm`, payload);
+  api.post<{ success: boolean; data: Dispatch }>(
+    `/offtaker/deliveries/${agreementId}/confirm`, payload);
 
 // ── Weather ───────────────────────────────────────────────────────────────────
 
@@ -131,7 +142,3 @@ export const getWeatherAlerts = (farmId: string) =>
 
 export const getWeatherCurrent = (farmId: string) =>
   api.get<{ success: boolean; data: any }>(`/weather/current/${farmId}`);
-
-// UC-OFF-01: Browse available farms from offtaker-service marketplace
-export const browseFarms = (params?: { cropType?: string; region?: string; harvestReady?: boolean }) =>
-  api.get<{ success: boolean; data: FarmMarketplace[] }>('/offtaker/farms', { params });
