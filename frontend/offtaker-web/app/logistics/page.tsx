@@ -9,27 +9,25 @@ import { scheduleDispatch, getDispatchesForAgreement, confirmDelivery, getMyBids
 import type { Bid, Dispatch } from '@/lib/types';
 
 export default function LogisticsPage() {
-  const router       = useRouter();
-  const searchParams = useSearchParams();
-  const preAgreementId = searchParams.get('agreementId');
+  const router          = useRouter();
+  const searchParams    = useSearchParams();
+  const preAgreementId  = searchParams.get('agreementId');
 
   const [bids,         setBids]         = useState<Bid[]>([]);
   const [dispatches,   setDispatches]   = useState<Record<string, Dispatch[]>>({});
   const [loading,      setLoading]      = useState(true);
   const [showForm,     setShowForm]     = useState(false);
-  const [selectedBid,  setSelectedBid]  = useState('');
+  const [selectedAgreementId, setSelectedAgreementId] = useState('');
   const [submitting,   setSubmitting]   = useState(false);
   const [confirming,   setConfirming]   = useState<string | null>(null);
 
-  // Dispatch form state
-  const [driverFaydaId, setDriverFaydaId]     = useState('');
-  const [truckCount,    setTruckCount]         = useState('1');
-  const [pickupDate,    setPickupDate]         = useState('');
+  const [driverFaydaId, setDriverFaydaId] = useState('');
+  const [truckCount,    setTruckCount]    = useState('1');
+  const [pickupDate,    setPickupDate]    = useState('');
 
-  // Confirm delivery
-  const [confirmDispatch,  setConfirmDispatch]  = useState<string | null>(null);
-  const [actualQty,        setActualQty]        = useState('');
-  const [qualityGrade,     setQualityGrade]     = useState('A');
+  const [confirmDispatch, setConfirmDispatch] = useState<string | null>(null);
+  const [actualQty,       setActualQty]       = useState('');
+  const [qualityGrade,    setQualityGrade]    = useState('A');
 
   useEffect(() => {
     if (!localStorage.getItem('access_token')) { router.push('/login'); return; }
@@ -38,7 +36,7 @@ export default function LogisticsPage() {
 
   useEffect(() => {
     if (preAgreementId) {
-      setSelectedBid(preAgreementId);
+      setSelectedAgreementId(preAgreementId);
       setShowForm(true);
     }
   }, [preAgreementId]);
@@ -47,31 +45,43 @@ export default function LogisticsPage() {
     try {
       const res = await getMyBids();
       if (res.data.success) {
+        // FIX: only bids that have reached CONTRACT_SIGNED/COMPLETED AND have
+        // a populated agreementId are relevant here — dispatches are keyed by
+        // agreement, not by bid.
         const signedBids = (res.data.data || []).filter(b =>
-          ['CONTRACT_SIGNED', 'COMPLETED'].includes(b.status));
+          ['CONTRACT_SIGNED', 'COMPLETED'].includes(b.status) && b.agreementId);
         setBids(signedBids);
-        // Load dispatches for each signed bid
+
+        // FIX: was calling getDispatchesForAgreement(bid.id) — wrong UUID.
+        // Now correctly uses bid.agreementId.
         for (const bid of signedBids) {
+          if (!bid.agreementId) continue;
           try {
-            const dr = await getDispatchesForAgreement(bid.id);
-            if (dr.data.success)
-              setDispatches(prev => ({ ...prev, [bid.id]: dr.data.data || [] }));
-          } catch {}
+            const dr = await getDispatchesForAgreement(bid.agreementId);
+            if (dr.data.success) {
+              setDispatches(prev => ({ ...prev, [bid.agreementId as string]: dr.data.data || [] }));
+            }
+          } catch {
+            // No dispatches yet for this agreement — fine
+          }
         }
       }
-    } catch { toast.error('Failed to load logistics'); }
-    finally  { setLoading(false); }
+    } catch {
+      toast.error('Failed to load logistics');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedBid) { toast.error('Select a contract'); return; }
+    if (!selectedAgreementId) { toast.error('Select a contract'); return; }
     setSubmitting(true);
     try {
       const res = await scheduleDispatch({
-        agreementId:        selectedBid,
+        agreementId:         selectedAgreementId,
         driverFaydaId,
-        truckCount:         parseInt(truckCount),
+        truckCount:          parseInt(truckCount),
         scheduledPickupDate: pickupDate,
       });
       if (res.data.success) {
@@ -82,9 +92,12 @@ export default function LogisticsPage() {
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to schedule');
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
+  // FIX: takes agreementId directly now (was taking bid.id before)
   const handleConfirmDelivery = async (agreementId: string) => {
     const qty = parseFloat(actualQty);
     if (isNaN(qty) || qty <= 0) { toast.error('Enter actual quantity'); return; }
@@ -102,7 +115,9 @@ export default function LogisticsPage() {
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to confirm delivery');
-    } finally { setConfirming(null); }
+    } finally {
+      setConfirming(null);
+    }
   };
 
   const dispatchStatusIcon: Record<string, string> = {
@@ -131,7 +146,6 @@ export default function LogisticsPage() {
           </button>
         </div>
 
-        {/* Schedule form */}
         {showForm && (
           <form onSubmit={handleSchedule}
             className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -139,12 +153,13 @@ export default function LogisticsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Contract (Signed Bid)</label>
-                <select value={selectedBid} onChange={e => setSelectedBid(e.target.value)} required
+                {/* FIX: value/options now use bid.agreementId, not bid.id */}
+                <select value={selectedAgreementId} onChange={e => setSelectedAgreementId(e.target.value)} required
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                   <option value="">Select contract…</option>
-                  {bids.filter(b => b.status === 'CONTRACT_SIGNED').map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.quantityQuintals} qt — {b.totalValueEtb.toLocaleString()} ETB ({b.id.slice(0, 8)}…)
+                  {bids.filter(b => b.status === 'CONTRACT_SIGNED' && b.agreementId).map(b => (
+                    <option key={b.agreementId!} value={b.agreementId!}>
+                      {b.quantityQuintals} qt — {b.totalValueEtb.toLocaleString()} ETB ({b.agreementId!.slice(0, 8)}…)
                     </option>
                   ))}
                 </select>
@@ -183,7 +198,6 @@ export default function LogisticsPage() {
           </form>
         )}
 
-        {/* Dispatch list per contract */}
         {bids.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
             <p className="text-4xl mb-3">🚚</p>
@@ -193,7 +207,8 @@ export default function LogisticsPage() {
         ) : (
           <div className="space-y-5">
             {bids.map(bid => {
-              const bidDispatches = dispatches[bid.id] || [];
+              const agreementId = bid.agreementId as string;
+              const bidDispatches = dispatches[agreementId] || [];
               return (
                 <div key={bid.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                   <div className="bg-gray-50 border-b border-gray-100 px-5 py-3 flex justify-between items-center">
@@ -201,7 +216,7 @@ export default function LogisticsPage() {
                       <p className="font-bold text-gray-800 text-sm">
                         {bid.quantityQuintals} qt — {bid.totalValueEtb.toLocaleString()} ETB
                       </p>
-                      <p className="text-xs text-gray-400 font-mono">{bid.id.slice(0, 16)}…</p>
+                      <p className="text-xs text-gray-400 font-mono">Agreement: {agreementId.slice(0, 16)}…</p>
                     </div>
                     <StatusBadge status={bid.status} />
                   </div>
@@ -240,14 +255,13 @@ export default function LogisticsPage() {
                               </div>
                             </div>
 
-                            {/* Confirm delivery — SRS §6.4 */}
-                            {d.status === 'LOADED' && confirmDispatch !== bid.id && (
-                              <button onClick={() => setConfirmDispatch(bid.id)}
+                            {d.status === 'LOADED' && confirmDispatch !== agreementId && (
+                              <button onClick={() => setConfirmDispatch(agreementId)}
                                 className="mt-3 w-full bg-green-700 text-white py-2 rounded-xl text-sm font-semibold hover:bg-green-600 transition">
                                 Confirm Receipt at Factory
                               </button>
                             )}
-                            {confirmDispatch === bid.id && (
+                            {confirmDispatch === agreementId && (
                               <div className="mt-3 bg-green-50 border border-green-100 rounded-xl p-4 space-y-3">
                                 <p className="text-sm font-bold text-green-800">Confirm Harvest Delivery</p>
                                 <div className="grid grid-cols-2 gap-3">
@@ -270,10 +284,10 @@ export default function LogisticsPage() {
                                     className="flex-1 bg-white border border-gray-200 text-gray-600 py-2 rounded-lg text-sm font-semibold">
                                     Cancel
                                   </button>
-                                  <button onClick={() => handleConfirmDelivery(bid.id)}
-                                    disabled={confirming === bid.id}
+                                  <button onClick={() => handleConfirmDelivery(agreementId)}
+                                    disabled={confirming === agreementId}
                                     className="flex-1 bg-green-700 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50">
-                                    {confirming === bid.id ? 'Confirming…' : 'Confirm & Trigger Settlement'}
+                                    {confirming === agreementId ? 'Confirming…' : 'Confirm & Trigger Settlement'}
                                   </button>
                                 </div>
                               </div>
