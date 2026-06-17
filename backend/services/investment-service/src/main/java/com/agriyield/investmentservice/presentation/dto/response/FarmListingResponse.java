@@ -33,6 +33,9 @@ public class FarmListingResponse {
     private BigDecimal baseApr;
     private int agriScore;
     private String status;
+    // FIX: was missing — frontend needs this for the satellite verified badge
+    // and the filter toggle on the listings page
+    private boolean satelliteVerified;
     private LocalDateTime fundingDeadline;
     private LocalDateTime fullyFundedAt;
     private LocalDateTime createdAt;

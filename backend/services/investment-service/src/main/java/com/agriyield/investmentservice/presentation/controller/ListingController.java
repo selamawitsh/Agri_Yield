@@ -29,29 +29,40 @@ public class ListingController {
     private final ListingServicePort listingService;
     private final JwtUtils jwtUtils;
 
-    /** IS-01/02: Browse and filter farm listings — no auth required to view */
+    /** IS-01/02: Browse and filter farm listings */
     @GetMapping
     public ResponseEntity<ApiResponse<List<FarmListingResponse>>> getListings(
             @RequestParam(required = false) String cropType,
             @RequestParam(required = false) String region,
             @RequestParam(required = false) BigDecimal minApr,
-            @RequestParam(required = false) BigDecimal maxApr) {
+            @RequestParam(required = false) BigDecimal maxApr,
+            // FIX: satelliteVerified param was accepted but never applied
+            @RequestParam(required = false) Boolean satelliteVerified,
+            @RequestParam(required = false) Integer minAgriScore) {
 
-        log.info("GET /api/v1/listings — cropType={}, region={}, minApr={}, maxApr={}",
-            cropType, region, minApr, maxApr);
+        log.info("GET /api/v1/listings — cropType={}, region={}, minApr={}, maxApr={}, " +
+                        "satelliteVerified={}, minAgriScore={}",
+                cropType, region, minApr, maxApr, satelliteVerified, minAgriScore);
 
-        // Treat blank strings as null
-        String crop   = (cropType != null && !cropType.isBlank()) ? cropType : null;
-        String reg    = (region   != null && !region.isBlank())   ? region   : null;
+        String crop = (cropType != null && !cropType.isBlank()) ? cropType : null;
+        String reg  = (region   != null && !region.isBlank())   ? region   : null;
 
         List<FarmListingResponse> listings = listingService
-            .getActiveListings(crop, reg, minApr, maxApr)
-            .stream().map(this::toListingResponse).collect(Collectors.toList());
+                .getActiveListings(crop, reg, minApr, maxApr)
+                .stream()
+                // FIX: apply satelliteVerified filter here — was silently ignored before
+                .filter(l -> satelliteVerified == null
+                        || !satelliteVerified
+                        || Boolean.TRUE.equals(l.isSatelliteVerified()))
+                // Apply minAgriScore filter server-side too
+                .filter(l -> minAgriScore == null || l.getAgriScore() >= minAgriScore)
+                .map(this::toListingResponse)
+                .collect(Collectors.toList());
 
         return ResponseEntity.ok(ApiResponse.success(listings));
     }
 
-    /** IS-03: View listing details — no auth required */
+    /** IS-03: View listing details */
     @GetMapping("/{listingId}")
     public ResponseEntity<ApiResponse<FarmListingResponse>> getListingById(
             @PathVariable UUID listingId) {
@@ -60,7 +71,7 @@ public class ListingController {
         return ResponseEntity.ok(ApiResponse.success(toListingResponse(listing)));
     }
 
-    /** IS-05: Invest in a listing — auth required */
+    /** IS-05: Invest in a listing */
     @PostMapping("/{listingId}/invest")
     public ResponseEntity<ApiResponse<InvestmentResponse>> invest(
             @RequestHeader("Authorization") String authHeader,
@@ -71,11 +82,11 @@ public class ListingController {
         log.info("POST /api/v1/listings/{}/invest — investor: {}", listingId, investorId);
 
         Investment investment = listingService.investInListing(
-            listingId, investorId, request.getAmountEtb(), request.getNotes());
+                listingId, investorId, request.getAmountEtb(), request.getNotes());
 
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(ApiResponse.success("Investment placed successfully",
-                toInvestmentResponse(investment)));
+                .body(ApiResponse.success("Investment placed successfully",
+                        toInvestmentResponse(investment)));
     }
 
     /** IS-09: NDVI history */
@@ -87,47 +98,50 @@ public class ListingController {
         return ResponseEntity.ok(ApiResponse.success(history));
     }
 
+    // ── Mappers ───────────────────────────────────────────────────────────────
+
     private FarmListingResponse toListingResponse(FarmListing l) {
         return FarmListingResponse.builder()
-            .id(l.getId())
-            .farmId(l.getFarmId())
-            .farmerId(l.getFarmerId())
-            .inputNeedId(l.getInputNeedId())
-            .cropCycleId(l.getCropCycleId())
-            .cropType(l.getCropType())
-            .region(l.getRegion())
-            .kebeleCode(l.getKebeleCode())
-            .seasonName(l.getSeasonName())
-            .totalAmountEtb(l.getTotalAmountEtb())
-            .fundedAmountEtb(l.getFundedAmountEtb())
-            .fundingPct(l.getFundingPct())
-            .currentApr(l.getCurrentApr())
-            .baseApr(l.getBaseApr())
-            .agriScore(l.getAgriScore())
-            .status(l.getStatus().getValue())
-            .fundingDeadline(l.getFundingDeadline())
-            .fullyFundedAt(l.getFullyFundedAt())
-            .createdAt(l.getCreatedAt())
-            .build();
+                .id(l.getId())
+                .farmId(l.getFarmId())
+                .farmerId(l.getFarmerId())
+                .inputNeedId(l.getInputNeedId())
+                .cropCycleId(l.getCropCycleId())
+                .cropType(l.getCropType())
+                .region(l.getRegion())
+                .kebeleCode(l.getKebeleCode())
+                .seasonName(l.getSeasonName())
+                .totalAmountEtb(l.getTotalAmountEtb())
+                .fundedAmountEtb(l.getFundedAmountEtb())
+                .fundingPct(l.getFundingPct())
+                .currentApr(l.getCurrentApr())
+                .baseApr(l.getBaseApr())
+                .agriScore(l.getAgriScore())
+                .status(l.getStatus().getValue())
+                .satelliteVerified(l.isSatelliteVerified())
+                .fundingDeadline(l.getFundingDeadline())
+                .fullyFundedAt(l.getFullyFundedAt())
+                .createdAt(l.getCreatedAt())
+                .build();
     }
 
     private InvestmentResponse toInvestmentResponse(Investment i) {
         return InvestmentResponse.builder()
-            .id(i.getId())
-            .investorId(i.getInvestorId())
-            .farmId(i.getFarmId())
-            .farmerId(i.getFarmerId())
-            .inputNeedId(i.getInputNeedId())
-            .cropCycleId(i.getCropCycleId())
-            .amountEtb(i.getAmountEtb())
-            .status(i.getStatus().getValue())
-            .cropType(i.getCropType())
-            .region(i.getRegion())
-            .seasonName(i.getSeasonName())
-            .expectedReturnPct(i.getExpectedReturnPct())
-            .notes(i.getNotes())
-            .createdAt(i.getCreatedAt())
-            .updatedAt(i.getUpdatedAt())
-            .build();
+                .id(i.getId())
+                .investorId(i.getInvestorId())
+                .farmId(i.getFarmId())
+                .farmerId(i.getFarmerId())
+                .inputNeedId(i.getInputNeedId())
+                .cropCycleId(i.getCropCycleId())
+                .amountEtb(i.getAmountEtb())
+                .status(i.getStatus().getValue())
+                .cropType(i.getCropType())
+                .region(i.getRegion())
+                .seasonName(i.getSeasonName())
+                .expectedReturnPct(i.getExpectedReturnPct())
+                .notes(i.getNotes())
+                .createdAt(i.getCreatedAt())
+                .updatedAt(i.getUpdatedAt())
+                .build();
     }
 }
