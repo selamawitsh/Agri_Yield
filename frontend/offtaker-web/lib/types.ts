@@ -142,3 +142,27 @@ export interface WeatherAlert {
   messageEn: string;
   createdAt: string;
 }
+
+// ── Full Farm Detail (UC-OFF-02) ──────────────────────────────────────────────
+
+export interface NdviHistoryPoint {
+  date: string;
+  ndviValue: number;
+  cloudCoverage: number;
+}
+
+export interface FarmerIdentity {
+  farmerId: string;
+  phone: string;
+  faydaId: string;
+  kycStatus: string;
+  agriScore: number;
+  totalSeasonsCompleted: number;
+}
+
+export interface FarmFullDetail {
+  farm: FarmMarketplace;
+  ndviHistory: NdviHistoryPoint[];
+  bids: Bid[];
+  farmer: FarmerIdentity | null;
+}

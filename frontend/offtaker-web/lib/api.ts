@@ -142,3 +142,9 @@ export const getWeatherAlerts = (farmId: string) =>
 
 export const getWeatherCurrent = (farmId: string) =>
   api.get<{ success: boolean; data: any }>(`/weather/current/${farmId}`);
+
+// ── Full Farm Detail (UC-OFF-02) ──────────────────────────────────────────────
+
+export const getFarmFullDetail = (farmId: string) =>
+  api.get<{ success: boolean; data: import('./types').FarmFullDetail }>(
+    `/offtaker/farms/${farmId}/full-detail`);
