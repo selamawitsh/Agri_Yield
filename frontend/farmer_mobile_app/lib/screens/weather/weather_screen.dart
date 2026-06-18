@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/weather_model.dart';
 import '../../services/weather_service.dart';
 import '../../services/farm_service.dart';
 import '../../services/geospatial_service.dart';
+import '../../services/language_service.dart';
 import '../../models/farm_model.dart';
 import '../../models/ndvi_reading_model.dart';
 import '../../models/yield_prediction_model.dart';
@@ -16,8 +18,8 @@ class WeatherScreen extends StatefulWidget {
 
 class _WeatherScreenState extends State<WeatherScreen>
     with SingleTickerProviderStateMixin {
-  final _weatherService = WeatherService();
-  final _farmService = FarmService();
+  final _weatherService    = WeatherService();
+  final _farmService       = FarmService();
   final _geospatialService = GeospatialService();
 
   late TabController _tabController;
@@ -28,16 +30,167 @@ class _WeatherScreenState extends State<WeatherScreen>
   WeatherReading? _current;
   List<WeatherReading> _forecast = [];
   List<WeatherReading> _rainfall = [];
-  List<WeatherReading> _history = [];
-  DroughtStatus? _drought;
-  WeatherRisk? _risk;
+  List<WeatherReading> _history  = [];
+  DroughtStatus?  _drought;
+  WeatherRisk?    _risk;
   List<WeatherAlert> _alerts = [];
-  NdviReadingModel? _latestNdvi;
-  List<NdviReadingModel> _ndviHistory = [];
-  YieldPredictionModel? _yieldPrediction;
+  NdviReadingModel?       _latestNdvi;
+  List<NdviReadingModel>  _ndviHistory = [];
+  YieldPredictionModel?   _yieldPrediction;
   bool _ndviLoading = false;
+  bool _loading     = true;
 
-  bool _loading = true;
+  // ── Localisation ──────────────────────────────────────────────────────────
+  static const Map<String, Map<String, String>> _strings = {
+    'am': {
+      'title':           'የአየር ሁኔታ እና ወቅታዊ ሁኔታ',
+      'tabCurrent':      'አሁን',
+      'tabForecast':     'ትንበያ',
+      'tabNdvi':         'NDVI',
+      'tabDrought':      'ድርቅ',
+      'tabAlerts':       'ማስጠንቀቂያዎች',
+      'tabHistory':      'ታሪክ',
+      'selectFarm':      'እርሻ ይምረጡ',
+      'noWeather':       'ምንም የአየር ሁኔታ ዳታ የለም',
+      'noWeatherHint':   'የአየር ሁኔታ ዳታ ከ OpenWeather API ይጫናል',
+      'noForecast':      'ምንም ትንበያ የለም',
+      'noForecastHint':  'ትንበያ ከ OpenWeather API ይጫናል',
+      'noNdvi':          'ምንም ሳተላይት ዳታ የለም',
+      'noNdviHint':      'NDVI ንባቦች እርሻዎ ከተመዘገበ ጥቂት ቀናት በኋላ ይመጣሉ',
+      'noDrought':       'ምንም የድርቅ ዳታ የለም',
+      'noDroughtHint':   'የድርቅ ክትትል ሲጀምር ዳታ ይታያል',
+      'noAlerts':        'ምንም ማስጠንቀቂያዎች የሉም',
+      'noAlertsHint':    'የአየር ሁኔታ ሲያስፈልግ ይታወቃሉ',
+      'noHistory':       'ምንም ታሪካዊ ዳታ የለም',
+      'noHistoryHint':   'ታሪካዊ የአየር ሁኔታ መዛግብት ሲገኙ ይታያሉ',
+      'latestNdvi':      'የቅርብ NDVI',
+      'cloudCover':      '% ደመና',
+      'recorded':        'ተመዝግቧል',
+      'yieldForecast':   'የምርት ትንበያ',
+      'quintals':        'ኩንታል (ግምታዊ)',
+      'confidence':      'እምነት',
+      'wksToHarvest':    '~ {w} ሳምንት ለምርት',
+      'ndviHistory':     'NDVI ታሪክ (90 ቀናት)',
+      'rainfall':        'ዝናብ',
+      'humidity':        'እርጥበት',
+      'dryDay':          'ደረቅ ቀን',
+      'yes':             'አዎ',
+      'no':              'አይደለም',
+      'riskLevel':       'የስጋት ደረጃ',
+      'droughtTriggered':'ድርቅ ተጠቁሟል',
+      'normalCond':      'መደበኛ ሁኔታዎች',
+      'parametricMsg':   'ፓራሜትሪክ ኢንሹራንስ ተመላሽ ሂደት ተጀምሯል',
+      'consecutiveDry':  'ተከታታይ ደረቅ ቀናት',
+      'threshold':       'ደፍ',
+      'warningAt':       'ማስጠንቀቂያ ከ {n} ቀናት',
+      'triggerAt':       'ድርቅ ከ {n} ቀናት',
+      'last30Rain':      'የቋሚ 30 ቀን ዝናብ',
+      'dayPlus':         'ቀን +{n}',
+      'temperature':     'ሙቀት',
+      'severity':        'ክብደት',
+    },
+    'om': {
+      'title':           'Haala Qilleensaa fi Haala Yeroo',
+      'tabCurrent':      'Ammaa',
+      'tabForecast':     'Tilmaama',
+      'tabNdvi':         'NDVI',
+      'tabDrought':      'Drought',
+      'tabAlerts':       'Akeekkachiisa',
+      'tabHistory':      'Seenaa',
+      'selectFarm':      'Lafa Qonnaa Filadhu',
+      'noWeather':       'Deetaan haala qilleensaa hin jiru',
+      'noWeatherHint':   'Deetaan haala qilleensaa OpenWeather API irraa fe\'ama',
+      'noForecast':      'Tilmaami hin jiru',
+      'noForecastHint':  'Tilmaami OpenWeather API irraa fe\'ama',
+      'noNdvi':          'Deetaan satellite hin jiru',
+      'noNdviHint':      'Dubbisni NDVI lafa qonnaa galmaaye booda guyyoota muraasa keessa ni dhufa',
+      'noDrought':       'Deetaan drought hin jiru',
+      'noDroughtHint':   'Hordoffiin drought yeroo eegalu deetaan ni mul\'ata',
+      'noAlerts':        'Akeekkachiisni hin jiru',
+      'noAlertsHint':    'Yeroo haalli qilleensaa barbaachisu beeksifama',
+      'noHistory':       'Deetaan seenaa hin jiru',
+      'noHistoryHint':   'Seenaan haala qilleensaa yeroo argamu ni mul\'ata',
+      'latestNdvi':      'NDVI Dhumaa',
+      'cloudCover':      '% duumessa',
+      'recorded':        'Galmaaye',
+      'yieldForecast':   'Tilmaama Midhaan',
+      'quintals':        'quintal (tilmaama)',
+      'confidence':      'Amanamummaa',
+      'wksToHarvest':    '~ {w} torban sassaabuuf',
+      'ndviHistory':     'Seenaa NDVI (guyyaa 90)',
+      'rainfall':        'Rooba',
+      'humidity':        'Jiidha',
+      'dryDay':          'Guyyaa Qooraa',
+      'yes':             'Eeyyee',
+      'no':              'Lakki',
+      'riskLevel':       'Sadarkaa Balaa',
+      'droughtTriggered':'Drought Kakaafame',
+      'normalCond':      'Haala Idilee',
+      'parametricMsg':   'Deebii inshoraansii parametric jalqabame',
+      'consecutiveDry':  'Guyyaalee Qooraa Itti Aanu',
+      'threshold':       'Daangaa',
+      'warningAt':       'Akeekkachiisi guyyaa {n}',
+      'triggerAt':       'Drought guyyaa {n}',
+      'last30Rain':      'Rooba Guyyaa 30 Dhumaa',
+      'dayPlus':         'Guyyaa +{n}',
+      'temperature':     'Ho\'a',
+      'severity':        'Cimina',
+    },
+    'en': {
+      'title':           'Weather & Climate',
+      'tabCurrent':      'Current',
+      'tabForecast':     'Forecast',
+      'tabNdvi':         'NDVI',
+      'tabDrought':      'Drought',
+      'tabAlerts':       'Alerts',
+      'tabHistory':      'History',
+      'selectFarm':      'Select Farm',
+      'noWeather':       'No weather data',
+      'noWeatherHint':   'Weather data will appear once fetched from OpenWeather',
+      'noForecast':      'No forecast data',
+      'noForecastHint':  'Forecast will load from OpenWeather API',
+      'noNdvi':          'No satellite data yet',
+      'noNdviHint':      'NDVI readings sync every few days after your farm is registered',
+      'noDrought':       'No drought data',
+      'noDroughtHint':   'Drought monitoring will begin after weather data is collected',
+      'noAlerts':        'No alerts',
+      'noAlertsHint':    'You will be notified when weather conditions require attention',
+      'noHistory':       'No historical weather data',
+      'noHistoryHint':   'Historical weather records will appear here when available',
+      'latestNdvi':      'Latest NDVI',
+      'cloudCover':      '% cloud cover',
+      'recorded':        'Recorded',
+      'yieldForecast':   'Yield forecast',
+      'quintals':        'quintals (est.)',
+      'confidence':      'Confidence',
+      'wksToHarvest':    '~{w} wks to harvest',
+      'ndviHistory':     'NDVI history (90 days)',
+      'rainfall':        'Rainfall',
+      'humidity':        'Humidity',
+      'dryDay':          'Dry Day',
+      'yes':             'Yes',
+      'no':              'No',
+      'riskLevel':       'Risk Level',
+      'droughtTriggered':'DROUGHT TRIGGERED',
+      'normalCond':      'Normal Conditions',
+      'parametricMsg':   'Parametric insurance refund process has been initiated',
+      'consecutiveDry':  'Consecutive Dry Days',
+      'threshold':       'Threshold',
+      'warningAt':       'Warning at {n} days',
+      'triggerAt':       'Trigger at {n} days',
+      'last30Rain':      'Last 30 Days Rainfall',
+      'dayPlus':         'Day +{n}',
+      'temperature':     'Temperature',
+      'severity':        'Severity',
+    },
+  };
+
+  String _t(String key, {String w = '', String n = ''}) {
+    final code = context.read<LanguageService>().languageCode;
+    return (_strings[code]?[key] ?? _strings['en']![key]!)
+        .replaceAll('{w}', w)
+        .replaceAll('{n}', n);
+  }
 
   @override
   void initState() {
@@ -47,27 +200,16 @@ class _WeatherScreenState extends State<WeatherScreen>
   }
 
   @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+  void dispose() { _tabController.dispose(); super.dispose(); }
 
   Future<void> _loadFarms() async {
     final result = await _farmService.getMyFarms();
     if (mounted) {
       if (result['success'] == true) {
         final farms = result['farms'] as List<FarmModel>;
-        setState(() {
-          _farms = farms;
-          _selectedFarm = farms.isNotEmpty ? farms.first : null;
-        });
-        if (_selectedFarm != null) {
-          _loadWeather(_selectedFarm!.id);
-          _loadNdvi(_selectedFarm!.id);
-        }
-      } else {
-        setState(() => _loading = false);
-      }
+        setState(() { _farms = farms; _selectedFarm = farms.isNotEmpty ? farms.first : null; });
+        if (_selectedFarm != null) { _loadWeather(_selectedFarm!.id); _loadNdvi(_selectedFarm!.id); }
+      } else { setState(() => _loading = false); }
     }
   }
 
@@ -78,14 +220,12 @@ class _WeatherScreenState extends State<WeatherScreen>
       _geospatialService.getNdviHistory(farmId, days: 90),
       _geospatialService.getYieldPrediction(farmId),
     ]);
-    if (mounted) {
-      setState(() {
-        _latestNdvi = results[0] as NdviReadingModel?;
-        _ndviHistory = results[1] as List<NdviReadingModel>;
-        _yieldPrediction = results[2] as YieldPredictionModel?;
-        _ndviLoading = false;
-      });
-    }
+    if (mounted) setState(() {
+      _latestNdvi      = results[0] as NdviReadingModel?;
+      _ndviHistory     = results[1] as List<NdviReadingModel>;
+      _yieldPrediction = results[2] as YieldPredictionModel?;
+      _ndviLoading     = false;
+    });
   }
 
   Future<void> _loadWeather(String farmId) async {
@@ -99,682 +239,1161 @@ class _WeatherScreenState extends State<WeatherScreen>
       _weatherService.getAlerts(farmId),
       _weatherService.getHistory(farmId),
     ]);
-    if (mounted) {
-      setState(() {
-        _current    = results[0] as WeatherReading?;
-        _forecast   = results[1] as List<WeatherReading>;
-        _rainfall   = results[2] as List<WeatherReading>;
-        _drought    = results[3] as DroughtStatus?;
-        _risk       = results[4] as WeatherRisk?;
-        _alerts     = results[5] as List<WeatherAlert>;
-        _history    = results[6] as List<WeatherReading>;
-        _loading    = false;
-      });
-    }
+    if (mounted) setState(() {
+      _current  = results[0] as WeatherReading?;
+      _forecast = results[1] as List<WeatherReading>;
+      _rainfall = results[2] as List<WeatherReading>;
+      _drought  = results[3] as DroughtStatus?;
+      _risk     = results[4] as WeatherRisk?;
+      _alerts   = results[5] as List<WeatherAlert>;
+      _history  = results[6] as List<WeatherReading>;
+      _loading  = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    context.watch<LanguageService>();
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F5),
       appBar: AppBar(
-        title: const Text('Weather & Climate'),
-        backgroundColor: const Color(0xFF1B4332),
-        foregroundColor: Colors.white,
+        title: Text(_t('title')),
+        backgroundColor: const Color(0xFF1B4332), foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          isScrollable: true,
-          tabs: const [
-            Tab(text: 'Current'),
-            Tab(text: 'Forecast'),
-            Tab(text: 'NDVI'),
-            Tab(text: 'Drought'),
-            Tab(text: 'Alerts'),
-            Tab(text: 'History'),
+          indicatorColor: Colors.white, labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60, isScrollable: true,
+          tabs: [
+            Tab(text: _t('tabCurrent')), Tab(text: _t('tabForecast')),
+            Tab(text: _t('tabNdvi')),    Tab(text: _t('tabDrought')),
+            Tab(text: _t('tabAlerts')),  Tab(text: _t('tabHistory')),
           ],
         ),
       ),
-      body: Column(
-        children: [
-          // Farm selector
-          if (_farms.length > 1) _buildFarmSelector(),
-
-          // Tabs
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(
-                    color: Color(0xFF1B4332)))
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildCurrentTab(),
-                      _buildForecastTab(),
-                      _buildNdviTab(),
-                      _buildDroughtTab(),
-                      _buildAlertsTab(),
-                      _buildHistoryTab(),
-                    ],
-                  ),
-          ),
-        ],
-      ),
+      body: Column(children: [
+        if (_farms.length > 1) _buildFarmSelector(),
+        Expanded(child: _loading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFF1B4332)))
+            : TabBarView(controller: _tabController, children: [
+          _buildCurrentTab(), _buildForecastTab(), _buildNdviTab(),
+          _buildDroughtTab(), _buildAlertsTab(),  _buildHistoryTab(),
+        ])),
+      ]),
     );
   }
 
   Widget _buildFarmSelector() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: DropdownButtonFormField<FarmModel>(
-        value: _selectedFarm,
-        decoration: const InputDecoration(
-          labelText: 'Select Farm',
-          border: OutlineInputBorder(),
-          isDense: true,
-        ),
-        items: _farms.map((f) => DropdownMenuItem(
-          value: f,
-          child: Text(f.farmName ?? f.cropType),
-        )).toList(),
-        onChanged: (farm) {
-          setState(() => _selectedFarm = farm);
-          if (farm != null) {
-            _loadWeather(farm.id);
-            _loadNdvi(farm.id);
-          }
-        },
-      ),
-    );
+    return Container(color: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: DropdownButtonFormField<FarmModel>(
+          value: _selectedFarm,
+          decoration: InputDecoration(labelText: _t('selectFarm'), border: const OutlineInputBorder(), isDense: true),
+          items: _farms.map((f) => DropdownMenuItem(value: f, child: Text(f.farmName ?? f.cropType))).toList(),
+          onChanged: (farm) {
+            setState(() => _selectedFarm = farm);
+            if (farm != null) { _loadWeather(farm.id); _loadNdvi(farm.id); }
+          },
+        ));
   }
 
-  // ── Tab 1: Current Weather ─────────────────────────────────────────────────
+  // ── Tab 1: Current ────────────────────────────────────────────────────────
   Widget _buildCurrentTab() {
-    if (_current == null) {
-      return _emptyState('No weather data', 'Weather data will appear once fetched', Icons.wb_sunny_outlined);
-    }
+    if (_current == null) return _emptyState(_t('noWeather'), _t('noWeatherHint'), Icons.wb_sunny_outlined);
     return RefreshIndicator(
       onRefresh: () => _selectedFarm != null ? _loadWeather(_selectedFarm!.id) : Future.value(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Big weather card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF1B4332), Color(0xFF2D6A4F)],
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    _getWeatherIcon(_current!.rainfallMm, _current!.temperatureC),
-                    size: 64, color: Colors.white,
-                  ),
+      child: SingleChildScrollView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            Container(width: double.infinity, padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                    gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        colors: [Color(0xFF1B4332), Color(0xFF2D6A4F)]),
+                    borderRadius: BorderRadius.circular(20)),
+                child: Column(children: [
+                  Icon(_getWeatherIcon(_current!.rainfallMm, _current!.temperatureC), size: 64, color: Colors.white),
                   const SizedBox(height: 12),
                   Text('${_current!.temperatureC.toStringAsFixed(1)}°C',
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 48,
-                          fontWeight: FontWeight.bold)),
-                  Text(_current!.recordedDate,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                ],
-              ),
-            ),
+                      style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold)),
+                  Text(_current!.recordedDate, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                ])),
             const SizedBox(height: 16),
-
-            // Metric cards row
             Row(children: [
-              Expanded(child: _metricCard('Rainfall', '${_current!.rainfallMm.toStringAsFixed(1)} mm',
-                  Icons.water_drop, Colors.blue)),
+              Expanded(child: _metricCard(_t('rainfall'), '${_current!.rainfallMm.toStringAsFixed(1)} mm', Icons.water_drop, Colors.blue)),
               const SizedBox(width: 12),
-              Expanded(child: _metricCard('Humidity',
+              Expanded(child: _metricCard(_t('humidity'),
                   _current!.humidityPct != null ? '${_current!.humidityPct!.toStringAsFixed(0)}%' : '—',
                   Icons.water, Colors.cyan)),
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _metricCard('Dry Day',
-                  _current!.isDryDay ? 'Yes' : 'No',
+              Expanded(child: _metricCard(_t('dryDay'), _current!.isDryDay ? _t('yes') : _t('no'),
                   Icons.wb_sunny, _current!.isDryDay ? Colors.orange : Colors.green)),
               const SizedBox(width: 12),
-              Expanded(child: _metricCard('Risk Level',
-                  _risk?.riskLevel ?? '—',
-                  Icons.warning_amber,
-                  _riskColor(_risk?.riskLevel ?? 'LOW'))),
+              Expanded(child: _metricCard(_t('riskLevel'), _risk?.riskLevel ?? '—',
+                  Icons.warning_amber, _riskColor(_risk?.riskLevel ?? 'LOW'))),
             ]),
-
-            // Drought summary
-            if (_drought != null) ...[
-              const SizedBox(height: 16),
-              _droughtSummaryCard(),
-            ],
-          ],
-        ),
-      ),
+            if (_drought != null) ...[const SizedBox(height: 16), _droughtSummaryCard()],
+          ])),
     );
   }
 
-  // ── Tab 2: 7-day Forecast ─────────────────────────────────────────────────
+  // ── Tab 2: Forecast ───────────────────────────────────────────────────────
   Widget _buildForecastTab() {
-    if (_forecast.isEmpty) {
-      return _emptyState('No forecast data', 'Forecast will load from OpenWeather API', Icons.cloud_outlined);
-    }
+    if (_forecast.isEmpty) return _emptyState(_t('noForecast'), _t('noForecastHint'), Icons.cloud_outlined);
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _forecast.length,
+      padding: const EdgeInsets.all(16), itemCount: _forecast.length,
       itemBuilder: (ctx, i) {
         final f = _forecast[i];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: const Color(0xFF1B4332).withOpacity(0.1),
-              child: Icon(_getWeatherIcon(f.rainfallMm, f.temperatureC),
-                  color: const Color(0xFF1B4332), size: 20),
-            ),
-            title: Text(
-              f.forecastHorizonDays != null
-                  ? 'Day +${f.forecastHorizonDays}'
-                  : f.recordedDate,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text('Rain: ${f.rainfallMm.toStringAsFixed(1)}mm  •  '
-                'Humidity: ${f.humidityPct?.toStringAsFixed(0) ?? '—'}%'),
-            trailing: Text('${f.temperatureC.toStringAsFixed(1)}°C',
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Color(0xFF1B4332))),
-          ),
-        );
+        return Card(margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: CircleAvatar(backgroundColor: const Color(0xFF1B4332).withOpacity(0.1),
+                  child: Icon(_getWeatherIcon(f.rainfallMm, f.temperatureC), color: const Color(0xFF1B4332), size: 20)),
+              title: Text(f.forecastHorizonDays != null ? _t('dayPlus', n: '${f.forecastHorizonDays}') : f.recordedDate,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text('${_t('rainfall')}: ${f.rainfallMm.toStringAsFixed(1)}mm  •  '
+                  '${_t('humidity')}: ${f.humidityPct?.toStringAsFixed(0) ?? '—'}%'),
+              trailing: Text('${f.temperatureC.toStringAsFixed(1)}°C',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1B4332))),
+            ));
       },
     );
   }
 
-  // ── Tab 3: NDVI & Yield ───────────────────────────────────────────────────
+  // ── Tab 3: NDVI ───────────────────────────────────────────────────────────
   Widget _buildNdviTab() {
-    if (_ndviLoading) {
-      return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF1B4332)));
-    }
-    if (_latestNdvi == null && _ndviHistory.isEmpty) {
-      return _emptyState(
-        'No satellite data yet',
-        'NDVI readings sync every few days after your farm is registered',
-        Icons.satellite_alt,
-      );
-    }
+    if (_ndviLoading) return const Center(child: CircularProgressIndicator(color: Color(0xFF1B4332)));
+    if (_latestNdvi == null && _ndviHistory.isEmpty)
+      return _emptyState(_t('noNdvi'), _t('noNdviHint'), Icons.satellite_alt);
     return RefreshIndicator(
-      onRefresh: () => _selectedFarm != null
-          ? _loadNdvi(_selectedFarm!.id)
-          : Future.value(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      onRefresh: () => _selectedFarm != null ? _loadNdvi(_selectedFarm!.id) : Future.value(),
+      child: SingleChildScrollView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             if (_latestNdvi != null) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      _latestNdvi!.healthColor,
-                      _latestNdvi!.healthColor.withOpacity(0.7),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Latest NDVI',
-                        style: TextStyle(color: Colors.white70, fontSize: 12)),
+              Container(width: double.infinity, padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [_latestNdvi!.healthColor, _latestNdvi!.healthColor.withOpacity(0.7)]),
+                      borderRadius: BorderRadius.circular(16)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(_t('latestNdvi'), style: const TextStyle(color: Colors.white70, fontSize: 12)),
                     const SizedBox(height: 4),
-                    Text(
-                      _latestNdvi!.ndviValue.toStringAsFixed(3),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      '${_latestNdvi!.healthLabel} · '
-                      '${_latestNdvi!.cloudCoverage.toStringAsFixed(0)}% cloud',
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                    ),
+                    Text(_latestNdvi!.ndviValue.toStringAsFixed(3),
+                        style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold)),
+                    Text('${_latestNdvi!.healthLabel} · ${_latestNdvi!.cloudCoverage.toStringAsFixed(0)}${_t('cloudCover')}',
+                        style: const TextStyle(color: Colors.white, fontSize: 13)),
                     if (_latestNdvi!.recordedDate.isNotEmpty)
-                      Text('Recorded ${_latestNdvi!.recordedDate}',
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 11)),
-                  ],
-                ),
-              ),
+                      Text('${_t('recorded')} ${_latestNdvi!.recordedDate}',
+                          style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  ])),
               const SizedBox(height: 16),
             ],
             if (_yieldPrediction != null) ...[
-              Card(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Yield forecast',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16)),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${_yieldPrediction!.totalYieldMeanQuintals.toStringAsFixed(1)} quintals (est.)',
-                        style: const TextStyle(
-                            fontSize: 18, color: Color(0xFF1B4332)),
-                      ),
-                      Text(
-                        'Confidence ${_yieldPrediction!.confidencePct}%'
-                        '${_yieldPrediction!.weeksToHarvest != null ? ' · ~${_yieldPrediction!.weeksToHarvest} wks to harvest' : ''}',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              Card(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(_t('yieldForecast'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text('${_yieldPrediction!.totalYieldMeanQuintals.toStringAsFixed(1)} ${_t('quintals')}',
+                        style: const TextStyle(fontSize: 18, color: Color(0xFF1B4332))),
+                    Text('${_t('confidence')} ${_yieldPrediction!.confidencePct}%'
+                        '${_yieldPrediction!.weeksToHarvest != null ? ' · ${_t('wksToHarvest', w: '${_yieldPrediction!.weeksToHarvest}')}' : ''}',
+                        style: TextStyle(color: Colors.grey.shade600)),
+                  ]))),
               const SizedBox(height: 16),
             ],
-            const Text('NDVI history (90 days)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            Text(_t('ndviHistory'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 12),
-            Card(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: NdviHistoryChart(readings: _ndviHistory),
-              ),
-            ),
-          ],
-        ),
-      ),
+            Card(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(padding: const EdgeInsets.all(16), child: NdviHistoryChart(readings: _ndviHistory))),
+          ])),
     );
   }
 
-  // ── Tab 4: Drought Monitor ────────────────────────────────────────────────
+  // ── Tab 4: Drought ────────────────────────────────────────────────────────
   Widget _buildDroughtTab() {
-    if (_drought == null) {
-      return _emptyState('No drought data', 'Drought monitoring will begin after weather data is collected', Icons.water_drop_outlined);
-    }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Status card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
+    if (_drought == null) return _emptyState(_t('noDrought'), _t('noDroughtHint'), Icons.water_drop_outlined);
+    return SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(children: [
+      Container(width: double.infinity, padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
               color: _drought!.isTriggered ? Colors.red[50] : Colors.green[50],
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: _drought!.isTriggered ? Colors.red[200]! : Colors.green[200]!,
-              ),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  _drought!.isTriggered ? Icons.warning : Icons.check_circle,
-                  size: 48,
-                  color: _drought!.isTriggered ? Colors.red : Colors.green,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _drought!.isTriggered ? 'DROUGHT TRIGGERED' : 'Normal Conditions',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 18,
-                    color: _drought!.isTriggered ? Colors.red[700] : Colors.green[700],
-                  ),
-                ),
-                if (_drought!.isTriggered)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Parametric insurance refund process has been initiated',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.red, fontSize: 12),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Dry days progress
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Consecutive Dry Days',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('${_drought!.consecutiveDryDays} days',
-                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-                    Text('Threshold: ${_drought!.droughtThresholdDays} days',
-                        style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: _drought!.droughtProgress.clamp(0.0, 1.0),
-                  backgroundColor: Colors.grey[200],
-                  color: _drought!.isTriggered ? Colors.red
-                      : _drought!.droughtProgress > 0.6 ? Colors.orange
-                      : Colors.green,
-                  minHeight: 10,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Warning at ${(0.67 * _drought!.droughtThresholdDays).toInt()} days',
-                        style: const TextStyle(color: Colors.orange, fontSize: 11)),
-                    Text('Trigger at ${_drought!.droughtThresholdDays} days',
-                        style: const TextStyle(color: Colors.red, fontSize: 11)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Rainfall history
-          if (_rainfall.isNotEmpty) ...[
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Last 30 Days Rainfall',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            ),
+              border: Border.all(color: _drought!.isTriggered ? Colors.red[200]! : Colors.green[200]!)),
+          child: Column(children: [
+            Icon(_drought!.isTriggered ? Icons.warning : Icons.check_circle, size: 48,
+                color: _drought!.isTriggered ? Colors.red : Colors.green),
             const SizedBox(height: 8),
-            ...(_rainfall.take(10).map((r) => Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(r.recordedDate,
-                      style: const TextStyle(fontWeight: FontWeight.w500)),
-                  Row(children: [
-                    Icon(Icons.water_drop,
-                        size: 14,
-                        color: r.rainfallMm > 0 ? Colors.blue : Colors.grey),
-                    const SizedBox(width: 4),
-                    Text('${r.rainfallMm.toStringAsFixed(1)} mm',
-                        style: TextStyle(
-                            color: r.rainfallMm > 0 ? Colors.blue : Colors.grey,
-                            fontWeight: FontWeight.bold)),
-                  ]),
-                ],
-              ),
-            ))),
-          ],
-        ],
-      ),
-    );
+            Text(_drought!.isTriggered ? _t('droughtTriggered') : _t('normalCond'),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18,
+                    color: _drought!.isTriggered ? Colors.red[700] : Colors.green[700])),
+            if (_drought!.isTriggered)
+              Padding(padding: const EdgeInsets.only(top: 8),
+                  child: Text(_t('parametricMsg'), textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.red, fontSize: 12))),
+          ])),
+      const SizedBox(height: 16),
+      Container(padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)]),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_t('consecutiveDry'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 12),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('${_drought!.consecutiveDryDays} days',
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+              Text('${_t('threshold')}: ${_drought!.droughtThresholdDays} days',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            ]),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: _drought!.droughtProgress.clamp(0.0, 1.0),
+                backgroundColor: Colors.grey[200],
+                color: _drought!.isTriggered ? Colors.red : _drought!.droughtProgress > 0.6 ? Colors.orange : Colors.green,
+                minHeight: 10, borderRadius: BorderRadius.circular(5)),
+            const SizedBox(height: 8),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text(_t('warningAt', n: '${(0.67 * _drought!.droughtThresholdDays).toInt()}'),
+                  style: const TextStyle(color: Colors.orange, fontSize: 11)),
+              Text(_t('triggerAt', n: '${_drought!.droughtThresholdDays}'),
+                  style: const TextStyle(color: Colors.red, fontSize: 11)),
+            ]),
+          ])),
+      if (_rainfall.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        Align(alignment: Alignment.centerLeft,
+            child: Text(_t('last30Rain'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))),
+        const SizedBox(height: 8),
+        ...(_rainfall.take(10).map((r) => Container(
+          margin: const EdgeInsets.only(bottom: 6), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text(r.recordedDate, style: const TextStyle(fontWeight: FontWeight.w500)),
+            Row(children: [
+              Icon(Icons.water_drop, size: 14, color: r.rainfallMm > 0 ? Colors.blue : Colors.grey),
+              const SizedBox(width: 4),
+              Text('${r.rainfallMm.toStringAsFixed(1)} mm',
+                  style: TextStyle(color: r.rainfallMm > 0 ? Colors.blue : Colors.grey, fontWeight: FontWeight.bold)),
+            ]),
+          ]),
+        ))),
+      ],
+    ]));
   }
 
-  // ── Tab 4: Alerts ─────────────────────────────────────────────────────────
+  // ── Tab 5: Alerts ─────────────────────────────────────────────────────────
   Widget _buildAlertsTab() {
-    if (_alerts.isEmpty) {
-      return _emptyState('No alerts', 'You will be notified when weather conditions require attention', Icons.notifications_none);
-    }
+    if (_alerts.isEmpty) return _emptyState(_t('noAlerts'), _t('noAlertsHint'), Icons.notifications_none);
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _alerts.length,
+      padding: const EdgeInsets.all(16), itemCount: _alerts.length,
       itemBuilder: (ctx, i) {
         final alert = _alerts[i];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _severityColor(alert.severity).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(alert.severity,
-                        style: TextStyle(
-                            color: _severityColor(alert.severity),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11)),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(_alertTypeLabel(alert.alertType),
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ]),
-                const SizedBox(height: 8),
-                Text(alert.messageEn,
-                    style: const TextStyle(color: Colors.black87, fontSize: 13)),
-                if (alert.messageAm != null) ...[
-                  const SizedBox(height: 4),
-                  Text(alert.messageAm!,
-                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                ],
-                const SizedBox(height: 8),
-                Text(alert.createdAt.substring(0, 10),
-                    style: const TextStyle(color: Colors.grey, fontSize: 11)),
+        return Card(margin: const EdgeInsets.only(bottom: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: _severityColor(alert.severity).withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                    child: Text(alert.severity, style: TextStyle(color: _severityColor(alert.severity), fontWeight: FontWeight.bold, fontSize: 11))),
+                const SizedBox(width: 8),
+                Expanded(child: Text(_alertTypeLabel(alert.alertType), style: const TextStyle(fontWeight: FontWeight.bold))),
+              ]),
+              const SizedBox(height: 8),
+              Text(alert.messageEn, style: const TextStyle(color: Colors.black87, fontSize: 13)),
+              if (alert.messageAm != null) ...[
+                const SizedBox(height: 4),
+                Text(alert.messageAm!, style: const TextStyle(color: Colors.grey, fontSize: 12)),
               ],
-            ),
-          ),
-        );
+              const SizedBox(height: 8),
+              Text(alert.createdAt.substring(0, 10), style: const TextStyle(color: Colors.grey, fontSize: 11)),
+            ])));
       },
     );
   }
 
+  // ── Tab 6: History ────────────────────────────────────────────────────────
   Widget _buildHistoryTab() {
-    if (_history.isEmpty) {
-      return _emptyState(
-        'No historical weather data',
-        'Historical weather records will appear here when available',
-        Icons.history,
-      );
-    }
-
+    if (_history.isEmpty) return _emptyState(_t('noHistory'), _t('noHistoryHint'), Icons.history);
     return RefreshIndicator(
-      onRefresh: () => _selectedFarm != null
-          ? _loadWeather(_selectedFarm!.id)
-          : Future.value(),
+      onRefresh: () => _selectedFarm != null ? _loadWeather(_selectedFarm!.id) : Future.value(),
       child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _history.length,
+        padding: const EdgeInsets.all(16), itemCount: _history.length,
         itemBuilder: (context, index) {
-          final weather = _history[index];
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor:
-                const Color(0xFF1B4332).withOpacity(0.1),
-                child: Icon(
-                  _getWeatherIcon(
-                    weather.rainfallMm,
-                    weather.temperatureC,
-                  ),
-                  color: const Color(0xFF1B4332),
-                ),
-              ),
-              title: Text(
-                weather.recordedDate,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Rainfall: ${weather.rainfallMm.toStringAsFixed(1)} mm',
-                  ),
-                  Text(
-                    'Humidity: ${weather.humidityPct?.toStringAsFixed(0) ?? 'N/A'}%',
-                  ),
-                  Text(
-                    weather.isDryDay
-                        ? 'Dry Day'
-                        : 'Rain Recorded',
-                  ),
-                ],
-              ),
-              trailing: Text(
-                '${weather.temperatureC.toStringAsFixed(1)}°C',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1B4332),
-                ),
-              ),
-            ),
-          );
+          final w = _history[index];
+          return Card(margin: const EdgeInsets.only(bottom: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: CircleAvatar(backgroundColor: const Color(0xFF1B4332).withOpacity(0.1),
+                    child: Icon(_getWeatherIcon(w.rainfallMm, w.temperatureC), color: const Color(0xFF1B4332))),
+                title: Text(w.recordedDate, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${_t('rainfall')}: ${w.rainfallMm.toStringAsFixed(1)} mm'),
+                  Text('${_t('humidity')}: ${w.humidityPct?.toStringAsFixed(0) ?? 'N/A'}%'),
+                  Text(w.isDryDay ? _t('dryDay') : '${_t('rainfall')} recorded'),
+                ]),
+                trailing: Text('${w.temperatureC.toStringAsFixed(1)}°C',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1B4332))),
+              ));
         },
       ),
     );
   }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   Widget _droughtSummaryCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _drought!.isTriggered ? Colors.red[50] : Colors.orange[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _drought!.isTriggered ? Colors.red[200]! : Colors.orange[200]!),
-      ),
-      child: Row(children: [
-        Icon(_drought!.isTriggered ? Icons.warning : Icons.info_outline,
-            color: _drought!.isTriggered ? Colors.red : Colors.orange),
-        const SizedBox(width: 12),
-        Expanded(child: Text(
-          _drought!.isTriggered
-              ? 'Drought triggered! ${_drought!.consecutiveDryDays} consecutive dry days.'
-              : '${_drought!.consecutiveDryDays} dry days. Threshold: ${_drought!.droughtThresholdDays}.',
-          style: TextStyle(
-              color: _drought!.isTriggered ? Colors.red[700] : Colors.orange[700],
-              fontWeight: FontWeight.w500,
-              fontSize: 13),
-        )),
-      ]),
-    );
+    return Container(padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+            color: _drought!.isTriggered ? Colors.red[50] : Colors.orange[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _drought!.isTriggered ? Colors.red[200]! : Colors.orange[200]!)),
+        child: Row(children: [
+          Icon(_drought!.isTriggered ? Icons.warning : Icons.info_outline,
+              color: _drought!.isTriggered ? Colors.red : Colors.orange),
+          const SizedBox(width: 12),
+          Expanded(child: Text(
+              _drought!.isTriggered
+                  ? '${_t('droughtTriggered')}! ${_drought!.consecutiveDryDays} consecutive dry days.'
+                  : '${_drought!.consecutiveDryDays} dry days. ${_t('threshold')}: ${_drought!.droughtThresholdDays}.',
+              style: TextStyle(color: _drought!.isTriggered ? Colors.red[700] : Colors.orange[700],
+                  fontWeight: FontWeight.w500, fontSize: 13))),
+        ]));
   }
 
   Widget _metricCard(String label, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
-      ),
-      child: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1), shape: BoxShape.circle),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        ]),
-      ]),
-    );
+    return Container(padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)]),
+        child: Row(children: [
+          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 20)),
+          const SizedBox(width: 12),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ]),
+        ]));
   }
 
   Widget _emptyState(String title, String subtitle, IconData icon) {
-    return Center(
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(icon, size: 64, color: Colors.grey[300]),
-        const SizedBox(height: 16),
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Text(subtitle, textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 13)),
-        ),
-      ]),
-    );
+    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Icon(icon, size: 64, color: Colors.grey[300]), const SizedBox(height: 16),
+      Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+      const SizedBox(height: 8),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 13))),
+    ]));
   }
 
   IconData _getWeatherIcon(double rain, double temp) {
     if (rain > 10) return Icons.thunderstorm;
-    if (rain > 1) return Icons.grain;
+    if (rain > 1)  return Icons.grain;
     if (temp > 35) return Icons.wb_sunny;
-    if (temp < 5) return Icons.ac_unit;
+    if (temp < 5)  return Icons.ac_unit;
     return Icons.wb_cloudy;
   }
 
   Color _riskColor(String level) {
     switch (level) {
       case 'CRITICAL': return Colors.red;
-      case 'HIGH': return Colors.orange;
-      case 'MEDIUM': return Colors.amber;
-      default: return Colors.green;
+      case 'HIGH':     return Colors.orange;
+      case 'MEDIUM':   return Colors.amber;
+      default:         return Colors.green;
     }
   }
 
   Color _severityColor(String severity) {
     switch (severity) {
       case 'CRITICAL': return Colors.red;
-      case 'HIGH': return Colors.orange;
-      case 'MEDIUM': return Colors.amber[700]!;
-      default: return Colors.green;
+      case 'HIGH':     return Colors.orange;
+      case 'MEDIUM':   return Colors.amber[700]!;
+      default:         return Colors.green;
     }
   }
 
   String _alertTypeLabel(String type) {
     switch (type) {
-      case 'FROST_WARNING': return '❄️ Frost Warning';
-      case 'HEAVY_RAIN': return '🌧️ Heavy Rain';
-      case 'DROUGHT_WARNING': return '☀️ Drought Warning';
-      case 'DROUGHT_TRIGGER': return '🚨 Drought Triggered';
-      case 'HEATWAVE': return '🌡️ Heatwave';
-      default: return type;
+      case 'FROST_WARNING':    return 'Frost Warning';
+      case 'HEAVY_RAIN':       return 'Heavy Rain';
+      case 'DROUGHT_WARNING':  return 'Drought Warning';
+      case 'DROUGHT_TRIGGER':  return 'Drought Triggered';
+      case 'HEATWAVE':         return 'Heatwave';
+      default:                 return type;
     }
   }
 }
+
+
+// import 'package:flutter/material.dart';
+
+
+
+// import '../../models/weather_model.dart';
+// import '../../services/weather_service.dart';
+// import '../../services/farm_service.dart';
+// import '../../services/geospatial_service.dart';
+// import '../../models/farm_model.dart';
+// import '../../models/ndvi_reading_model.dart';
+// import '../../models/yield_prediction_model.dart';
+// import '../../widgets/ndvi_history_chart.dart';
+//
+// class WeatherScreen extends StatefulWidget {
+//   const WeatherScreen({super.key});
+//   @override
+//   State<WeatherScreen> createState() => _WeatherScreenState();
+// }
+//
+// class _WeatherScreenState extends State<WeatherScreen>
+//     with SingleTickerProviderStateMixin {
+//   final _weatherService = WeatherService();
+//   final _farmService = FarmService();
+//   final _geospatialService = GeospatialService();
+//
+//   late TabController _tabController;
+//
+//   List<FarmModel> _farms = [];
+//   FarmModel? _selectedFarm;
+//
+//   WeatherReading? _current;
+//   List<WeatherReading> _forecast = [];
+//   List<WeatherReading> _rainfall = [];
+//   List<WeatherReading> _history = [];
+//   DroughtStatus? _drought;
+//   WeatherRisk? _risk;
+//   List<WeatherAlert> _alerts = [];
+//   NdviReadingModel? _latestNdvi;
+//   List<NdviReadingModel> _ndviHistory = [];
+//   YieldPredictionModel? _yieldPrediction;
+//   bool _ndviLoading = false;
+//
+//   bool _loading = true;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _tabController = TabController(length: 6, vsync: this);
+//     _loadFarms();
+//   }
+//
+//   @override
+//   void dispose() {
+//     _tabController.dispose();
+//     super.dispose();
+//   }
+//
+//   Future<void> _loadFarms() async {
+//     final result = await _farmService.getMyFarms();
+//     if (mounted) {
+//       if (result['success'] == true) {
+//         final farms = result['farms'] as List<FarmModel>;
+//         setState(() {
+//           _farms = farms;
+//           _selectedFarm = farms.isNotEmpty ? farms.first : null;
+//         });
+//         if (_selectedFarm != null) {
+//           _loadWeather(_selectedFarm!.id);
+//           _loadNdvi(_selectedFarm!.id);
+//         }
+//       } else {
+//         setState(() => _loading = false);
+//       }
+//     }
+//   }
+//
+//   Future<void> _loadNdvi(String farmId) async {
+//     setState(() => _ndviLoading = true);
+//     final results = await Future.wait([
+//       _geospatialService.getLatestNdvi(farmId),
+//       _geospatialService.getNdviHistory(farmId, days: 90),
+//       _geospatialService.getYieldPrediction(farmId),
+//     ]);
+//     if (mounted) {
+//       setState(() {
+//         _latestNdvi = results[0] as NdviReadingModel?;
+//         _ndviHistory = results[1] as List<NdviReadingModel>;
+//         _yieldPrediction = results[2] as YieldPredictionModel?;
+//         _ndviLoading = false;
+//       });
+//     }
+//   }
+//
+//   Future<void> _loadWeather(String farmId) async {
+//     setState(() => _loading = true);
+//     final results = await Future.wait([
+//       _weatherService.getCurrentWeather(farmId),
+//       _weatherService.getForecast(farmId),
+//       _weatherService.getRainfall(farmId),
+//       _weatherService.getDroughtStatus(farmId),
+//       _weatherService.getWeatherRisk(farmId),
+//       _weatherService.getAlerts(farmId),
+//       _weatherService.getHistory(farmId),
+//     ]);
+//     if (mounted) {
+//       setState(() {
+//         _current    = results[0] as WeatherReading?;
+//         _forecast   = results[1] as List<WeatherReading>;
+//         _rainfall   = results[2] as List<WeatherReading>;
+//         _drought    = results[3] as DroughtStatus?;
+//         _risk       = results[4] as WeatherRisk?;
+//         _alerts     = results[5] as List<WeatherAlert>;
+//         _history    = results[6] as List<WeatherReading>;
+//         _loading    = false;
+//       });
+//     }
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: const Color(0xFFF4F7F5),
+//       appBar: AppBar(
+//         title: const Text('Weather & Climate'),
+//         backgroundColor: const Color(0xFF1B4332),
+//         foregroundColor: Colors.white,
+//         bottom: TabBar(
+//           controller: _tabController,
+//           indicatorColor: Colors.white,
+//           labelColor: Colors.white,
+//           unselectedLabelColor: Colors.white60,
+//           isScrollable: true,
+//           tabs: const [
+//             Tab(text: 'Current'),
+//             Tab(text: 'Forecast'),
+//             Tab(text: 'NDVI'),
+//             Tab(text: 'Drought'),
+//             Tab(text: 'Alerts'),
+//             Tab(text: 'History'),
+//           ],
+//         ),
+//       ),
+//       body: Column(
+//         children: [
+//           // Farm selector
+//           if (_farms.length > 1) _buildFarmSelector(),
+//
+//           // Tabs
+//           Expanded(
+//             child: _loading
+//                 ? const Center(child: CircularProgressIndicator(
+//                     color: Color(0xFF1B4332)))
+//                 : TabBarView(
+//                     controller: _tabController,
+//                     children: [
+//                       _buildCurrentTab(),
+//                       _buildForecastTab(),
+//                       _buildNdviTab(),
+//                       _buildDroughtTab(),
+//                       _buildAlertsTab(),
+//                       _buildHistoryTab(),
+//                     ],
+//                   ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _buildFarmSelector() {
+//     return Container(
+//       color: Colors.white,
+//       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+//       child: DropdownButtonFormField<FarmModel>(
+//         value: _selectedFarm,
+//         decoration: const InputDecoration(
+//           labelText: 'Select Farm',
+//           border: OutlineInputBorder(),
+//           isDense: true,
+//         ),
+//         items: _farms.map((f) => DropdownMenuItem(
+//           value: f,
+//           child: Text(f.farmName ?? f.cropType),
+//         )).toList(),
+//         onChanged: (farm) {
+//           setState(() => _selectedFarm = farm);
+//           if (farm != null) {
+//             _loadWeather(farm.id);
+//             _loadNdvi(farm.id);
+//           }
+//         },
+//       ),
+//     );
+//   }
+//
+//   // ── Tab 1: Current Weather ─────────────────────────────────────────────────
+//   Widget _buildCurrentTab() {
+//     if (_current == null) {
+//       return _emptyState('No weather data', 'Weather data will appear once fetched', Icons.wb_sunny_outlined);
+//     }
+//     return RefreshIndicator(
+//       onRefresh: () => _selectedFarm != null ? _loadWeather(_selectedFarm!.id) : Future.value(),
+//       child: SingleChildScrollView(
+//         physics: const AlwaysScrollableScrollPhysics(),
+//         padding: const EdgeInsets.all(16),
+//         child: Column(
+//           children: [
+//             // Big weather card
+//             Container(
+//               width: double.infinity,
+//               padding: const EdgeInsets.all(24),
+//               decoration: BoxDecoration(
+//                 gradient: const LinearGradient(
+//                   begin: Alignment.topLeft,
+//                   end: Alignment.bottomRight,
+//                   colors: [Color(0xFF1B4332), Color(0xFF2D6A4F)],
+//                 ),
+//                 borderRadius: BorderRadius.circular(20),
+//               ),
+//               child: Column(
+//                 children: [
+//                   Icon(
+//                     _getWeatherIcon(_current!.rainfallMm, _current!.temperatureC),
+//                     size: 64, color: Colors.white,
+//                   ),
+//                   const SizedBox(height: 12),
+//                   Text('${_current!.temperatureC.toStringAsFixed(1)}°C',
+//                       style: const TextStyle(
+//                           color: Colors.white, fontSize: 48,
+//                           fontWeight: FontWeight.bold)),
+//                   Text(_current!.recordedDate,
+//                       style: const TextStyle(color: Colors.white70, fontSize: 13)),
+//                 ],
+//               ),
+//             ),
+//             const SizedBox(height: 16),
+//
+//             // Metric cards row
+//             Row(children: [
+//               Expanded(child: _metricCard('Rainfall', '${_current!.rainfallMm.toStringAsFixed(1)} mm',
+//                   Icons.water_drop, Colors.blue)),
+//               const SizedBox(width: 12),
+//               Expanded(child: _metricCard('Humidity',
+//                   _current!.humidityPct != null ? '${_current!.humidityPct!.toStringAsFixed(0)}%' : '—',
+//                   Icons.water, Colors.cyan)),
+//             ]),
+//             const SizedBox(height: 12),
+//             Row(children: [
+//               Expanded(child: _metricCard('Dry Day',
+//                   _current!.isDryDay ? 'Yes' : 'No',
+//                   Icons.wb_sunny, _current!.isDryDay ? Colors.orange : Colors.green)),
+//               const SizedBox(width: 12),
+//               Expanded(child: _metricCard('Risk Level',
+//                   _risk?.riskLevel ?? '—',
+//                   Icons.warning_amber,
+//                   _riskColor(_risk?.riskLevel ?? 'LOW'))),
+//             ]),
+//
+//             // Drought summary
+//             if (_drought != null) ...[
+//               const SizedBox(height: 16),
+//               _droughtSummaryCard(),
+//             ],
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   // ── Tab 2: 7-day Forecast ─────────────────────────────────────────────────
+//   Widget _buildForecastTab() {
+//     if (_forecast.isEmpty) {
+//       return _emptyState('No forecast data', 'Forecast will load from OpenWeather API', Icons.cloud_outlined);
+//     }
+//     return ListView.builder(
+//       padding: const EdgeInsets.all(16),
+//       itemCount: _forecast.length,
+//       itemBuilder: (ctx, i) {
+//         final f = _forecast[i];
+//         return Card(
+//           margin: const EdgeInsets.only(bottom: 8),
+//           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+//           child: ListTile(
+//             leading: CircleAvatar(
+//               backgroundColor: const Color(0xFF1B4332).withOpacity(0.1),
+//               child: Icon(_getWeatherIcon(f.rainfallMm, f.temperatureC),
+//                   color: const Color(0xFF1B4332), size: 20),
+//             ),
+//             title: Text(
+//               f.forecastHorizonDays != null
+//                   ? 'Day +${f.forecastHorizonDays}'
+//                   : f.recordedDate,
+//               style: const TextStyle(fontWeight: FontWeight.bold),
+//             ),
+//             subtitle: Text('Rain: ${f.rainfallMm.toStringAsFixed(1)}mm  •  '
+//                 'Humidity: ${f.humidityPct?.toStringAsFixed(0) ?? '—'}%'),
+//             trailing: Text('${f.temperatureC.toStringAsFixed(1)}°C',
+//                 style: const TextStyle(
+//                     fontWeight: FontWeight.bold,
+//                     fontSize: 16,
+//                     color: Color(0xFF1B4332))),
+//           ),
+//         );
+//       },
+//     );
+//   }
+//
+//   // ── Tab 3: NDVI & Yield ───────────────────────────────────────────────────
+//   Widget _buildNdviTab() {
+//     if (_ndviLoading) {
+//       return const Center(
+//           child: CircularProgressIndicator(color: Color(0xFF1B4332)));
+//     }
+//     if (_latestNdvi == null && _ndviHistory.isEmpty) {
+//       return _emptyState(
+//         'No satellite data yet',
+//         'NDVI readings sync every few days after your farm is registered',
+//         Icons.satellite_alt,
+//       );
+//     }
+//     return RefreshIndicator(
+//       onRefresh: () => _selectedFarm != null
+//           ? _loadNdvi(_selectedFarm!.id)
+//           : Future.value(),
+//       child: SingleChildScrollView(
+//         physics: const AlwaysScrollableScrollPhysics(),
+//         padding: const EdgeInsets.all(16),
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.start,
+//           children: [
+//             if (_latestNdvi != null) ...[
+//               Container(
+//                 width: double.infinity,
+//                 padding: const EdgeInsets.all(20),
+//                 decoration: BoxDecoration(
+//                   gradient: LinearGradient(
+//                     colors: [
+//                       _latestNdvi!.healthColor,
+//                       _latestNdvi!.healthColor.withOpacity(0.7),
+//                     ],
+//                   ),
+//                   borderRadius: BorderRadius.circular(16),
+//                 ),
+//                 child: Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     const Text('Latest NDVI',
+//                         style: TextStyle(color: Colors.white70, fontSize: 12)),
+//                     const SizedBox(height: 4),
+//                     Text(
+//                       _latestNdvi!.ndviValue.toStringAsFixed(3),
+//                       style: const TextStyle(
+//                           color: Colors.white,
+//                           fontSize: 36,
+//                           fontWeight: FontWeight.bold),
+//                     ),
+//                     Text(
+//                       '${_latestNdvi!.healthLabel} · '
+//                       '${_latestNdvi!.cloudCoverage.toStringAsFixed(0)}% cloud',
+//                       style: const TextStyle(color: Colors.white, fontSize: 13),
+//                     ),
+//                     if (_latestNdvi!.recordedDate.isNotEmpty)
+//                       Text('Recorded ${_latestNdvi!.recordedDate}',
+//                           style: const TextStyle(
+//                               color: Colors.white70, fontSize: 11)),
+//                   ],
+//                 ),
+//               ),
+//               const SizedBox(height: 16),
+//             ],
+//             if (_yieldPrediction != null) ...[
+//               Card(
+//                 shape: RoundedRectangleBorder(
+//                     borderRadius: BorderRadius.circular(12)),
+//                 child: Padding(
+//                   padding: const EdgeInsets.all(16),
+//                   child: Column(
+//                     crossAxisAlignment: CrossAxisAlignment.start,
+//                     children: [
+//                       const Text('Yield forecast',
+//                           style: TextStyle(
+//                               fontWeight: FontWeight.bold, fontSize: 16)),
+//                       const SizedBox(height: 8),
+//                       Text(
+//                         '${_yieldPrediction!.totalYieldMeanQuintals.toStringAsFixed(1)} quintals (est.)',
+//                         style: const TextStyle(
+//                             fontSize: 18, color: Color(0xFF1B4332)),
+//                       ),
+//                       Text(
+//                         'Confidence ${_yieldPrediction!.confidencePct}%'
+//                         '${_yieldPrediction!.weeksToHarvest != null ? ' · ~${_yieldPrediction!.weeksToHarvest} wks to harvest' : ''}',
+//                         style: TextStyle(color: Colors.grey.shade600),
+//                       ),
+//                     ],
+//                   ),
+//                 ),
+//               ),
+//               const SizedBox(height: 16),
+//             ],
+//             const Text('NDVI history (90 days)',
+//                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+//             const SizedBox(height: 12),
+//             Card(
+//               shape: RoundedRectangleBorder(
+//                   borderRadius: BorderRadius.circular(12)),
+//               child: Padding(
+//                 padding: const EdgeInsets.all(16),
+//                 child: NdviHistoryChart(readings: _ndviHistory),
+//               ),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   // ── Tab 4: Drought Monitor ────────────────────────────────────────────────
+//   Widget _buildDroughtTab() {
+//     if (_drought == null) {
+//       return _emptyState('No drought data', 'Drought monitoring will begin after weather data is collected', Icons.water_drop_outlined);
+//     }
+//     return SingleChildScrollView(
+//       padding: const EdgeInsets.all(16),
+//       child: Column(
+//         children: [
+//           // Status card
+//           Container(
+//             width: double.infinity,
+//             padding: const EdgeInsets.all(20),
+//             decoration: BoxDecoration(
+//               color: _drought!.isTriggered ? Colors.red[50] : Colors.green[50],
+//               borderRadius: BorderRadius.circular(16),
+//               border: Border.all(
+//                 color: _drought!.isTriggered ? Colors.red[200]! : Colors.green[200]!,
+//               ),
+//             ),
+//             child: Column(
+//               children: [
+//                 Icon(
+//                   _drought!.isTriggered ? Icons.warning : Icons.check_circle,
+//                   size: 48,
+//                   color: _drought!.isTriggered ? Colors.red : Colors.green,
+//                 ),
+//                 const SizedBox(height: 8),
+//                 Text(
+//                   _drought!.isTriggered ? 'DROUGHT TRIGGERED' : 'Normal Conditions',
+//                   style: TextStyle(
+//                     fontWeight: FontWeight.bold, fontSize: 18,
+//                     color: _drought!.isTriggered ? Colors.red[700] : Colors.green[700],
+//                   ),
+//                 ),
+//                 if (_drought!.isTriggered)
+//                   const Padding(
+//                     padding: EdgeInsets.only(top: 8),
+//                     child: Text(
+//                       'Parametric insurance refund process has been initiated',
+//                       textAlign: TextAlign.center,
+//                       style: TextStyle(color: Colors.red, fontSize: 12),
+//                     ),
+//                   ),
+//               ],
+//             ),
+//           ),
+//           const SizedBox(height: 16),
+//
+//           // Dry days progress
+//           Container(
+//             padding: const EdgeInsets.all(20),
+//             decoration: BoxDecoration(
+//               color: Colors.white,
+//               borderRadius: BorderRadius.circular(16),
+//               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
+//             ),
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 const Text('Consecutive Dry Days',
+//                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+//                 const SizedBox(height: 12),
+//                 Row(
+//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                   children: [
+//                     Text('${_drought!.consecutiveDryDays} days',
+//                         style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+//                     Text('Threshold: ${_drought!.droughtThresholdDays} days',
+//                         style: const TextStyle(color: Colors.grey, fontSize: 12)),
+//                   ],
+//                 ),
+//                 const SizedBox(height: 8),
+//                 LinearProgressIndicator(
+//                   value: _drought!.droughtProgress.clamp(0.0, 1.0),
+//                   backgroundColor: Colors.grey[200],
+//                   color: _drought!.isTriggered ? Colors.red
+//                       : _drought!.droughtProgress > 0.6 ? Colors.orange
+//                       : Colors.green,
+//                   minHeight: 10,
+//                   borderRadius: BorderRadius.circular(5),
+//                 ),
+//                 const SizedBox(height: 8),
+//                 Row(
+//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                   children: [
+//                     Text('Warning at ${(0.67 * _drought!.droughtThresholdDays).toInt()} days',
+//                         style: const TextStyle(color: Colors.orange, fontSize: 11)),
+//                     Text('Trigger at ${_drought!.droughtThresholdDays} days',
+//                         style: const TextStyle(color: Colors.red, fontSize: 11)),
+//                   ],
+//                 ),
+//               ],
+//             ),
+//           ),
+//           const SizedBox(height: 16),
+//
+//           // Rainfall history
+//           if (_rainfall.isNotEmpty) ...[
+//             const Align(
+//               alignment: Alignment.centerLeft,
+//               child: Text('Last 30 Days Rainfall',
+//                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+//             ),
+//             const SizedBox(height: 8),
+//             ...(_rainfall.take(10).map((r) => Container(
+//               margin: const EdgeInsets.only(bottom: 6),
+//               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+//               decoration: BoxDecoration(
+//                 color: Colors.white,
+//                 borderRadius: BorderRadius.circular(10),
+//               ),
+//               child: Row(
+//                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                 children: [
+//                   Text(r.recordedDate,
+//                       style: const TextStyle(fontWeight: FontWeight.w500)),
+//                   Row(children: [
+//                     Icon(Icons.water_drop,
+//                         size: 14,
+//                         color: r.rainfallMm > 0 ? Colors.blue : Colors.grey),
+//                     const SizedBox(width: 4),
+//                     Text('${r.rainfallMm.toStringAsFixed(1)} mm',
+//                         style: TextStyle(
+//                             color: r.rainfallMm > 0 ? Colors.blue : Colors.grey,
+//                             fontWeight: FontWeight.bold)),
+//                   ]),
+//                 ],
+//               ),
+//             ))),
+//           ],
+//         ],
+//       ),
+//     );
+//   }
+//
+//   // ── Tab 4: Alerts ─────────────────────────────────────────────────────────
+//   Widget _buildAlertsTab() {
+//     if (_alerts.isEmpty) {
+//       return _emptyState('No alerts', 'You will be notified when weather conditions require attention', Icons.notifications_none);
+//     }
+//     return ListView.builder(
+//       padding: const EdgeInsets.all(16),
+//       itemCount: _alerts.length,
+//       itemBuilder: (ctx, i) {
+//         final alert = _alerts[i];
+//         return Card(
+//           margin: const EdgeInsets.only(bottom: 12),
+//           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+//           child: Padding(
+//             padding: const EdgeInsets.all(16),
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Row(children: [
+//                   Container(
+//                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+//                     decoration: BoxDecoration(
+//                       color: _severityColor(alert.severity).withOpacity(0.1),
+//                       borderRadius: BorderRadius.circular(6),
+//                     ),
+//                     child: Text(alert.severity,
+//                         style: TextStyle(
+//                             color: _severityColor(alert.severity),
+//                             fontWeight: FontWeight.bold,
+//                             fontSize: 11)),
+//                   ),
+//                   const SizedBox(width: 8),
+//                   Expanded(
+//                     child: Text(_alertTypeLabel(alert.alertType),
+//                         style: const TextStyle(fontWeight: FontWeight.bold)),
+//                   ),
+//                 ]),
+//                 const SizedBox(height: 8),
+//                 Text(alert.messageEn,
+//                     style: const TextStyle(color: Colors.black87, fontSize: 13)),
+//                 if (alert.messageAm != null) ...[
+//                   const SizedBox(height: 4),
+//                   Text(alert.messageAm!,
+//                       style: const TextStyle(color: Colors.grey, fontSize: 12)),
+//                 ],
+//                 const SizedBox(height: 8),
+//                 Text(alert.createdAt.substring(0, 10),
+//                     style: const TextStyle(color: Colors.grey, fontSize: 11)),
+//               ],
+//             ),
+//           ),
+//         );
+//       },
+//     );
+//   }
+//
+//   Widget _buildHistoryTab() {
+//     if (_history.isEmpty) {
+//       return _emptyState(
+//         'No historical weather data',
+//         'Historical weather records will appear here when available',
+//         Icons.history,
+//       );
+//     }
+//
+//     return RefreshIndicator(
+//       onRefresh: () => _selectedFarm != null
+//           ? _loadWeather(_selectedFarm!.id)
+//           : Future.value(),
+//       child: ListView.builder(
+//         padding: const EdgeInsets.all(16),
+//         itemCount: _history.length,
+//         itemBuilder: (context, index) {
+//           final weather = _history[index];
+//
+//           return Card(
+//             margin: const EdgeInsets.only(bottom: 10),
+//             shape: RoundedRectangleBorder(
+//               borderRadius: BorderRadius.circular(12),
+//             ),
+//             child: ListTile(
+//               leading: CircleAvatar(
+//                 backgroundColor:
+//                 const Color(0xFF1B4332).withOpacity(0.1),
+//                 child: Icon(
+//                   _getWeatherIcon(
+//                     weather.rainfallMm,
+//                     weather.temperatureC,
+//                   ),
+//                   color: const Color(0xFF1B4332),
+//                 ),
+//               ),
+//               title: Text(
+//                 weather.recordedDate,
+//                 style: const TextStyle(
+//                   fontWeight: FontWeight.bold,
+//                 ),
+//               ),
+//               subtitle: Column(
+//                 crossAxisAlignment: CrossAxisAlignment.start,
+//                 children: [
+//                   Text(
+//                     'Rainfall: ${weather.rainfallMm.toStringAsFixed(1)} mm',
+//                   ),
+//                   Text(
+//                     'Humidity: ${weather.humidityPct?.toStringAsFixed(0) ?? 'N/A'}%',
+//                   ),
+//                   Text(
+//                     weather.isDryDay
+//                         ? 'Dry Day'
+//                         : 'Rain Recorded',
+//                   ),
+//                 ],
+//               ),
+//               trailing: Text(
+//                 '${weather.temperatureC.toStringAsFixed(1)}°C',
+//                 style: const TextStyle(
+//                   fontWeight: FontWeight.bold,
+//                   color: Color(0xFF1B4332),
+//                 ),
+//               ),
+//             ),
+//           );
+//         },
+//       ),
+//     );
+//   }
+//   // ── Helpers ───────────────────────────────────────────────────────────────
+//   Widget _droughtSummaryCard() {
+//     return Container(
+//       padding: const EdgeInsets.all(16),
+//       decoration: BoxDecoration(
+//         color: _drought!.isTriggered ? Colors.red[50] : Colors.orange[50],
+//         borderRadius: BorderRadius.circular(12),
+//         border: Border.all(
+//           color: _drought!.isTriggered ? Colors.red[200]! : Colors.orange[200]!),
+//       ),
+//       child: Row(children: [
+//         Icon(_drought!.isTriggered ? Icons.warning : Icons.info_outline,
+//             color: _drought!.isTriggered ? Colors.red : Colors.orange),
+//         const SizedBox(width: 12),
+//         Expanded(child: Text(
+//           _drought!.isTriggered
+//               ? 'Drought triggered! ${_drought!.consecutiveDryDays} consecutive dry days.'
+//               : '${_drought!.consecutiveDryDays} dry days. Threshold: ${_drought!.droughtThresholdDays}.',
+//           style: TextStyle(
+//               color: _drought!.isTriggered ? Colors.red[700] : Colors.orange[700],
+//               fontWeight: FontWeight.w500,
+//               fontSize: 13),
+//         )),
+//       ]),
+//     );
+//   }
+//
+//   Widget _metricCard(String label, String value, IconData icon, Color color) {
+//     return Container(
+//       padding: const EdgeInsets.all(16),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(12),
+//         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+//       ),
+//       child: Row(children: [
+//         Container(
+//           padding: const EdgeInsets.all(8),
+//           decoration: BoxDecoration(
+//             color: color.withOpacity(0.1), shape: BoxShape.circle),
+//           child: Icon(icon, color: color, size: 20),
+//         ),
+//         const SizedBox(width: 12),
+//         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+//           Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+//           Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+//         ]),
+//       ]),
+//     );
+//   }
+//
+//   Widget _emptyState(String title, String subtitle, IconData icon) {
+//     return Center(
+//       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+//         Icon(icon, size: 64, color: Colors.grey[300]),
+//         const SizedBox(height: 16),
+//         Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+//         const SizedBox(height: 8),
+//         Padding(
+//           padding: const EdgeInsets.symmetric(horizontal: 40),
+//           child: Text(subtitle, textAlign: TextAlign.center,
+//               style: const TextStyle(color: Colors.grey, fontSize: 13)),
+//         ),
+//       ]),
+//     );
+//   }
+//
+//   IconData _getWeatherIcon(double rain, double temp) {
+//     if (rain > 10) return Icons.thunderstorm;
+//     if (rain > 1) return Icons.grain;
+//     if (temp > 35) return Icons.wb_sunny;
+//     if (temp < 5) return Icons.ac_unit;
+//     return Icons.wb_cloudy;
+//   }
+//
+//   Color _riskColor(String level) {
+//     switch (level) {
+//       case 'CRITICAL': return Colors.red;
+//       case 'HIGH': return Colors.orange;
+//       case 'MEDIUM': return Colors.amber;
+//       default: return Colors.green;
+//     }
+//   }
+//
+//   Color _severityColor(String severity) {
+//     switch (severity) {
+//       case 'CRITICAL': return Colors.red;
+//       case 'HIGH': return Colors.orange;
+//       case 'MEDIUM': return Colors.amber[700]!;
+//       default: return Colors.green;
+//     }
+//   }
+//
+//   String _alertTypeLabel(String type) {
+//     switch (type) {
+//       case 'FROST_WARNING': return '❄️ Frost Warning';
+//       case 'HEAVY_RAIN': return '🌧️ Heavy Rain';
+//       case 'DROUGHT_WARNING': return '☀️ Drought Warning';
+//       case 'DROUGHT_TRIGGER': return '🚨 Drought Triggered';
+//       case 'HEATWAVE': return '🌡️ Heatwave';
+//       default: return type;
+//     }
+//   }
+// }
