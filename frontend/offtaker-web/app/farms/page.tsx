@@ -7,8 +7,10 @@ import toast from 'react-hot-toast';
 import Navbar from '@/components/Navbar';
 import NdviBadge from '@/components/NdviBadge';
 import StatusBadge from '@/components/StatusBadge';
-import { browseFarms, placeBid } from '@/lib/api';
-import type { FarmMarketplace, FarmBrowseParams } from '@/lib/types';
+import NdviHistoryChart from '@/components/NdviHistoryChart';
+import FarmerIdentityCard from '@/components/FarmerIdentityCard';
+import { browseFarms, placeBid, getFarmFullDetail } from '@/lib/api';
+import type { FarmMarketplace, FarmBrowseParams, FarmFullDetail } from '@/lib/types';
 
 const FarmMap = dynamic(() => import('@/components/FarmMap'), { ssr: false });
 
@@ -24,6 +26,8 @@ export default function FarmsPage() {
   const [farms,            setFarms]            = useState<FarmMarketplace[]>([]);
   const [loading,          setLoading]          = useState(true);
   const [selected,         setSelected]         = useState<FarmMarketplace | null>(null);
+  const [detail,           setDetail]           = useState<FarmFullDetail | null>(null);
+  const [detailLoading,    setDetailLoading]    = useState(false);
   const [showBid,          setShowBid]          = useState(false);
   const [bidQty,           setBidQty]           = useState('');
   const [bidPrice,         setBidPrice]         = useState('');
@@ -47,7 +51,7 @@ export default function FarmsPage() {
     const lookup = searchParams.get('lookup');
     if (lookup && farms.length > 0) {
       const match = farms.find(f => f.farmId === lookup);
-      if (match) setSelected(match);
+      if (match) handleSelectFarm(match);
     }
   }, [searchParams, farms]);
 
@@ -75,6 +79,23 @@ export default function FarmsPage() {
   const handleFilter = (e: React.FormEvent) => {
     e.preventDefault();
     load();
+  };
+
+  // NEW: fetches the full UC-OFF-02 detail payload (NDVI history, bids, farmer identity)
+  // whenever a farm card is selected.
+  const handleSelectFarm = async (farm: FarmMarketplace) => {
+    setSelected(farm);
+    setShowBid(false);
+    setDetail(null);
+    setDetailLoading(true);
+    try {
+      const res = await getFarmFullDetail(farm.farmId);
+      if (res.data.success) setDetail(res.data.data);
+    } catch (err: any) {
+      toast.error('Could not load full farm details');
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handlePlaceBid = async (e: React.FormEvent) => {
@@ -109,9 +130,6 @@ export default function FarmsPage() {
 
   const totalValue = bidQty && bidPrice ? parseFloat(bidQty) * parseFloat(bidPrice) : 0;
 
-  // FIX: GPS centroid is now populated correctly via the gRPC backfill fix.
-  // If a farm's GPS is still 0,0 (not yet backfilled), fall back to a
-  // region-based approximate center so the map never looks broken.
   const regionCoords: Record<string, [number, number]> = {
     'Oromia': [8.5, 39.3], 'Amhara': [11.5, 38.0], 'SNNPR': [6.8, 37.5],
     'South Ethiopia': [6.8, 37.5], 'South West Ethiopia': [7.0, 35.5],
@@ -124,6 +142,13 @@ export default function FarmsPage() {
       return [farm.gpsCentroidLat, farm.gpsCentroidLng];
     }
     return regionCoords[farm.region] || [9.145, 40.489];
+  };
+
+  const bidStatusColor: Record<string, string> = {
+    PENDING: 'bg-yellow-100 text-yellow-700', ACCEPTED: 'bg-green-100 text-green-700',
+    REJECTED: 'bg-red-100 text-red-700', CONTRACT_SIGNED: 'bg-blue-100 text-blue-700',
+    COMPLETED: 'bg-emerald-100 text-emerald-700', DEFAULTED: 'bg-red-200 text-red-800',
+    EXPIRED: 'bg-gray-100 text-gray-500',
   };
 
   return (
@@ -225,7 +250,7 @@ export default function FarmsPage() {
               </div>
             ) : farms.map(farm => (
               <button key={farm.farmId}
-                onClick={() => { setSelected(farm); setShowBid(false); }}
+                onClick={() => handleSelectFarm(farm)}
                 className={`w-full text-left bg-white rounded-2xl shadow-sm border transition p-4
                   ${selected?.farmId === farm.farmId
                     ? 'border-teal-500 ring-2 ring-teal-200'
@@ -296,9 +321,7 @@ export default function FarmsPage() {
                   </div>
                 </div>
 
-                {/* Farm Map — satellite view with NDVI-colored area circle.
-                    Same FarmMap component as investor-web, same ESRI satellite
-                    tiles, same NDVI color coding. */}
+                {/* Farm Map — satellite view */}
                 <div className="p-6 pb-0">
                   <h3 className="font-bold text-gray-800 mb-3 text-sm">Farm Location — Satellite View</h3>
                   <FarmMap
@@ -340,6 +363,64 @@ export default function FarmsPage() {
                     ))}
                   </div>
 
+                  {/* NDVI History Chart — UC-OFF-02 */}
+                  <div className="mb-6">
+                    <h3 className="font-bold text-gray-800 mb-3">NDVI History</h3>
+                    {detailLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+                      </div>
+                    ) : (
+                      <NdviHistoryChart data={detail?.ndviHistory || []} />
+                    )}
+                  </div>
+
+                  {/* Farmer Identity Card — UC-OFF-02 */}
+                  <div className="mb-6">
+                    <h3 className="font-bold text-gray-800 mb-3">Farmer Information</h3>
+                    {detailLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+                      </div>
+                    ) : (
+                      <FarmerIdentityCard farmer={detail?.farmer || null} />
+                    )}
+                  </div>
+
+                  {/* Existing Bid History — UC-OFF-02 */}
+                  <div className="mb-6">
+                    <h3 className="font-bold text-gray-800 mb-3">Existing Bids on This Farm</h3>
+                    {detailLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+                      </div>
+                    ) : !detail?.bids || detail.bids.length === 0 ? (
+                      <div className="bg-gray-50 rounded-2xl p-5 text-center text-gray-400 text-sm">
+                        <p className="text-2xl mb-2">💰</p>
+                        <p>No other bids have been placed on this farm yet.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {detail.bids.map(bid => (
+                          <div key={bid.id} className="flex items-center justify-between border border-gray-100 rounded-xl p-3">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">
+                                {bid.quantityQuintals} qt @ {bid.pricePerQuintalEtb.toLocaleString()} ETB/qt
+                              </p>
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                Total: {bid.totalValueEtb.toLocaleString()} ETB · {new Date(bid.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${bidStatusColor[bid.status] || 'bg-gray-100 text-gray-600'}`}>
+                              {bid.status.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bid form */}
                   {!showBid ? (
                     <button onClick={() => setShowBid(true)}
                       className="w-full bg-teal-700 text-white py-3 rounded-xl font-bold hover:bg-teal-600 transition text-sm">
