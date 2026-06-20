@@ -9,6 +9,8 @@ import NdviBadge from '@/components/NdviBadge';
 import StatusBadge from '@/components/StatusBadge';
 import NdviHistoryChart from '@/components/NdviHistoryChart';
 import FarmerIdentityCard from '@/components/FarmerIdentityCard';
+import CropHealthBadge from '@/components/CropHealthBadge';
+import TrustRatingBadge from '@/components/TrustRatingBadge';
 import { browseFarms, placeBid, getFarmFullDetail } from '@/lib/api';
 import type { FarmMarketplace, FarmBrowseParams, FarmFullDetail } from '@/lib/types';
 
@@ -81,8 +83,6 @@ export default function FarmsPage() {
     load();
   };
 
-  // NEW: fetches the full UC-OFF-02 detail payload (NDVI history, bids, farmer identity)
-  // whenever a farm card is selected.
   const handleSelectFarm = async (farm: FarmMarketplace) => {
     setSelected(farm);
     setShowBid(false);
@@ -265,8 +265,9 @@ export default function FarmsPage() {
                     <p className="text-xs text-gray-400">Agri-Score</p>
                   </div>
                 </div>
+                {/* List view: compact crop-health badge replaces raw NDVI number for quick scanning */}
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  <NdviBadge ndvi={farm.currentNdvi} healthStatus={farm.ndviHealthStatus} />
+                  <CropHealthBadge ndvi={farm.currentNdvi} compact />
                   {farm.harvestReady && (
                     <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">
                       Harvest Ready
@@ -311,7 +312,7 @@ export default function FarmsPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-3">
-                    <NdviBadge ndvi={selected.currentNdvi} healthStatus={selected.ndviHealthStatus} />
+                    <CropHealthBadge ndvi={selected.currentNdvi} compact />
                     {selected.harvestReady && (
                       <span className="bg-green-400/30 text-green-100 text-xs font-bold px-3 py-1 rounded-full border border-green-400/40">
                         Harvest Ready
@@ -363,9 +364,15 @@ export default function FarmsPage() {
                     ))}
                   </div>
 
+                  {/* Crop Health — plain-language NDVI interpretation with bidding guidance */}
+                  <div className="mb-6">
+                    <h3 className="font-bold text-gray-800 mb-3">Crop Health — What It Means for Your Bid</h3>
+                    <CropHealthBadge ndvi={selected.currentNdvi} />
+                  </div>
+
                   {/* NDVI History Chart — UC-OFF-02 */}
                   <div className="mb-6">
-                    <h3 className="font-bold text-gray-800 mb-3">NDVI History</h3>
+                    <h3 className="font-bold text-gray-800 mb-3">NDVI History (90 Days)</h3>
                     {detailLoading ? (
                       <div className="flex items-center justify-center py-10">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
@@ -375,9 +382,24 @@ export default function FarmsPage() {
                     )}
                   </div>
 
+                  {/* Trust Rating — plain-language Agri-Score interpretation */}
+                  <div className="mb-6">
+                    <h3 className="font-bold text-gray-800 mb-3">Farmer Trust Rating</h3>
+                    {detailLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+                      </div>
+                    ) : (
+                      <TrustRatingBadge
+                        agriScore={detail?.farmer?.agriScore ?? selected.agriScore}
+                        seasonsCompleted={detail?.farmer?.totalSeasonsCompleted}
+                      />
+                    )}
+                  </div>
+
                   {/* Farmer Identity Card — UC-OFF-02 */}
                   <div className="mb-6">
-                    <h3 className="font-bold text-gray-800 mb-3">Farmer Information</h3>
+                    <h3 className="font-bold text-gray-800 mb-3">Farmer Contact Information</h3>
                     {detailLoading ? (
                       <div className="flex items-center justify-center py-10">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
