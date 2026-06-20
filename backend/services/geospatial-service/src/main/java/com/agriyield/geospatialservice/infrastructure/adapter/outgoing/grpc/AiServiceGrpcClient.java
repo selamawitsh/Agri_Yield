@@ -1,61 +1,64 @@
 package com.agriyield.geospatialservice.infrastructure.adapter.outgoing.grpc;
 
+import com.agriyield.aiservice.grpc.*;
 import com.agriyield.geospatialservice.application.port.outgoing.AiServicePort;
-import com.agriyield.geospatialservice.domain.model.YieldPrediction;
+import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
-
+/**
+ * Geospatial-service gRPC CLIENT that calls ai-service.
+ * Used in GeospatialServiceImpl weekly yield prediction job.
+ */
 @Slf4j
 @Component
 public class AiServiceGrpcClient implements AiServicePort {
 
-    // @GrpcClient("ai-service") — wired when ai-service proto is compiled
-    // private AiServiceGrpc.AiServiceBlockingStub aiStub;
+    @GrpcClient("ai-service")
+    private AiServiceGrpc.AiServiceBlockingStub aiServiceStub;
 
     @Override
-    public YieldPrediction predictYield(UUID farmId,
-                                         String cropType,
-                                         double ndviPeak,
-                                         double ndviGrowthRate,
-                                         double ndviCurrent,
-                                         double totalRainfallMm,
-                                         double avgTempC,
-                                         double areaHectares,
-                                         int daysSincePlanting) {
-        log.info("gRPC: predictYield farmId={} cropType={} (STUB)", farmId, cropType);
+    public YieldPrediction predictYield(YieldPredictionInput input) {
+        log.info("Calling ai-service.PredictYield for farmId={}", input.farmId());
+        try {
+            YieldPredictionRequest request = YieldPredictionRequest.newBuilder()
+                    .setFarmId(input.farmId())
+                    .setCropType(input.cropType())
+                    .setNdviPeak(input.ndviPeak())
+                    .setNdviGrowthRate(input.ndviGrowthRate())
+                    .setNdviCurrent(input.ndviCurrent())
+                    .setNdviSmoothness(input.ndviSmoothness())
+                    .setTotalRainfallMm(input.totalRainfallMm())
+                    .setAvgTemperatureC(input.avgTemperatureC())
+                    .setAltitudeM(input.altitudeM())
+                    .setCropVarietyEncoded(input.cropVarietyEncoded())
+                    .setFarmAreaHa(input.farmAreaHa())
+                    .setInputQualityEncoded(input.inputQualityEncoded())
+                    .setDaysSincePlanting(input.daysSincePlanting())
+                    .setHistoricalZoneYield(input.historicalZoneYield())
+                    .setModelVersion("rule-based-v1.0")
+                    .build();
 
-        // SRS §3.7.3: stub until ai-service is built.
-        // Returns realistic mock predictions based on NDVI health.
-        double baseYield   = ndviPeak > 0.6 ? 22.0 : ndviPeak > 0.4 ? 16.0 : 10.0;
-        double totalMean   = baseYield * areaHectares;
-        double totalMin    = totalMean * 0.85;
-        double totalMax    = totalMean * 1.15;
-        int confidence     = ndviPeak > 0.6 ? 80 : ndviPeak > 0.4 ? 65 : 50;
+            YieldPredictionResponse response = aiServiceStub.predictYield(request);
 
-        return YieldPrediction.builder()
-            .farmId(farmId)
-            .cropType(cropType)
-            .predictedYieldMin(baseYield * 0.85)
-            .predictedYieldMax(baseYield * 1.15)
-            .predictedYieldMean(baseYield)
-            .totalYieldMinQuintals(totalMin)
-            .totalYieldMaxQuintals(totalMax)
-            .totalYieldMeanQuintals(totalMean)
-            .confidencePct(confidence)
-            .weeksToHarvest(6)
-            .modelVersion("stub_v1.0")
-            .ndviPeak(ndviPeak)
-            .ndviGrowthRate(ndviGrowthRate)
-            .totalRainfallMm(totalRainfallMm)
-            .avgTempC(avgTempC)
-            .altitudeM(2100.0)
-            .inputQuality("IMPROVED")
-            .predictedAt(LocalDateTime.now())
-            .createdAt(LocalDateTime.now())
-            .build();
+            return new YieldPrediction(
+                    response.getPredictedYieldQuintalsPerHa(),
+                    response.getLowerBound(),
+                    response.getUpperBound(),
+                    response.getConfidencePct(),
+                    response.getModelVersion()
+            );
+        } catch (StatusRuntimeException e) {
+            log.error("ai-service PredictYield gRPC failed for farm={}: {}", input.farmId(), e.getStatus());
+            // Return a safe fallback prediction so the geospatial scheduler doesn't crash
+            return new YieldPrediction(
+                    input.historicalZoneYield(),
+                    input.historicalZoneYield() * 0.8,
+                    input.historicalZoneYield() * 1.2,
+                    50,
+                    "fallback"
+            );
+        }
     }
 }

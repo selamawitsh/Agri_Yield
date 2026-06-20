@@ -1,22 +1,34 @@
 package com.agriyield.geospatialservice.application.port.outgoing;
 
-import com.agriyield.geospatialservice.domain.model.YieldPrediction;
-
-import java.util.UUID;
-
+/**
+ * Outgoing port in geospatial-service for calling ai-service yield prediction.
+ */
 public interface AiServicePort {
 
-    /**
-     * SRS §3.7.3: Call XGBoost yield prediction model via gRPC.
-     * Returns null if ai-service is unavailable (graceful degradation).
-     */
-    YieldPrediction predictYield(UUID farmId,
-                                  String cropType,
-                                  double ndviPeak,
-                                  double ndviGrowthRate,
-                                  double ndviCurrent,
-                                  double totalRainfallMm,
-                                  double avgTempC,
-                                  double areaHectares,
-                                  int daysSincePlanting);
+    YieldPrediction predictYield(YieldPredictionInput input);
+
+    record YieldPredictionInput(
+            String farmId,
+            String cropType,
+            double ndviPeak,
+            double ndviGrowthRate,
+            double ndviCurrent,
+            double ndviSmoothness,
+            double totalRainfallMm,
+            double avgTemperatureC,
+            int altitudeM,
+            int cropVarietyEncoded,
+            double farmAreaHa,
+            int inputQualityEncoded,
+            int daysSincePlanting,
+            double historicalZoneYield
+    ) {}
+
+    record YieldPrediction(
+            double predictedYieldQuintalsPerHa,
+            double lowerBound,
+            double upperBound,
+            int confidencePct,
+            String modelVersion
+    ) {}
 }
