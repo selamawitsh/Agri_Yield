@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package com.agriyield.aiservice.grpc;
+
+option java_package = "com.agriyield.aiservice.grpc";
+option java_outer_classname = "AiServiceProto";
+option java_multiple_files = true;
+
+// Called by geospatial-service to predict crop yield
+service AiService {
+  rpc PredictYield (YieldPredictionRequest) returns (YieldPredictionResponse);
+  rpc ScoreFraudRisk (FraudRiskRequest) returns (FraudRiskResponse);
+}
+
+message YieldPredictionRequest {
+  string farm_id = 1;
+  string crop_type = 2;
+  double ndvi_peak = 3;
+  double ndvi_growth_rate = 4;
+  double ndvi_current = 5;
+  double ndvi_smoothness = 6;
+  double total_rainfall_mm = 7;
+  double avg_temperature_c = 8;
+  int32 altitude_m = 9;
+  int32 crop_variety_encoded = 10;
+  double farm_area_ha = 11;
+  int32 input_quality_encoded = 12;
+  int32 days_since_planting = 13;
+  double historical_zone_yield = 14;
+  string model_version = 15;
+}
+
+message YieldPredictionResponse {
+  double predicted_yield_quintals_per_ha = 1;
+  double lower_bound = 2;
+  double upper_bound = 3;
+  int32 confidence_pct = 4;
+  string model_version = 5;
+}
+
+message FraudRiskRequest {
+  string entity_id = 1;
+  string entity_type = 2;
+  string event_type = 3;
+  string event_payload_json = 4;
+}
+
+message FraudRiskResponse {
+  double fraud_probability = 1;
+  string model_version = 2;
+  string risk_level = 3;
+}
