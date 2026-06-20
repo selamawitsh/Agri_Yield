@@ -4,6 +4,7 @@ import 'farm/my_farms_screen.dart';
 import 'vouchers/voucher_wallet_screen.dart';
 import 'weather/weather_screen.dart';
 import '../services/auth_service.dart';
+import 'advisor_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -152,9 +153,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   'AI Advisor',
                   'Yield Topology',
                   const Color(0xFF334155),
-                      () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('AI Advisor coming soon'))),
+                      () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const AdvisorScreen())),
                 ),
                 _buildMenuCard(
                   Icons.wb_sunny_outlined,

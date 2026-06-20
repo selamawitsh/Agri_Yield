@@ -104,4 +104,16 @@ class ApiService {
         options: Options(headers: {'Content-Type': 'multipart/form-data'}));
     return response.data;
   }
+
+  /// Accepts a pre-built [FormData] instance. This matches usages that
+  /// construct FormData directly (e.g. voice advisory with an audio file).
+  Future<dynamic> postMultipartForm(String endpoint, FormData formData,
+      {String? token}) async {
+    final headers = {'Content-Type': 'multipart/form-data'};
+    if (token != null) headers['Authorization'] = 'Bearer $token';
+
+    final response = await _dio.post(endpoint,
+        data: formData, options: Options(headers: headers));
+    return response.data;
+  }
 }

@@ -13,6 +13,7 @@ import 'screens/profile_screen.dart';
 import 'screens/farm/my_farms_screen.dart';
 import 'screens/vouchers/voucher_wallet_screen.dart';
 import 'screens/weather/weather_screen.dart';
+import 'screens/advisor_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,6 +82,7 @@ class MyApp extends StatelessWidget {
         '/farms':    (_) => const MyFarmsScreen(),
         '/vouchers': (_) => const VoucherWalletScreen(),
         '/weather':  (_) => const WeatherScreen(),
+        '/advisor': (_) => const AdvisorScreen(),
       },
     );
   }
