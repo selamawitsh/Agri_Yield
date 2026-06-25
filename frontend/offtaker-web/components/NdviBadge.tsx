@@ -13,7 +13,7 @@ export default function NdviBadge({ ndvi, healthStatus }: Props) {
 
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${color}`}>
-      🛰 NDVI {ndvi.toFixed(2)} — {label}
+      NDVI {ndvi.toFixed(2)} — {label}
     </span>
   );
 }

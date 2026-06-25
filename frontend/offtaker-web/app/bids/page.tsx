@@ -102,8 +102,8 @@ export default function BidsPage() {
         </div>
 
         {filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-            <p className="text-4xl mb-3">💰</p>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+            <p className="text-4xl mb-3"></p>
             <p className="text-gray-500 font-medium">No bids in this category</p>
             <Link href="/farms" className="mt-3 inline-block bg-teal-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-teal-700">
               Browse Farms
@@ -155,7 +155,7 @@ export default function BidsPage() {
 
                   {bid.status === 'ACCEPTED' && bid.agreementId && (
                     <div className="mt-3 bg-blue-50 border border-blue-100 rounded-xl p-3">
-                      <p className="text-sm font-semibold text-blue-800 mb-2">📄 Contract ready for signing</p>
+                      <p className="text-sm font-semibold text-blue-800 mb-2">Contract ready for signing</p>
                       <p className="text-xs text-blue-600 mb-3">
                         The farmer has accepted your bid. Sign the purchase agreement to proceed.
                       </p>
@@ -168,13 +168,13 @@ export default function BidsPage() {
 
                   {bid.status === 'ACCEPTED' && !bid.agreementId && (
                     <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-3">
-                      <p className="text-sm text-amber-700">⏳ Agreement being generated — refresh in a moment.</p>
+                        <p className="text-sm text-amber-700">Agreement being generated — refresh in a moment.</p>
                     </div>
                   )}
 
                   {bid.status === 'CONTRACT_SIGNED' && bid.agreementId && (
                     <div className="mt-3 bg-green-50 border border-green-100 rounded-xl p-3 flex justify-between items-center">
-                      <p className="text-sm font-semibold text-green-800">✅ Contract signed — schedule pickup</p>
+                      <p className="text-sm font-semibold text-green-800">Contract signed — schedule pickup</p>
                       <Link href={`/logistics?agreementId=${bid.agreementId}`}
                         className="bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-800 transition">
                         Schedule Dispatch →

@@ -121,7 +121,7 @@ export default function LogisticsPage() {
   };
 
   const dispatchStatusIcon: Record<string, string> = {
-    SCHEDULED: '📅', ARRIVED: '🚛', LOADED: '📦', DELIVERED: '✅', DRIVER_DEFAULTED: '❌',
+    SCHEDULED: 'calendar', ARRIVED: 'truck', LOADED: 'box', DELIVERED: 'check', DRIVER_DEFAULTED: 'warning',
   };
 
   if (loading) return (
@@ -183,7 +183,7 @@ export default function LogisticsPage() {
               </div>
             </div>
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-4 text-xs text-amber-700">
-              ⚠️ A 500 ETB driver penalty deposit will be locked in escrow. This is forfeited if the driver defaults.
+              A 500 ETB driver penalty deposit will be locked in escrow. This is forfeited if the driver defaults.
             </div>
             <div className="flex gap-3">
               <button type="button" onClick={() => setShowForm(false)}
@@ -200,7 +200,7 @@ export default function LogisticsPage() {
 
         {bids.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-            <p className="text-4xl mb-3">🚚</p>
+            <p className="text-4xl mb-3"></p>
             <p className="text-gray-500 font-medium">No signed contracts yet</p>
             <p className="text-gray-400 text-sm mt-1">Dispatches are available after a purchase agreement is signed by both parties</p>
           </div>
@@ -229,8 +229,9 @@ export default function LogisticsPage() {
                           <div key={d.id} className="border border-gray-100 rounded-xl p-4">
                             <div className="flex justify-between items-start mb-3">
                               <div>
-                                <p className="font-semibold text-gray-800 text-sm">
-                                  {dispatchStatusIcon[d.status]} {d.truckCount} truck{d.truckCount > 1 ? 's' : ''}
+                                <p className="font-semibold text-gray-800 text-sm flex items-center gap-2">
+                                  <Icon name={dispatchStatusIcon[d.status]} className="h-4 w-4 text-gray-600" />
+                                  <span>{d.truckCount} truck{d.truckCount > 1 ? 's' : ''}</span>
                                 </p>
                                 <p className="text-xs text-gray-400 mt-0.5">
                                   Driver Fayda: {d.driverFaydaId}

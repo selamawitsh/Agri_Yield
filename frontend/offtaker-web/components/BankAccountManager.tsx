@@ -157,9 +157,9 @@ export default function BankAccountManager() {
                   <span className="font-semibold">{account.accountType}</span>
                   {account.default && <span className="bg-teal-600 text-white text-xs px-2 py-0.5 rounded">Default</span>}
                   {account.verified ? (
-                    <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">✓ Verified</span>
+                    <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">Verified</span>
                   ) : (
-                    <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">⚠ Pending</span>
+                    <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">Pending</span>
                   )}
                 </div>
                 <p className="text-gray-700 mt-1">{maskAccountNumber(account.accountNumber)}</p>

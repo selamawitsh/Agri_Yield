@@ -1,6 +1,7 @@
 'use client';
 
 import type { FarmerIdentity } from '@/lib/types';
+import Icon from '@/components/Icons';
 
 interface Props {
   farmer: FarmerIdentity | null;
@@ -10,7 +11,11 @@ export default function FarmerIdentityCard({ farmer }: Props) {
   if (!farmer) {
     return (
       <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 text-center text-gray-400 text-sm">
-        <p className="text-2xl mb-2">👤</p>
+        <p className="text-2xl mb-2">
+          <span className="inline-block h-8 w-8">
+            <Icon name="user" className="h-8 w-8 text-gray-600" />
+          </span>
+        </p>
         <p>Farmer identity unavailable — try refreshing.</p>
       </div>
     );
@@ -30,14 +35,14 @@ export default function FarmerIdentityCard({ farmer }: Props) {
     <div className="bg-white border border-gray-100 rounded-2xl p-5">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center text-xl">
-          👨‍🌾
+          <Icon name="farm" className="h-6 w-6 text-teal-700" />
         </div>
         <div>
           <p className="font-bold text-gray-800">Farmer</p>
           <p className="text-xs text-gray-400 font-mono">{farmer.farmerId.slice(0, 13)}…</p>
         </div>
-        <span className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-full ${kycColor}`}>
-          {farmer.kycStatus === 'VERIFIED' ? '✓ KYC Verified' : farmer.kycStatus}
+          <span className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-full ${kycColor}`}>
+          {farmer.kycStatus === 'VERIFIED' ? 'KYC Verified' : farmer.kycStatus}
         </span>
       </div>
 

@@ -93,7 +93,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-blue-700 text-white px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <span className="text-xl">🚛</span>
+          <span className="text-xl"></span>
           <span className="font-bold text-lg">Agri-Yield Off-Taker</span>
         </div>
         <div className="flex gap-6 text-sm font-medium">
@@ -107,9 +107,9 @@ export default function ProfilePage() {
         <h1 className="text-2xl font-bold text-gray-900 mb-6">My Profile</h1>
 
         {message && (
-          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6 text-sm flex justify-between">
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6 text-sm flex justify-between">
             {message}
-            <button onClick={() => setMessage('')}>✕</button>
+            <button onClick={() => setMessage('')}>X</button>
           </div>
         )}
 
@@ -229,7 +229,7 @@ export default function ProfilePage() {
 
           {accounts.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
-              <p className="text-4xl mb-2">🏦</p>
+              <p className="text-4xl mb-2"></p>
               <p className="font-medium">No bank accounts linked</p>
               <p className="text-sm">Add an account for bid deposits and payments</p>
             </div>
@@ -239,7 +239,7 @@ export default function ProfilePage() {
                 <div key={acc.id} className={`flex items-center justify-between p-4 rounded-xl border ${acc.isDefault ? 'border-blue-200 bg-blue-50' : 'border-gray-200'}`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${acc.accountType === 'TELEBIRR' ? 'bg-blue-100' : 'bg-yellow-100'}`}>
-                      {acc.accountType === 'TELEBIRR' ? '📱' : '🏦'}
+                      {acc.accountType === 'TELEBIRR' ? 'Phone' : 'Bank'}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">

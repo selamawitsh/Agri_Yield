@@ -16,9 +16,9 @@ interface HealthTier {
 
 function getTier(ndvi: number): HealthTier {
   if (ndvi >= 0.6) {
-    return {
+      return {
       label: 'Thriving',
-      emoji: '🌿',
+      emoji: '',
       color: 'text-green-700',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
@@ -28,7 +28,7 @@ function getTier(ndvi: number): HealthTier {
   if (ndvi >= 0.4) {
     return {
       label: 'Healthy',
-      emoji: '🌱',
+      emoji: '',
       color: 'text-lime-700',
       bgColor: 'bg-lime-50',
       borderColor: 'border-lime-200',
@@ -38,7 +38,7 @@ function getTier(ndvi: number): HealthTier {
   if (ndvi >= 0.2) {
     return {
       label: 'Developing',
-      emoji: '🌾',
+      emoji: '',
       color: 'text-yellow-700',
       bgColor: 'bg-yellow-50',
       borderColor: 'border-yellow-200',
@@ -48,7 +48,7 @@ function getTier(ndvi: number): HealthTier {
   if (ndvi >= 0.0) {
     return {
       label: 'Stressed',
-      emoji: '⚠️',
+      emoji: '',
       color: 'text-orange-700',
       bgColor: 'bg-orange-50',
       borderColor: 'border-orange-200',
@@ -57,7 +57,7 @@ function getTier(ndvi: number): HealthTier {
   }
   return {
     label: 'Critical',
-    emoji: '🔴',
+    emoji: '',
     color: 'text-red-700',
     bgColor: 'bg-red-50',
     borderColor: 'border-red-200',

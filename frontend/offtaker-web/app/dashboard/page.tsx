@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import Navbar from '@/components/Navbar';
+import Icon from '@/components/Icons';
 import StatusBadge from '@/components/StatusBadge';
 import { getMyProfile, getMyBids } from '@/lib/api';
 import type { UserProfile, Bid } from '@/lib/types';
@@ -52,10 +53,10 @@ export default function DashboardPage() {
         <div className="bg-gradient-to-r from-teal-700 to-cyan-700 rounded-2xl p-6 mb-6 text-white">
           <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-2xl font-bold">Welcome back! 🚛</h2>
+              <h2 className="text-2xl font-bold">Welcome back!</h2>
               <p className="text-teal-100 mt-1 text-sm">
                 {user?.phone} &nbsp;·&nbsp;
-                {user?.kycStatus === 'VERIFIED' ? '✅ KYC Verified' : '⏳ KYC Pending'}
+                {user?.kycStatus === 'VERIFIED' ? 'KYC Verified' : 'KYC Pending'}
               </p>
             </div>
             <Link href="/farms"
@@ -67,14 +68,16 @@ export default function DashboardPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {[
-            { label: 'Active Bids',       value: activeBids.length,                         icon: '💰', color: 'text-teal-600',   bg: 'bg-teal-50'   },
-            { label: 'Completed Deals',   value: completedBids.length,                       icon: '✅', color: 'text-green-600',  bg: 'bg-green-50'  },
-            { label: 'Total Procured',    value: `${totalQuintals.toFixed(1)} qt`,            icon: '🌾', color: 'text-orange-600', bg: 'bg-orange-50' },
-            { label: 'Total Spend',       value: `${totalSpend.toLocaleString()} ETB`,        icon: '📊', color: 'text-blue-600',   bg: 'bg-blue-50'   },
+            {[
+            { label: 'Active Bids',       value: activeBids.length,                         icon: 'money', color: 'text-teal-600',   bg: 'bg-teal-50'   },
+            { label: 'Completed Deals',   value: completedBids.length,                       icon: 'check', color: 'text-green-600',  bg: 'bg-green-50'  },
+            { label: 'Total Procured',    value: `${totalQuintals.toFixed(1)} qt`,            icon: 'farm', color: 'text-orange-600', bg: 'bg-orange-50' },
+            { label: 'Total Spend',       value: `${totalSpend.toLocaleString()} ETB`,        icon: 'analytics', color: 'text-blue-600',   bg: 'bg-blue-50'   },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <div className={`w-9 h-9 ${s.bg} rounded-xl flex items-center justify-center text-xl mb-2`}>{s.icon}</div>
+              <div className={`w-9 h-9 ${s.bg} rounded-xl flex items-center justify-center text-xl mb-2`}>
+                <Icon name={s.icon} className="h-5 w-5 text-current" />
+              </div>
               <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">{s.label}</p>
               <p className={`text-xl font-bold ${s.color} mt-0.5`}>{s.value}</p>
             </div>
@@ -91,7 +94,7 @@ export default function DashboardPage() {
             </div>
             {bids.length === 0 ? (
               <div className="text-center py-10">
-                <p className="text-3xl mb-2">🌾</p>
+                <p className="text-3xl mb-2"></p>
                 <p className="text-gray-400 text-sm">No bids yet</p>
                 <Link href="/farms" className="mt-3 inline-block bg-teal-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-teal-700">
                   Browse Farms
@@ -120,12 +123,12 @@ export default function DashboardPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="font-bold text-gray-800 mb-4">Quick Actions</h3>
             <div className="space-y-3">
-              {[
-                { href: '/farms',     icon: '🌾', label: 'Browse farms',       desc: 'Find harvests to buy' },
-                { href: '/bids',      icon: '💰', label: 'My bids',            desc: 'Track all bids' },
-                { href: '/logistics', icon: '🚚', label: 'Logistics',          desc: 'Manage dispatches' },
-                { href: '/analytics', icon: '📊', label: 'Analytics',          desc: 'Procurement insights' },
-                { href: '/profile',   icon: '👤', label: 'Profile',            desc: 'Account settings' },
+                {[
+                { href: '/farms',     icon: '', label: 'Browse farms',       desc: 'Find harvests to buy' },
+                { href: '/bids',      icon: '', label: 'My bids',            desc: 'Track all bids' },
+                { href: '/logistics', icon: '', label: 'Logistics',          desc: 'Manage dispatches' },
+                { href: '/analytics', icon: '', label: 'Analytics',          desc: 'Procurement insights' },
+                { href: '/profile',   icon: '', label: 'Profile',            desc: 'Account settings' },
               ].map(a => (
                 <Link key={a.href} href={a.href}
                   className="flex items-center gap-3 p-3 border border-gray-100 rounded-xl hover:border-teal-300 hover:bg-teal-50 transition group">

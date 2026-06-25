@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { register, verifyOtp } from '@/lib/api';
+import Icon from '@/components/Icons';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -44,9 +45,9 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-2xl">🚛</span>
-          </div>
+            <div className="w-16 h-16 bg-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Icon name="truck" className="text-white h-8 w-8" />
+            </div>
           <h1 className="text-2xl font-bold text-gray-900">
             {step === 'form' ? 'Create Off-Taker Account' : 'Verify Your Phone'}
           </h1>

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import toast from 'react-hot-toast';
 import Navbar from '@/components/Navbar';
-import NdviBadge from '@/components/NdviBadge';
 import StatusBadge from '@/components/StatusBadge';
 import NdviHistoryChart from '@/components/NdviHistoryChart';
 import FarmerIdentityCard from '@/components/FarmerIdentityCard';
@@ -25,17 +24,21 @@ export default function FarmsPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
 
+  // Core Data States
   const [farms,            setFarms]            = useState<FarmMarketplace[]>([]);
   const [loading,          setLoading]          = useState(true);
   const [selected,         setSelected]         = useState<FarmMarketplace | null>(null);
   const [detail,           setDetail]           = useState<FarmFullDetail | null>(null);
   const [detailLoading,    setDetailLoading]    = useState(false);
+  
+  // Bid Form States
   const [showBid,          setShowBid]          = useState(false);
   const [bidQty,           setBidQty]           = useState('');
   const [bidPrice,         setBidPrice]         = useState('');
   const [bidDays,          setBidDays]          = useState('7');
   const [placing,          setPlacing]          = useState(false);
 
+  // Filter Input States
   const [cropType,         setCropType]         = useState('');
   const [region,           setRegion]           = useState('');
   const [harvestOnly,      setHarvestOnly]      = useState(false);
@@ -44,43 +47,53 @@ export default function FarmsPage() {
   const [harvestDateTo,    setHarvestDateTo]    = useState('');
   const [minYieldQuintals, setMinYieldQuintals] = useState('');
 
-  useEffect(() => {
-    if (!localStorage.getItem('access_token')) { router.push('/login'); return; }
-    load();
-  }, []);
+  // Active Query Parameters
+  const [activeFilters, setActiveFilters] = useState<FarmBrowseParams>({});
 
-  useEffect(() => {
-    const lookup = searchParams.get('lookup');
-    if (lookup && farms.length > 0) {
-      const match = farms.find(f => f.farmId === lookup);
-      if (match) handleSelectFarm(match);
-    }
-  }, [searchParams, farms]);
-
-  const load = useCallback(async () => {
+  const load = useCallback(async (filters: FarmBrowseParams = activeFilters) => {
     setLoading(true);
     try {
-      const params: FarmBrowseParams = {};
-      if (cropType)          params.cropType         = cropType;
-      if (region)            params.region           = region;
-      if (harvestOnly)       params.harvestReady      = true;
-      if (minNdvi)           params.minNdvi           = parseFloat(minNdvi);
-      if (harvestDateFrom)   params.harvestDateFrom   = harvestDateFrom;
-      if (harvestDateTo)     params.harvestDateTo     = harvestDateTo;
-      if (minYieldQuintals)  params.minYieldQuintals  = parseFloat(minYieldQuintals);
+      const res = await browseFarms(filters);
+      if (res.data.success) {
+        const fetchedFarms = res.data.data || [];
+        setFarms(fetchedFarms);
 
-      const res = await browseFarms(params);
-      if (res.data.success) setFarms(res.data.data || []);
+        const lookup = searchParams.get('lookup');
+        if (lookup) {
+          const match = fetchedFarms.find(f => f.farmId === lookup);
+          if (match) {
+            handleSelectFarm(match);
+          }
+        }
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to load farms');
     } finally {
       setLoading(false);
     }
-  }, [cropType, region, harvestOnly, minNdvi, harvestDateFrom, harvestDateTo, minYieldQuintals]);
+  }, [activeFilters, searchParams]);
+
+  useEffect(() => {
+    if (!localStorage.getItem('access_token')) { 
+      router.push('/login'); 
+      return; 
+    }
+    load(activeFilters);
+  }, [activeFilters, load, router]);
 
   const handleFilter = (e: React.FormEvent) => {
     e.preventDefault();
-    load();
+    
+    const params: FarmBrowseParams = {};
+    if (cropType)          params.cropType         = cropType;
+    if (region)            params.region           = region.trim();
+    if (harvestOnly)       params.harvestReady      = true;
+    if (minNdvi)           params.minNdvi           = parseFloat(minNdvi);
+    if (harvestDateFrom)   params.harvestDateFrom   = harvestDateFrom;
+    if (harvestDateTo)     params.harvestDateTo     = harvestDateTo;
+    if (minYieldQuintals)  params.minYieldQuintals  = parseFloat(minYieldQuintals);
+
+    setActiveFilters(params);
   };
 
   const handleSelectFarm = async (farm: FarmMarketplace) => {
@@ -164,7 +177,7 @@ export default function FarmsPage() {
               Farms appear here when satellite monitoring predicts harvest readiness.
             </p>
           </div>
-          <button onClick={load}
+          <button onClick={() => load(activeFilters)}
             className="text-sm text-teal-700 font-semibold border border-teal-200 px-4 py-2 rounded-xl hover:bg-teal-50 transition">
             Refresh
           </button>
@@ -265,7 +278,6 @@ export default function FarmsPage() {
                     <p className="text-xs text-gray-400">Agri-Score</p>
                   </div>
                 </div>
-                {/* List view: compact crop-health badge replaces raw NDVI number for quick scanning */}
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   <CropHealthBadge ndvi={farm.currentNdvi} compact />
                   {farm.harvestReady && (
@@ -290,7 +302,9 @@ export default function FarmsPage() {
           <div className="lg:col-span-2">
             {!selected ? (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 text-center h-full flex flex-col items-center justify-center">
-                <p className="text-gray-300 text-5xl mb-4">🌾</p>
+                <svg className="w-16 h-16 text-teal-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M14 12a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
                 <p className="text-gray-400 font-medium">Select a farm to view details and place a bid</p>
               </div>
             ) : (
@@ -322,7 +336,6 @@ export default function FarmsPage() {
                   </div>
                 </div>
 
-                {/* Farm Map — satellite view */}
                 <div className="p-6 pb-0">
                   <h3 className="font-bold text-gray-800 mb-3 text-sm">Farm Location — Satellite View</h3>
                   <FarmMap
@@ -334,7 +347,7 @@ export default function FarmsPage() {
                     areaHectares={selected.areaHectares}
                   />
                   <p className="text-xs text-gray-400 mt-2 text-center">
-                    📍 {selected.gpsCentroidLat && selected.gpsCentroidLat !== 0
+                    <span className="inline-block mr-1">📍</span> {selected.gpsCentroidLat && selected.gpsCentroidLat !== 0
                       ? 'Exact farm coordinates from satellite registration'
                       : `Approximate region center — ${selected.region}`}
                   </p>
@@ -364,13 +377,11 @@ export default function FarmsPage() {
                     ))}
                   </div>
 
-                  {/* Crop Health — plain-language NDVI interpretation with bidding guidance */}
                   <div className="mb-6">
                     <h3 className="font-bold text-gray-800 mb-3">Crop Health — What It Means for Your Bid</h3>
                     <CropHealthBadge ndvi={selected.currentNdvi} />
                   </div>
 
-                  {/* NDVI History Chart — UC-OFF-02 */}
                   <div className="mb-6">
                     <h3 className="font-bold text-gray-800 mb-3">NDVI History (90 Days)</h3>
                     {detailLoading ? (
@@ -382,7 +393,6 @@ export default function FarmsPage() {
                     )}
                   </div>
 
-                  {/* Trust Rating — plain-language Agri-Score interpretation */}
                   <div className="mb-6">
                     <h3 className="font-bold text-gray-800 mb-3">Farmer Trust Rating</h3>
                     {detailLoading ? (
@@ -397,7 +407,6 @@ export default function FarmsPage() {
                     )}
                   </div>
 
-                  {/* Farmer Identity Card — UC-OFF-02 */}
                   <div className="mb-6">
                     <h3 className="font-bold text-gray-800 mb-3">Farmer Contact Information</h3>
                     {detailLoading ? (
@@ -409,7 +418,6 @@ export default function FarmsPage() {
                     )}
                   </div>
 
-                  {/* Existing Bid History — UC-OFF-02 */}
                   <div className="mb-6">
                     <h3 className="font-bold text-gray-800 mb-3">Existing Bids on This Farm</h3>
                     {detailLoading ? (
@@ -417,8 +425,10 @@ export default function FarmsPage() {
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
                       </div>
                     ) : !detail?.bids || detail.bids.length === 0 ? (
-                      <div className="bg-gray-50 rounded-2xl p-5 text-center text-gray-400 text-sm">
-                        <p className="text-2xl mb-2">💰</p>
+                      <div className="bg-gray-50 rounded-2xl p-5 text-center text-gray-400 text-sm flex flex-col items-center justify-center">
+                        <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                         <p>No other bids have been placed on this farm yet.</p>
                       </div>
                     ) : (
@@ -442,7 +452,6 @@ export default function FarmsPage() {
                     )}
                   </div>
 
-                  {/* Bid form */}
                   {!showBid ? (
                     <button onClick={() => setShowBid(true)}
                       className="w-full bg-teal-700 text-white py-3 rounded-xl font-bold hover:bg-teal-600 transition text-sm">

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import Navbar from '@/components/Navbar';
+import Icon from '@/components/Icons';
 import { getAgreement, signAgreement, getBidById } from '@/lib/api';
 import type { Agreement, Bid } from '@/lib/types';
 
@@ -60,8 +61,8 @@ export default function AgreementPage() {
       const res = await signAgreement(agreement.id);
       if (res.data.success) {
         toast.success(res.data.data.fullyExecuted
-          ? '✅ Contract fully executed!'
-          : '✍️ Your signature recorded. Waiting for the other party.');
+          ? 'Contract fully executed!'
+          : 'Your signature recorded. Waiting for the other party.');
         setAgreement(res.data.data);
       }
     } catch (err: any) {
@@ -81,7 +82,7 @@ export default function AgreementPage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="container mx-auto px-4 py-12 max-w-3xl text-center">
-        <p className="text-3xl mb-3">📄</p>
+        <p className="text-3xl mb-3"></p>
         <p className="text-gray-700 font-semibold text-lg">Agreement not found</p>
         <p className="text-gray-400 text-sm mt-2">
           This agreement may not exist yet. The farmer must accept the bid first.
@@ -131,12 +132,12 @@ export default function AgreementPage() {
             <h3 className="font-bold text-gray-800 mb-4">Contract Status</h3>
 
             <div className="space-y-3 mb-5">
-              <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+                <div className={`flex items-center gap-3 p-3 rounded-xl border ${
                 agreement.farmerSignedAt
                   ? 'border-green-200 bg-green-50'
                   : 'border-gray-100 bg-gray-50'
               }`}>
-                <span className="text-xl">{agreement.farmerSignedAt ? '✅' : '⏳'}</span>
+                <span className="text-xl">{agreement.farmerSignedAt ? <Icon name="check" className="h-5 w-5 text-green-700"/> : <Icon name="clock" className="h-5 w-5 text-gray-400"/>}</span>
                 <div>
                   <p className="text-sm font-semibold text-gray-800">Farmer Signature</p>
                   <p className="text-xs text-gray-400">
@@ -146,12 +147,12 @@ export default function AgreementPage() {
                   </p>
                 </div>
               </div>
-              <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+                <div className={`flex items-center gap-3 p-3 rounded-xl border ${
                 agreement.offtakerSignedAt
                   ? 'border-green-200 bg-green-50'
                   : 'border-gray-100 bg-gray-50'
               }`}>
-                <span className="text-xl">{agreement.offtakerSignedAt ? '✅' : '⏳'}</span>
+                <span className="text-xl">{agreement.offtakerSignedAt ? <Icon name="check" className="h-5 w-5 text-green-700"/> : <Icon name="clock" className="h-5 w-5 text-gray-400"/>}</span>
                 <div>
                   <p className="text-sm font-semibold text-gray-800">Your Signature</p>
                   <p className="text-xs text-gray-400">
@@ -165,7 +166,7 @@ export default function AgreementPage() {
 
             {agreement.fullyExecuted ? (
               <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-                <p className="text-2xl mb-1">🎉</p>
+                <p className="text-2xl mb-1"><Icon name="check" className="h-10 w-10 text-green-700"/></p>
                 <p className="font-bold text-green-800">Contract Fully Executed</p>
                 <p className="text-sm text-green-600 mt-1">
                   Both parties have signed. You can now schedule harvest collection.
@@ -177,9 +178,9 @@ export default function AgreementPage() {
               </div>
             ) : !agreement.offtakerSignedAt ? (
               <div className="space-y-4">
-                {agreement.contractPdfUrl && (
+                    {agreement.contractPdfUrl && (
                   <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                    <p className="text-sm font-semibold text-gray-700 mb-2">📄 Purchase Agreement PDF</p>
+                    <p className="text-sm font-semibold text-gray-700 mb-2">Purchase Agreement PDF</p>
                     <a href={agreement.contractPdfUrl} target="_blank" rel="noopener noreferrer"
                       className="text-teal-600 text-sm font-medium hover:underline">
                       Open PDF Contract ↗
@@ -196,7 +197,7 @@ export default function AgreementPage() {
                 </label>
                 <button onClick={handleSign} disabled={signing || !confirmed}
                   className="w-full bg-teal-700 text-white py-3 rounded-xl font-bold hover:bg-teal-600 disabled:opacity-50 transition">
-                  {signing ? 'Signing with Fayda ID…' : '✍️ Sign Agreement'}
+                  {signing ? 'Signing with Fayda ID…' : 'Sign Agreement'}
                 </button>
                 <p className="text-xs text-gray-400 text-center">
                   Your Fayda National ID is used as the digital signature — linked to your account on file
@@ -204,7 +205,7 @@ export default function AgreementPage() {
               </div>
             ) : (
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
-                <p className="font-bold text-blue-800">You have signed ✅</p>
+                <p className="font-bold text-blue-800">You have signed</p>
                 <p className="text-sm text-blue-600 mt-1">
                   Waiting for the farmer to sign the agreement.
                 </p>

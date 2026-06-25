@@ -56,10 +56,10 @@ export default function AnalyticsPage() {
         {/* KPI cards — SRS §6.4 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Total Spent',         value: `${totalSpend.toLocaleString()} ETB`,   color: 'text-teal-600',   icon: '💰' },
-            { label: 'Quintals Procured',   value: `${totalQty.toFixed(1)} qt`,             color: 'text-green-600',  icon: '🌾' },
-            { label: 'Avg Price / Quintal', value: `${avgPrice.toFixed(0)} ETB`,            color: 'text-blue-600',   icon: '📊' },
-            { label: 'Deposit Locked',      value: `${depositLocked.toLocaleString()} ETB`, color: 'text-orange-600', icon: '🔒' },
+            { label: 'Total Spent',         value: `${totalSpend.toLocaleString()} ETB`,   color: 'text-teal-600',   icon: '' },
+            { label: 'Quintals Procured',   value: `${totalQty.toFixed(1)} qt`,             color: 'text-green-600',  icon: '' },
+            { label: 'Avg Price / Quintal', value: `${avgPrice.toFixed(0)} ETB`,            color: 'text-blue-600',   icon: '' },
+            { label: 'Deposit Locked',      value: `${depositLocked.toLocaleString()} ETB`, color: 'text-orange-600', icon: '' },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
               <div className="text-2xl mb-2">{s.icon}</div>

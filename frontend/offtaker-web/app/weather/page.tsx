@@ -94,7 +94,7 @@ export default function WeatherPage() {
             {drought && (
               <div className={`rounded-2xl border p-5 ${drought.isTriggered ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="text-2xl">{drought.isTriggered ? '🚨' : '✅'}</span>
+                  <span className="text-2xl">{drought.isTriggered ? '' : ''}</span>
                   <div>
                     <p className={`font-bold ${drought.isTriggered ? 'text-red-700' : 'text-green-700'}`}>
                       {drought.isTriggered ? 'Drought Triggered' : 'Drought: Normal'}
@@ -108,7 +108,7 @@ export default function WeatherPage() {
                 </div>
                 {drought.isTriggered && (
                   <p className="text-sm text-red-600 mt-3 font-medium">
-                    ⚠️ Harvest may be affected. Consider adjusting logistics schedule.
+                    Harvest may be affected. Consider adjusting logistics schedule.
                   </p>
                 )}
               </div>
@@ -123,12 +123,10 @@ export default function WeatherPage() {
                 <div className="space-y-3">
                   {alerts.map(alert => (
                     <div key={alert.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
-                      <span className="text-lg">
-                        {alert.alertType === 'FROST_WARNING' ? '❄️'
-                          : alert.alertType === 'HEAVY_RAIN' ? '🌧️'
-                          : alert.alertType.includes('DROUGHT') ? '☀️'
-                          : '⚠️'}
-                      </span>
+                      <span className="text-lg">{alert.alertType === 'FROST_WARNING' ? ''
+                          : alert.alertType === 'HEAVY_RAIN' ? ''
+                          : alert.alertType.includes('DROUGHT') ? ''
+                          : ''}</span>
                       <div>
                         <p className="text-sm font-semibold text-slate-700">
                           {alert.alertType.replace(/_/g, ' ')}

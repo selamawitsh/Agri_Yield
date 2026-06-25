@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { getWeatherRisk, getDroughtStatus, getWeatherAlerts } from '@/lib/api';
+import Icon from '@/components/Icons';
 
 interface WeatherBadgeProps {
   farmId: string;
@@ -35,17 +36,20 @@ export default function WeatherBadge({ farmId }: WeatherBadgeProps) {
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${colors[riskLevel] || 'bg-slate-100 text-slate-600'}`}>
-        🌤️ {riskLevel} RISK
+      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${colors[riskLevel] || 'bg-slate-100 text-slate-600'}`}>
+        <Icon name="cloud" className="h-3 w-3" />
+        {riskLevel} RISK
       </span>
       {droughtTriggered && (
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-          🚨 DROUGHT
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+          <Icon name="warning" className="h-3 w-3 text-red-700" />
+          DROUGHT
         </span>
       )}
       {alertCount > 0 && (
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
-          ⚠️ {alertCount} alert{alertCount > 1 ? 's' : ''}
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+          <Icon name="bell" className="h-3 w-3 text-orange-700" />
+          {alertCount} alert{alertCount > 1 ? 's' : ''}
         </span>
       )}
     </div>
