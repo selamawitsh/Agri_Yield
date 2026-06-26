@@ -127,8 +127,8 @@ export default function RegisterPage() {
 
         {/* Logo */}
         <div className="text-center mb-6">
-          <div className="w-14 h-14 bg-green-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <span className="text-white text-2xl">🌾</span>
+            <div className="w-14 h-14 bg-green-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <span className="text-white text-2xl"></span>
           </div>
           <h1 className="text-xl font-bold text-gray-900">Create Investor Account</h1>
           <p className="text-gray-500 text-sm mt-1">Agri-Yield — Ethiopia's Agricultural Fintech</p>
@@ -144,7 +144,7 @@ export default function RegisterPage() {
                   i === stepIndex ? 'bg-green-700 text-white ring-2 ring-green-300' :
                   'bg-gray-100 text-gray-400'
                 }`}>
-                  {i < stepIndex ? '✓' : i + 1}
+                  {i < stepIndex ? 'Done' : i + 1}
                 </div>
                 <span className={`text-xs mt-1 hidden sm:block ${i === stepIndex ? 'text-green-700 font-semibold' : 'text-gray-400'}`}>
                   {label}
@@ -161,9 +161,9 @@ export default function RegisterPage() {
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-5 text-sm flex justify-between">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-5 text-sm flex justify-between">
             <span>{error}</span>
-            <button onClick={() => setError('')} className="text-red-400 hover:text-red-600 ml-2">✕</button>
+            <button onClick={() => setError('')} className="text-red-400 hover:text-red-600 ml-2">X</button>
           </div>
         )}
 
@@ -237,7 +237,7 @@ export default function RegisterPage() {
         {step === 'risk' && (
           <form onSubmit={handleRisk} className="space-y-6">
             <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-700 text-center">
-              📊 Help us tailor your investment experience
+              Help us tailor your investment experience
             </div>
             {RISK_QUESTIONS.map((q, qi) => (
               <div key={q.id}>
@@ -274,7 +274,7 @@ export default function RegisterPage() {
         {step === 'bank' && (
           <form onSubmit={handleBank} className="space-y-5">
             <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-sm text-amber-700">
-              🏦 Link your payout account — you'll receive harvest returns here. You can add more accounts later.
+              Link your payout account — you'll receive harvest returns here. You can add more accounts later.
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
@@ -286,7 +286,7 @@ export default function RegisterPage() {
                         ? 'border-green-500 bg-green-50 text-green-700'
                         : 'border-gray-200 text-gray-600 hover:border-green-300'
                     }`}>
-                    {type === 'TELEBIRR' ? '📱 Telebirr' : '🏦 CBE Birr'}
+                    {type === 'TELEBIRR' ? 'Telebirr' : 'CBE Birr'}
                   </button>
                 ))}
               </div>
@@ -313,7 +313,7 @@ export default function RegisterPage() {
         {step === 'done' && (
           <div className="text-center space-y-5">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-              <span className="text-4xl">🎉</span>
+              <span className="text-4xl"></span>
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">Account created!</h2>
@@ -322,11 +322,11 @@ export default function RegisterPage() {
                 {!skipBank && bankNumber && ' Your bank account has been linked and is pending verification.'}
               </p>
             </div>
-            <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-sm text-green-700 space-y-1">
-              <p>✓ Account registered</p>
-              <p>✓ Phone verified</p>
-              <p>✓ Risk profile saved</p>
-              <p>{skipBank ? '○ Bank account — add in Profile later' : '✓ Bank account linked'}</p>
+              <div className="bg-green-50 border border-green-100 rounded-xl p-4 text-sm text-green-700 space-y-1">
+              <p>Account registered</p>
+              <p>Phone verified</p>
+              <p>Risk profile saved</p>
+              <p>{skipBank ? 'Bank account — add in Profile later' : 'Bank account linked'}</p>
             </div>
             <button onClick={() => router.push('/login?registered=true')}
               className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition">

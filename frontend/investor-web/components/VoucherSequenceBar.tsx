@@ -24,7 +24,7 @@ export default function VoucherSequenceBar({ vouchers }: { vouchers: Voucher[] }
                     : 'bg-white border-gray-300 text-gray-400'
                 }`}
               >
-                {isDone ? '✓' : isLocked ? '🔒' : v.sequenceOrder}
+                {isDone ? 'Done' : isLocked ? 'Locked' : v.sequenceOrder}
               </div>
               <span className="text-[10px] text-gray-500 text-center leading-tight">
                 {v.productCategory}

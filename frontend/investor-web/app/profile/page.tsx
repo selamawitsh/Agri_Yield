@@ -152,7 +152,7 @@ export default function ProfilePage() {
         {message && (
           <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 text-sm flex justify-between">
             {message}
-            <button onClick={() => setMessage('')} className="text-green-500 hover:text-green-700">✕</button>
+            <button onClick={() => setMessage('')} className="text-green-500 hover:text-green-700">X</button>
           </div>
         )}
 
@@ -311,7 +311,7 @@ export default function ProfilePage() {
 
           {accounts.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
-              <p className="text-4xl mb-2">🏦</p>
+              <p className="text-4xl mb-2"></p>
               <p className="font-medium">No bank accounts linked</p>
               <p className="text-sm">Add an account to receive investment payouts</p>
             </div>
@@ -325,7 +325,7 @@ export default function ProfilePage() {
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
                       acc.accountType === 'TELEBIRR' ? 'bg-blue-100' : 'bg-yellow-100'
                     }`}>
-                      {acc.accountType === 'TELEBIRR' ? '📱' : '🏦'}
+                      {acc.accountType === 'TELEBIRR' ? 'Phone' : 'Bank'}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
