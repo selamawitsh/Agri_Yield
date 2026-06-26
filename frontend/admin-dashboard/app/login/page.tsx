@@ -37,8 +37,7 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md bg-white border border-[#E2ECE6] rounded-[28px] p-8 shadow-[0_20px_50px_-12px_rgba(28,60,42,0.08)] z-10">
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1B4332] to-[#2D6A4F] flex items-center justify-center mb-4 shadow-lg text-white text-2xl">
-            🌾
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1B4332] to-[#2D6A4F] flex items-center justify-center mb-4 shadow-lg text-white text-2xl">
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[#0F291B]">Agri-Yield Admin</h1>
           <p className="text-slate-500 text-sm mt-1">User Management Portal</p>

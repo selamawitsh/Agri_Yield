@@ -127,7 +127,7 @@ export default function UserDetailPage() {
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center text-2xl font-black text-emerald-800">
-                {user.role === 'FARMER' ? '🌾' : user.role === 'INVESTOR' ? '💼' : user.role === 'MERCHANT' ? '🏪' : user.role === 'OFF_TAKER' ? '🚛' : '⚙️'}
+                {''}
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -147,11 +147,11 @@ export default function UserDetailPage() {
                 <>
                   <button onClick={() => { setPendingKycStatus('VERIFIED'); setKycModal(true); }}
                     className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-colors">
-                    ✓ Verify KYC
+                    Verify KYC
                   </button>
                   <button onClick={() => { setPendingKycStatus('REJECTED'); setKycModal(true); }}
                     className="px-4 py-2 bg-red-500 text-white text-xs font-bold rounded-xl hover:bg-red-600 transition-colors">
-                    ✕ Reject KYC
+                    Reject KYC
                   </button>
                 </>
               )}
@@ -187,8 +187,7 @@ export default function UserDetailPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="bg-white rounded-2xl border border-slate-200 p-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">KYC Status</p>
-            <span className={`inline-flex items-center px-3 py-1.5 rounded-xl border text-xs font-bold ${kycColor(user.kycStatus)}`}>
-              {user.kycStatus === 'VERIFIED' ? '✓ ' : user.kycStatus === 'REJECTED' ? '✕ ' : '⏳ '}
+              <span className={`inline-flex items-center px-3 py-1.5 rounded-xl border text-xs font-bold ${kycColor(user.kycStatus)}`}>
               {user.kycStatus}
             </span>
           </div>
@@ -201,7 +200,7 @@ export default function UserDetailPage() {
           <div className="bg-white rounded-2xl border border-slate-200 p-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Language</p>
             <p className="text-sm font-bold text-slate-700">
-              {user.preferredLanguage === 'am' ? '🇪🇹 Amharic' : user.preferredLanguage === 'om' ? '🇪🇹 Oromiffa' : '🌐 English'}
+              {user.preferredLanguage === 'am' ? 'Amharic' : user.preferredLanguage === 'om' ? 'Oromiffa' : 'English'}
             </p>
           </div>
         </div>

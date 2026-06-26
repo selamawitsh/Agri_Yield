@@ -76,13 +76,13 @@ export default function DashboardPage() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">🌾</span>
+            <span className="text-2xl"></span>
             <div>
               <h1 className="text-base font-black text-emerald-950 tracking-tight">Agri-Yield Admin</h1>
               <p className="text-xs text-emerald-700/70 font-medium">User Management</p>
             </div>
           </div>
-          <a href="/fraud" className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 transition-all mr-2">🚨 Fraud Alerts</a>
+          <a href="/fraud" className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 transition-all mr-2">Fraud Alerts</a>
           <button onClick={handleLogout}
             className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-xl hover:bg-slate-50 transition-all">
             Sign Out
