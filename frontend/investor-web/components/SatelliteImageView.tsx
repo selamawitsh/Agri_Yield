@@ -98,16 +98,16 @@ export default function SatelliteImageView({
 
   if (failed) return (
     <div className="h-64 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-3 px-6">
-      <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center text-2xl">🛰️</div>
+      <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center text-2xl"></div>
       <div className="text-center">
         <p className="text-gray-700 font-semibold text-sm">Satellite image unavailable</p>
         <p className="text-gray-400 text-xs mt-1.5 leading-relaxed max-w-xs">
           No clear Sentinel-2 scene in the last 45 days. Cloud cover was too high during satellite passes.
         </p>
       </div>
-      <div className="flex gap-2 flex-wrap justify-center">
-        <span className="text-xs bg-gray-100 text-gray-500 px-3 py-1 rounded-full">☁️ High cloud cover</span>
-        <span className="text-xs bg-gray-100 text-gray-500 px-3 py-1 rounded-full">🔄 Sentinel-2 passes every 5 days</span>
+        <div className="flex gap-2 flex-wrap justify-center">
+        <span className="text-xs bg-gray-100 text-gray-500 px-3 py-1 rounded-full">High cloud cover</span>
+        <span className="text-xs bg-gray-100 text-gray-500 px-3 py-1 rounded-full">Sentinel-2 passes every 5 days</span>
       </div>
     </div>
   );
@@ -119,13 +119,13 @@ export default function SatelliteImageView({
         alt="Farm — Copernicus Sentinel-2 true-colour"
         className="w-full h-64 object-cover"
       />
-      <div className="absolute top-0 left-0 right-0 flex justify-between items-start p-3">
+        <div className="absolute top-0 left-0 right-0 flex justify-between items-start p-3">
         <span className="bg-black/50 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full font-medium">
-          🛰️ Sentinel-2 · Band 4/3/2
+          Sentinel-2 · Band 4/3/2
         </span>
         {recordedDate && (
           <span className="bg-black/50 backdrop-blur-sm text-white text-xs px-2.5 py-1 rounded-full">
-            📅 {new Date(recordedDate).toLocaleDateString('en-ET', { day:'numeric', month:'short', year:'numeric' })}
+            {new Date(recordedDate).toLocaleDateString('en-ET', { day:'numeric', month:'short', year:'numeric' })}
           </span>
         )}
       </div>
@@ -133,14 +133,14 @@ export default function SatelliteImageView({
         <div className="flex items-center justify-between">
           <p className="text-white/60 text-xs">Copernicus · 10m resolution · True-colour</p>
           {ndvi != null && (
-            <div className="text-xs font-bold px-2.5 py-1 rounded-full border"
+              <div className="text-xs font-bold px-2.5 py-1 rounded-full border"
               style={{ background: ndviColor+'33', color:'#fff', borderColor: ndviColor+'88' }}>
-              🌿 NDVI {ndvi.toFixed(3)}{healthStatus && ` — ${healthStatus}`}
+              NDVI {ndvi.toFixed(3)}{healthStatus && ` — ${healthStatus}`}
             </div>
           )}
         </div>
         {cloudCoverage != null && (
-          <p className="text-white/40 text-xs mt-0.5">☁️ Cloud cover: {cloudCoverage.toFixed(1)}%</p>
+          <p className="text-white/40 text-xs mt-0.5">Cloud cover: {cloudCoverage.toFixed(1)}%</p>
         )}
       </div>
     </div>

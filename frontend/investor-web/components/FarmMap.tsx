@@ -77,7 +77,7 @@ export default function FarmMap({ lat, lng, label, height = 300, ndvi, areaHecta
       }).addTo(map);
 
       const icon = L.divIcon({
-        html: `<div style="background:${ndviColor};border:3px solid white;border-radius:50% 50% 50% 0;transform:rotate(-45deg);width:28px;height:28px;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;"><span style="transform:rotate(45deg);font-size:13px;">🌾</span></div>`,
+        html: `<div style="background:${ndviColor};border:3px solid white;border-radius:50% 50% 50% 0;transform:rotate(-45deg);width:28px;height:28px;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;"><span style="transform:rotate(45deg);font-size:13px;"></span></div>`,
         iconSize: [28, 28],
         iconAnchor: [14, 28],
         className: '',

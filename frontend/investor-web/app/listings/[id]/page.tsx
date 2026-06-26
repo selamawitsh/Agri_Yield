@@ -10,6 +10,20 @@ import StatusBadge from '@/components/StatusBadge';
 import FundingProgress from '@/components/FundingProgress';
 import NdviChart from '@/components/NdviChart';
 import YieldPredictionBar from '@/components/YieldPredictionBar';
+import {
+  ChevronLeft,
+  MapPin,
+  ShieldCheck,
+  Calendar,
+  Info,
+  TrendingUp,
+  Activity,
+  Layers,
+  Star,
+  CheckCircle2,
+  AlertCircle,
+  Tag
+} from 'lucide-react';
 import { FarmListing, NdviReading, YieldPrediction } from '@/lib/types';
 
 const FarmMap = dynamic(() => import('@/components/FarmMap'), { ssr: false });
@@ -75,19 +89,16 @@ export default function ListingDetailPage() {
         const l: FarmListing = listingRes.value.data.data;
         setListing(l);
 
-        // Fetch off-taker bids for this farm
         api.get(`/offtaker/bids/farm/${l.farmId}`).then(r => {
           if (r.data.success) setBids(r.data.data || []);
         }).catch(() => {});
 
-        // Fetch agronomist reports from farm digital twin
         api.get(`/farms/${l.farmId}/digital-twin`).then(r => {
           if (r.data.success) {
             setAgronomistRpts(r.data.data?.agronomistReports || []);
           }
         }).catch(() => {});
 
-        // Fetch voucher redemption timeline
         api.get(`/vouchers/farm/${l.farmId}`).then(r => {
           if (r.data.success) {
             const vouchers = r.data.data?.vouchers || [];
@@ -102,7 +113,6 @@ export default function ListingDetailPage() {
           }
         }).catch(() => {});
 
-        // Fetch yield prediction
         api.get(`/geospatial/yield/${l.farmId}`).then(r => {
           if (r.data.success) setYieldPrediction(r.data.data);
         }).catch(() => {});
@@ -144,309 +154,342 @@ export default function ListingDetailPage() {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600" />
-    </div>
+      <div className="h-screen flex flex-col items-center justify-center bg-[#f8fafc] space-y-4">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-slate-900" />
+        <p className="text-slate-400 text-xs font-semibold tracking-wide uppercase">Loading farm details...</p>
+      </div>
   );
   if (!listing) return null;
 
   const remaining   = listing.totalAmountEtb - listing.fundedAmountEtb;
   const canInvest   = listing.status === 'OPEN' || listing.status === 'PARTIALLY_FUNDED';
   const latestNdvi  = ndviHistory.length > 0 ? ndviHistory[ndviHistory.length - 1].ndviValue : null;
-  const ndviLabel   = latestNdvi == null ? 'N/A'
-    : latestNdvi >= 0.6 ? 'Excellent' : latestNdvi >= 0.4 ? 'Good'
-    : latestNdvi >= 0.2 ? 'Moderate' : 'Poor';
-  const ndviColor   = latestNdvi == null ? 'text-gray-400'
-    : latestNdvi >= 0.6 ? 'text-green-600' : latestNdvi >= 0.4 ? 'text-lime-600'
-    : latestNdvi >= 0.2 ? 'text-yellow-600' : 'text-red-600';
+  const ndviLabel   = latestNdvi == null ? 'No Data'
+      : latestNdvi >= 0.6 ? 'Excellent' : latestNdvi >= 0.4 ? 'Good'
+          : latestNdvi >= 0.2 ? 'Moderate' : 'Poor';
+  const ndviColor   = latestNdvi == null ? 'text-slate-400'
+      : latestNdvi >= 0.6 ? 'text-emerald-700' : latestNdvi >= 0.4 ? 'text-lime-700'
+          : latestNdvi >= 0.2 ? 'text-amber-700' : 'text-rose-700';
 
   const regionCoords: Record<string, [number, number]> = {
     'Oromia': [8.5, 39.3], 'Amhara': [11.5, 38.0], 'SNNPR': [6.8, 37.5],
     'Tigray': [14.0, 38.5], 'Somali': [7.5, 44.0],  'Afar':  [11.8, 41.5],
   };
   const [mapLat, mapLng] = regionCoords[listing.region] || [9.145, 40.489];
-
   const expiresAt = listing.listingExpiresAt ?? listing.fundingDeadline;
 
-  const statusIcon: Record<string, string> = {
-    SEED: '🌾', FERTILIZER: '🪣', PESTICIDE: '🛡️', TOOL: '🔧', OTHER: '📦',
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
-      <Navbar />
-      <div className="container mx-auto px-4 sm:px-6 py-6 max-w-5xl">
+      <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans antialiased pb-16">
+        <Navbar />
 
-        <button onClick={() => router.back()}
-          className="flex items-center gap-2 text-green-700 font-semibold mb-6 hover:opacity-70 transition bg-white px-4 py-2 rounded-full shadow-sm w-fit text-sm">
-          ← Back to Listings
-        </button>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
 
-        {/* Hero */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-          <div className="relative h-44 bg-emerald-950">
-            <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1592982537447-6f296fb00fd8?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-40" />
-            <div className="absolute bottom-5 left-6 right-6 flex justify-between items-end gap-4">
-              <div className="bg-white/90 backdrop-blur-sm p-4 rounded-2xl">
-                <h1 className="text-xl font-bold text-emerald-950">{listing.cropType} — {listing.region}</h1>
-                <p className="text-gray-500 text-sm">📍 {listing.kebeleCode} · {listing.seasonName}</p>
-              </div>
-              <div className="bg-lime-300 text-emerald-950 p-3 rounded-2xl text-center shadow">
-                <p className="text-2xl font-black">{listing.currentApr}%</p>
-                <p className="text-xs font-bold uppercase">APR</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <div className="flex flex-wrap gap-2 items-center mb-5">
-              <StatusBadge status={listing.status} />
-              {listing.satelliteVerified && (
-                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                  🛰 Satellite Verified
-                </span>
-              )}
-              {expiresAt && (
-                <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                  ⏱ Deadline: {new Date(expiresAt).toLocaleDateString()}
-                </span>
-              )}
-              {/* SRS §6.3.2: parametric insurance status */}
-              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
-                🛡 Parametric Insurance: Active
-              </span>
-            </div>
-
-            <div className="bg-emerald-50 rounded-2xl p-4 mb-6 border border-emerald-100">
-              <FundingProgress funded={listing.fundedAmountEtb} total={listing.totalAmountEtb} pct={listing.fundingPct} />
-            </div>
-
-            {/* Stats grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-              {[
-                { label: 'Total Needed',   value: `${listing.totalAmountEtb?.toLocaleString()} ETB` },
-                { label: 'Funded',         value: `${listing.fundedAmountEtb?.toLocaleString()} ETB` },
-                { label: 'Remaining',      value: `${remaining.toLocaleString()} ETB` },
-                { label: 'Agri-Score',     value: `${listing.agriScore} / 900` },
-                { label: 'Base APR',       value: `${listing.baseApr}%` },
-                { label: 'Current APR',    value: `${listing.currentApr}%` },
-                { label: 'NDVI Health',    value: ndviLabel, valueClass: ndviColor },
-                { label: 'Latest NDVI',    value: latestNdvi != null ? latestNdvi.toFixed(3) : 'N/A' },
-              ].map(item => (
-                <div key={item.label} className="bg-gray-50 border border-gray-100 rounded-2xl p-3">
-                  <p className="text-gray-400 text-xs uppercase tracking-wide font-medium">{item.label}</p>
-                  <p className={`font-bold text-sm mt-1 ${(item as any).valueClass || 'text-gray-800'}`}>{item.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* NDVI Time-Series Chart — SRS §6.3.2 */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h3 className="font-bold text-gray-800 mb-1">NDVI Trend</h3>
-          <p className="text-xs text-gray-400 mb-4">Satellite vegetation index over the season — higher is healthier</p>
-          <NdviChart data={ndviHistory} height={220} />
-        </div>
-
-        {/* Yield Prediction — SRS §6.3.2 */}
-        {yieldPrediction && (
-          <div className="mb-6">
-            <YieldPredictionBar
-              min={yieldPrediction.predictedYieldMin}
-              mean={yieldPrediction.predictedYieldMean}
-              max={yieldPrediction.predictedYieldMax}
-              confidencePct={yieldPrediction.confidencePct}
-              cropType={listing.cropType}
-            />
-          </div>
-        )}
-
-        {/* Farm Map — SRS §6.3.2: Leaflet.js */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h3 className="font-bold text-gray-800 mb-4">Farm Location</h3>
-          <FarmMap lat={mapLat} lng={mapLng} label={`${listing.cropType} — ${listing.region}`} height={260} />
-          <p className="text-xs text-gray-400 mt-2 text-center">
-            📍 Approximate farm location — {listing.region}, {listing.kebeleCode}
-          </p>
-        </div>
-
-        {/* APR Breakdown */}
-        <div className="bg-lime-50 border border-lime-100 rounded-3xl p-5 mb-6 flex items-start gap-4">
-          <div className="text-2xl mt-1">✨</div>
-          <div>
-            <h3 className="font-bold text-emerald-950 mb-1">APR Breakdown</h3>
-            <p className="text-emerald-900 text-sm font-medium">
-              {listing.baseApr}% base + NDVI bonus + weather bonus = <strong>{listing.currentApr}%</strong> current APR
-            </p>
-            <p className="text-emerald-700/60 text-xs mt-1">Updated from satellite NDVI and weather signals every 5 days</p>
-          </div>
-        </div>
-
-        {/* Off-taker bid status — SRS §6.3.2 (real data) */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h3 className="font-bold text-gray-800 mb-4">Off-Taker Bid Status</h3>
-          {bids.length === 0 ? (
-            <div className="bg-gray-50 rounded-2xl p-5 text-center text-gray-400 text-sm">
-              <p className="text-2xl mb-2">🏭</p>
-              <p>No bids yet. Off-takers can place bids once the farm is fully funded.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {bids.map(bid => (
-                <div key={bid.id} className="flex items-center justify-between border border-gray-100 rounded-2xl p-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">
-                      {bid.quantityQuintals} quintals @ {bid.pricePerQuintalEtb.toLocaleString()} ETB/qt
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Total: {bid.totalValueEtb.toLocaleString()} ETB · Expires {new Date(bid.expiresAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                    bid.status === 'ACCEPTED'       ? 'bg-green-100 text-green-700' :
-                    bid.status === 'CONTRACT_SIGNED' ? 'bg-blue-100 text-blue-700' :
-                    bid.status === 'PENDING'         ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-gray-100 text-gray-500'
-                  }`}>{bid.status}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Voucher Redemption Timeline — SRS §6.3.2 (real data) */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h3 className="font-bold text-gray-800 mb-4">Voucher Redemption Timeline</h3>
-          {voucherEvents.length === 0 ? (
-            <div className="bg-gray-50 rounded-2xl p-5 text-center text-gray-400 text-sm">
-              <p className="text-2xl mb-2">🏷</p>
-              <p>Vouchers are generated when investment is fully funded.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {voucherEvents.sort((a, b) => a.sequenceOrder - b.sequenceOrder).map(v => (
-                <div key={v.sequenceOrder}
-                  className={`flex items-center gap-4 border rounded-2xl p-3 ${
-                    v.status === 'REDEEMED'  ? 'border-green-200 bg-green-50' :
-                    v.status === 'ACTIVE'    ? 'border-amber-200 bg-amber-50' :
-                    v.status === 'EXPIRED'   ? 'border-red-200 bg-red-50' :
-                    'border-gray-100 bg-gray-50'
-                  }`}>
-                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl shadow-sm">
-                    {statusIcon[v.productCategory] || '📦'}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-700">
-                      #{v.sequenceOrder} — {v.productDescription}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {v.amountEtb.toLocaleString()} ETB
-                      {v.redeemedAt && ` · Redeemed ${new Date(v.redeemedAt).toLocaleDateString()}`}
-                    </p>
-                  </div>
-                  <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                    v.status === 'REDEEMED'  ? 'bg-green-100 text-green-700' :
-                    v.status === 'ACTIVE'    ? 'bg-amber-100 text-amber-700' :
-                    v.status === 'EXPIRED'   ? 'bg-red-100 text-red-700' :
-                    'bg-gray-100 text-gray-500'
-                  }`}>{v.status}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Agronomist Reports — SRS §6.3.2 */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h3 className="font-bold text-gray-800 mb-4">Agronomist Reports</h3>
-          {agronomistRpts.length === 0 ? (
-            <div className="bg-gray-50 rounded-2xl p-5 text-center text-gray-400 text-sm">
-              <p className="text-2xl mb-2">👨‍🌾</p>
-              <p>No agronomist visits recorded yet for this season.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {agronomistRpts.map(r => (
-                <div key={r.reportId} className="border border-gray-100 rounded-2xl p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <p className="text-sm font-semibold text-gray-800">
-                      Visit: {new Date(r.visitDate).toLocaleDateString()}
-                    </p>
-                    <div className="flex gap-0.5">
-                      {Array.from({ length: 5 }, (_, i) => (
-                        <span key={i} className={i < r.rating ? 'text-yellow-400' : 'text-gray-200'}>★</span>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-1">
-                    <span className="font-medium text-gray-500">Diagnosis:</span> {r.diagnosis}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    <span className="font-medium text-gray-500">Treatment:</span> {r.treatment}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Invest CTA */}
-        {canInvest ? (
-          <button onClick={() => setShowModal(true)}
-            className="w-full bg-emerald-950 text-white py-4 rounded-full text-lg font-bold shadow-lg hover:bg-emerald-900 hover:-translate-y-0.5 transition">
-            Invest Now — {listing.currentApr}% APR
+          {/* Back Button */}
+          <button
+              onClick={() => router.back()}
+              className="flex items-center gap-2 text-slate-600 font-bold text-xs bg-white px-4 py-2.5 rounded-xl shadow-2xs border border-slate-100 hover:bg-slate-50 transition uppercase tracking-wide"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back to Listings
           </button>
-        ) : (
-          <div className="w-full bg-gray-100 text-gray-500 py-4 rounded-full text-center font-bold">
-            {listing.status === 'FULLY_FUNDED' ? '🔒 Fully Funded' : `🔒 ${listing.status}`}
+
+          {/* Hero Card Banner */}
+          <div className="bg-white rounded-2xl shadow-2xs border border-slate-100 overflow-hidden">
+            <div className="relative h-48 bg-slate-900">
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1592982537447-6f296fb00fd8?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-40" />
+
+              <div className="absolute bottom-5 left-6 right-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                <div className="bg-white/95 backdrop-blur-md p-4 rounded-xl border border-white/20 shadow-xs">
+                  <h1 className="text-lg font-black tracking-tight text-slate-900">{listing.cropType} &mdash; {listing.region}</h1>
+                  <div className="flex items-center gap-1.5 text-slate-400 text-xs font-semibold mt-1">
+                    <MapPin className="w-3 h-3 text-slate-300" />
+                    <span>Kebele {listing.kebeleCode}</span>
+                    <span className="text-slate-200">&middot;</span>
+                    <span>{listing.seasonName}</span>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-800 text-white px-5 py-3 rounded-xl text-center shadow-sm border border-emerald-700/50">
+                  <p className="text-2xl font-black leading-none">{listing.currentApr}%</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mt-1.5 opacity-90">Current APR</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Top Badges */}
+              <div className="flex flex-wrap gap-2 items-center">
+                <StatusBadge status={listing.status} />
+                {listing.satelliteVerified && (
+                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-md tracking-wide uppercase flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  Verified Orbit
+                </span>
+                )}
+                {expiresAt && (
+                    <span className="text-[10px] font-extrabold text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-md tracking-wide uppercase flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-slate-400" />
+                  Deadline: {new Date(expiresAt).toLocaleDateString()}
+                </span>
+                )}
+                <span className="text-[10px] font-extrabold text-blue-800 bg-blue-50 border border-blue-100 px-3 py-1 rounded-md tracking-wide uppercase">
+                Parametric Insurance: Active
+              </span>
+              </div>
+
+              {/* Funding Progress */}
+              <div className="bg-slate-50 border border-slate-100/80 p-4 rounded-xl">
+                <FundingProgress funded={listing.fundedAmountEtb} total={listing.totalAmountEtb} pct={listing.fundingPct} />
+              </div>
+
+              {/* Metrics Dashboard Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: 'Total Needed',   value: `${listing.totalAmountEtb?.toLocaleString()} ETB` },
+                  { label: 'Funded Amount',  value: `${listing.fundedAmountEtb?.toLocaleString()} ETB` },
+                  { label: 'Remaining Target', value: `${remaining.toLocaleString()} ETB` },
+                  { label: 'Farm Score',     value: `${listing.agriScore} / 900` },
+                  { label: 'Base APR',       value: `${listing.baseApr}%` },
+                  { label: 'Calculated APR', value: `${listing.currentApr}%` },
+                  { label: 'NDVI Health',    value: ndviLabel, valueClass: ndviColor },
+                  { label: 'Latest NDVI Scan', value: latestNdvi != null ? latestNdvi.toFixed(3) : 'N/A' },
+                ].map(item => (
+                    <div key={item.label} className="bg-slate-50 border border-slate-100/60 rounded-xl p-3.5">
+                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{item.label}</p>
+                      <p className={`font-black text-sm mt-1 ${(item as any).valueClass || 'text-slate-900'}`}>{item.value}</p>
+                    </div>
+                ))}
+              </div>
+            </div>
           </div>
+
+          {/* NDVI Chart Section */}
+          <div className="bg-white rounded-2xl shadow-2xs border border-slate-100 p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <Activity className="w-4 h-4 text-emerald-600" />
+              <h3 className="font-extrabold text-sm text-slate-900 tracking-tight">NDVI Plant Growth Trend</h3>
+            </div>
+            <p className="text-xs text-slate-400 mb-4 font-medium">Satellite health history across the current season. Higher levels mean a stronger crop canopy.</p>
+            <NdviChart data={ndviHistory} height={220} />
+          </div>
+
+          {/* Yield Prediction Component */}
+          {yieldPrediction && (
+              <div className="bg-white rounded-2xl shadow-2xs border border-slate-100 p-1">
+                <YieldPredictionBar
+                    min={yieldPrediction.predictedYieldMin}
+                    mean={yieldPrediction.predictedYieldMean}
+                    max={yieldPrediction.predictedYieldMax}
+                    confidencePct={yieldPrediction.confidencePct}
+                    cropType={listing.cropType}
+                />
+              </div>
+          )}
+
+          {/* Farm Map Section */}
+          <div className="bg-white rounded-2xl shadow-2xs border border-slate-100 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Layers className="w-4 h-4 text-emerald-600" />
+              <h3 className="font-extrabold text-sm text-slate-900 tracking-tight">Geospatial Farm Boundaries</h3>
+            </div>
+            <div className="rounded-xl overflow-hidden border border-slate-100">
+              <FarmMap lat={mapLat} lng={mapLng} label={`${listing.cropType} — ${listing.region}`} height={260} />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-3 text-center font-medium">
+              Approximate region coordinates &mdash; {listing.region}, Kebele {listing.kebeleCode}
+            </p>
+          </div>
+
+          {/* APR Calculation Warning Message */}
+          <div className="bg-lime-50 border border-lime-100/80 rounded-2xl p-5 flex items-start gap-3.5">
+            <TrendingUp className="w-5 h-5 text-emerald-700 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="font-extrabold text-xs text-emerald-950 tracking-wide uppercase">Interactive Return Breakdown</h3>
+              <p className="text-emerald-900 text-xs font-medium mt-1 leading-relaxed">
+                {listing.baseApr}% base rate + satellite health bonus + weather index bonus = <strong className="font-black text-emerald-950">{listing.currentApr}%</strong> total active APR.
+              </p>
+              <p className="text-emerald-700/60 text-[10px] font-semibold mt-1">Calculations are refreshed via remote orbit data feeds every 5 days.</p>
+            </div>
+          </div>
+
+          {/* Off-Taker Commercial Bids */}
+          <div className="bg-white rounded-2xl shadow-2xs border border-slate-100 p-6">
+            <h3 className="font-extrabold text-sm text-slate-900 tracking-tight mb-4">Off-Taker Purchase Contracts</h3>
+            {bids.length === 0 ? (
+                <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400 text-xs font-medium">
+                  <AlertCircle className="w-5 h-5 mx-auto mb-2 text-slate-300" />
+                  No commercial buy bids recorded. Purchasing entities can place binding volume commitments once funding is fully closed.
+                </div>
+            ) : (
+                <div className="space-y-3">
+                  {bids.map(bid => (
+                      <div key={bid.id} className="flex items-center justify-between border border-slate-100 bg-slate-50/50 rounded-xl p-4">
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">
+                            {bid.quantityQuintals} quintals at {bid.pricePerQuintalEtb.toLocaleString()} ETB/qt
+                          </p>
+                          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                            Total Agreement: {bid.totalValueEtb.toLocaleString()} ETB &middot; Expires {new Date(bid.expiresAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wide uppercase ${
+                            bid.status === 'ACCEPTED'       ? 'bg-emerald-50 border border-emerald-100 text-emerald-700' :
+                                bid.status === 'CONTRACT_SIGNED' ? 'bg-blue-50 border border-blue-100 text-blue-700' :
+                                    bid.status === 'PENDING'         ? 'bg-amber-50 border border-amber-100 text-amber-700' :
+                                        'bg-slate-100 border border-slate-200 text-slate-500'
+                        }`}>{bid.status}</span>
+                      </div>
+                  ))}
+                </div>
+            )}
+          </div>
+
+          {/* Voucher Redemptions */}
+          <div className="bg-white rounded-2xl shadow-2xs border border-slate-100 p-6">
+            <h3 className="font-extrabold text-sm text-slate-900 tracking-tight mb-4">Input Voucher Disbursements</h3>
+            {voucherEvents.length === 0 ? (
+                <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400 text-xs font-medium">
+                  <Tag className="w-5 h-5 mx-auto mb-2 text-slate-300" />
+                  Secured track lines will compile immediately when funding parameters are finalized.
+                </div>
+            ) : (
+                <div className="space-y-2.5">
+                  {voucherEvents.sort((a, b) => a.sequenceOrder - b.sequenceOrder).map(v => (
+                      <div key={v.sequenceOrder}
+                           className={`flex items-center justify-between border rounded-xl p-3.5 ${
+                               v.status === 'REDEEMED'  ? 'border-emerald-100 bg-emerald-50/30' :
+                                   v.status === 'ACTIVE'    ? 'border-amber-100 bg-amber-50/30' :
+                                       v.status === 'EXPIRED'   ? 'border-rose-100 bg-rose-50/30' :
+                                           'border-slate-100 bg-slate-50/50'
+                           }`}
+                      >
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">
+                            Step {v.sequenceOrder} &mdash; {v.productDescription}
+                          </p>
+                          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                            Allocation: {v.amountEtb.toLocaleString()} ETB
+                            {v.redeemedAt && ` &middot; Disbursed ${new Date(v.redeemedAt).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                        <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-md tracking-wide uppercase ${
+                            v.status === 'REDEEMED'  ? 'bg-emerald-50 border border-emerald-100 text-emerald-700' :
+                                v.status === 'ACTIVE'    ? 'bg-amber-50 border border-amber-100 text-amber-700' :
+                                    v.status === 'EXPIRED'   ? 'bg-rose-50 border border-rose-100 text-rose-700' :
+                                        'bg-slate-100 border border-slate-200 text-slate-500'
+                        }`}>{v.status}</span>
+                      </div>
+                  ))}
+                </div>
+            )}
+          </div>
+
+          {/* Agronomist Reports */}
+          <div className="bg-white rounded-2xl shadow-2xs border border-slate-100 p-6">
+            <h3 className="font-extrabold text-sm text-slate-900 tracking-tight mb-4">Agronomist Field Inspection Logs</h3>
+            {agronomistRpts.length === 0 ? (
+                <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400 text-xs font-medium">
+                  <CheckCircle2 className="w-5 h-5 mx-auto mb-2 text-slate-300" />
+                  No verified in-person field visits recorded during this crop cycle window.
+                </div>
+            ) : (
+                <div className="space-y-4">
+                  {agronomistRpts.map(r => (
+                      <div key={r.reportId} className="border border-slate-100 bg-slate-50/30 rounded-xl p-4">
+                        <div className="flex justify-between items-center mb-3">
+                          <p className="text-xs font-bold text-slate-800">
+                            Inspection Entry: {new Date(r.visitDate).toLocaleDateString()}
+                          </p>
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: 5 }, (_, i) => (
+                                <Star key={i} className={`w-3.5 h-3.5 ${i < r.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="space-y-1.5 text-xs">
+                          <p className="text-slate-700"><span className="font-bold text-slate-400 uppercase text-[10px] mr-1">Condition Profile:</span> {r.diagnosis}</p>
+                          <p className="text-slate-700"><span className="font-bold text-slate-400 uppercase text-[10px] mr-1">Applied Strategy:</span> {r.treatment}</p>
+                        </div>
+                      </div>
+                  ))}
+                </div>
+            )}
+          </div>
+
+          {/* Bottom Invest Call to Action */}
+          {canInvest ? (
+              <button
+                  onClick={() => setShowModal(true)}
+                  className="w-full bg-slate-900 text-white py-3.5 rounded-xl text-xs font-bold tracking-wider uppercase hover:bg-slate-800 transition shadow-xs"
+              >
+                Invest Now &mdash; {listing.currentApr}% APR
+              </button>
+          ) : (
+              <div className="w-full bg-slate-100 text-slate-400 border border-slate-200/60 py-3.5 rounded-xl text-center text-xs font-bold tracking-wider uppercase">
+                {listing.status === 'FULLY_FUNDED' ? 'Fully Funded' : listing.status}
+              </div>
+          )}
+        </div>
+
+        {/* Invest Input Form Modal */}
+        {showModal && (
+            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-end md:items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-slate-100">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                  <h2 className="text-sm font-black text-slate-900 uppercase tracking-wide">Secure Farm Investment</h2>
+                  <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-xs uppercase">Close</button>
+                </div>
+
+                <p className="text-slate-500 text-xs font-medium mb-4">
+                  {listing.region} region &middot; <span className="text-emerald-700 font-bold">{listing.currentApr}% APR</span> &middot; Maximum available: {remaining.toLocaleString()} ETB
+                </p>
+
+                <form onSubmit={handleInvest} className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Funding Amount (ETB) &middot; Minimum 500</label>
+                    <input
+                        type="number" min="500" max={remaining} step="100" required
+                        value={investAmount} onChange={e => setInvestAmount(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition"
+                        placeholder="500"
+                    />
+                    {investAmount && parseFloat(investAmount) >= 500 && (
+                        <p className="text-emerald-700 text-[11px] font-bold mt-2 pl-1 flex items-center gap-1">
+                          <Info className="w-3 h-3" />
+                          Estimated Annual Yield Return: {(parseFloat(investAmount) * listing.currentApr / 100).toFixed(2)} ETB
+                        </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Optional Memo Notes</label>
+                    <textarea
+                        value={investNotes} onChange={e => setInvestNotes(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition"
+                        rows={2} placeholder="Add specific notes about this action item..."
+                    />
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                        type="button"
+                        onClick={() => setShowModal(false)}
+                        className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-slate-200 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={investing}
+                        className="flex-1 bg-slate-900 text-white py-3 rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-slate-800 transition disabled:opacity-50"
+                    >
+                      {investing ? 'Processing...' : 'Confirm Allocation'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
         )}
       </div>
-
-      {/* Invest Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-t-3xl md:rounded-3xl p-8 w-full max-w-md shadow-2xl">
-            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-6 md:hidden" />
-            <h2 className="text-2xl font-bold text-emerald-950 mb-1">Invest in this Farm</h2>
-            <p className="text-gray-400 text-sm mb-6">
-              {listing.region} · <span className="text-green-700 font-bold">{listing.currentApr}% APR</span>
-              {' '}· Max {remaining.toLocaleString()} ETB
-            </p>
-            <form onSubmit={handleInvest}>
-              <div className="mb-4">
-                <label className="block text-sm font-bold text-gray-700 mb-2">Amount (ETB) — min 500 ETB</label>
-                <input type="number" min="500" max={remaining} step="100" required
-                  value={investAmount} onChange={e => setInvestAmount(e.target.value)}
-                  className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-full text-lg font-bold focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="500" />
-                {investAmount && parseFloat(investAmount) >= 500 && (
-                  <p className="text-green-700 text-xs font-bold mt-2 ml-2">
-                    ✦ Expected return: {(parseFloat(investAmount) * listing.currentApr / 100).toFixed(2)} ETB/yr
-                  </p>
-                )}
-              </div>
-              <div className="mb-6">
-                <label className="block text-sm font-bold text-gray-700 mb-2">Notes (optional)</label>
-                <textarea value={investNotes} onChange={e => setInvestNotes(e.target.value)}
-                  className="w-full px-5 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
-                  rows={2} placeholder="Add a memo…" />
-              </div>
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setShowModal(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-full font-bold hover:bg-gray-200 transition">
-                  Cancel
-                </button>
-                <button type="submit" disabled={investing}
-                  className="flex-1 bg-emerald-950 text-white py-4 rounded-full font-bold hover:bg-emerald-900 transition disabled:opacity-50">
-                  {investing ? 'Processing…' : 'Confirm Investment'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }

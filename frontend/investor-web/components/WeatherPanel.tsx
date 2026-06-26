@@ -65,11 +65,11 @@ export default function WeatherPanel({ farmId, compact = false }: WeatherPanelPr
   };
 
   const alertIcon: Record<string, string> = {
-    FROST_WARNING: '❄️',
-    HEAVY_RAIN: '🌧️',
-    DROUGHT_WARNING: '☀️',
-    DROUGHT_TRIGGER: '🚨',
-    HEATWAVE: '🌡️',
+    FROST_WARNING: '',
+    HEAVY_RAIN: '',
+    DROUGHT_WARNING: '',
+    DROUGHT_TRIGGER: '',
+    HEATWAVE: '',
   };
 
   if (compact) {
@@ -77,12 +77,12 @@ export default function WeatherPanel({ farmId, compact = false }: WeatherPanelPr
       <div className="flex items-center gap-3 flex-wrap">
         {current && (
           <span className="text-sm font-semibold text-slate-700">
-            🌡️ {current.temperatureC.toFixed(1)}°C
+            {current.temperatureC.toFixed(1)}°C
           </span>
         )}
         {current && (
           <span className="text-sm font-semibold text-blue-600">
-            💧 {current.rainfallMm.toFixed(1)}mm
+            {current.rainfallMm.toFixed(1)}mm
           </span>
         )}
         {risk && (
@@ -92,7 +92,7 @@ export default function WeatherPanel({ farmId, compact = false }: WeatherPanelPr
         )}
         {drought?.isTriggered && (
           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
-            🚨 DROUGHT
+            DROUGHT
           </span>
         )}
         {alerts.length > 0 && (
@@ -143,7 +143,7 @@ export default function WeatherPanel({ farmId, compact = false }: WeatherPanelPr
           : 'bg-green-50 border-green-200'}`}>
           <div className="flex items-center gap-3">
             <span className="text-2xl">
-              {drought.isTriggered ? '🚨' : drought.consecutiveDryDays > 15 ? '⚠️' : '✅'}
+              {drought.isTriggered ? '' : drought.consecutiveDryDays > 15 ? '' : ''}
             </span>
             <div>
               <p className={`font-bold text-sm ${drought.isTriggered ? 'text-red-700' : drought.consecutiveDryDays > 15 ? 'text-amber-700' : 'text-green-700'}`}>
@@ -169,7 +169,7 @@ export default function WeatherPanel({ farmId, compact = false }: WeatherPanelPr
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Active Alerts</p>
           {alerts.slice(0, 3).map(alert => (
             <div key={alert.id} className="bg-white rounded-xl border border-slate-100 p-3 flex items-start gap-3">
-              <span className="text-lg">{alertIcon[alert.alertType] || '⚠️'}</span>
+              <span className="text-lg">{alertIcon[alert.alertType] || ''}</span>
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${severityColor[alert.severity] || 'bg-slate-100 text-slate-700'}`}>
