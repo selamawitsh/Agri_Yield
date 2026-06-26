@@ -19,7 +19,7 @@ export default function Navbar() {
     { href: '/portfolio', label: 'Portfolio' },
     { href: '/payouts', label: 'Payouts' },
     { href: '/statements', label: 'Statements' },
-    { href: '/weather', label: '🌤 Weather' },
+    { href: '/weather', label: 'Weather' },
     { href: '/profile', label: 'Profile' },
   ];
 
@@ -27,7 +27,7 @@ export default function Navbar() {
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xl">🌾</span>
+          <span className="text-xl"></span>
           <span className="font-black text-green-800 text-sm tracking-tight">Agri-Yield Investor</span>
         </div>
         <div className="flex items-center gap-0.5 overflow-x-auto">
