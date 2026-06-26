@@ -3,6 +3,8 @@ import 'profile_screen.dart';
 import 'farm/my_farms_screen.dart';
 import 'vouchers/voucher_wallet_screen.dart';
 import 'weather/weather_screen.dart';
+import 'bids/bids_screen.dart';
+import 'earnings/earnings_screen.dart';
 import '../services/auth_service.dart';
 import 'advisor_screen.dart';
 
@@ -97,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 12),
                 Container(
                   padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.07),
                     borderRadius: BorderRadius.circular(12),
@@ -126,8 +128,6 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisCount: 2,
               mainAxisSpacing: 16,
               crossAxisSpacing: 16,
-              // Increased from 1.05 → gives each card enough vertical room
-              // for the icon box + title + subtitle without overflowing.
               childAspectRatio: 0.95,
               children: [
                 _buildMenuCard(
@@ -135,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   'My Farms',
                   'Cultivation Nodes',
                   const Color(0xFF2D6A4F),
-                      () => Navigator.push(context,
+                  () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const MyFarmsScreen())),
                 ),
                 _buildMenuCard(
@@ -143,8 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Vouchers',
                   'Input Wallet',
                   const Color(0xFF78350F),
-                      () => Navigator.push(
-                      context,
+                  () => Navigator.push(context,
                       MaterialPageRoute(
                           builder: (_) => const VoucherWalletScreen())),
                 ),
@@ -153,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   'AI Advisor',
                   'Yield Topology',
                   const Color(0xFF334155),
-                      () => Navigator.push(context,
+                  () => Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const AdvisorScreen())),
                 ),
                 _buildMenuCard(
@@ -161,10 +160,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Weather & NDVI',
                   'Satellite Sync',
                   const Color(0xFF0F291B),
-                      () => Navigator.push(
-                      context,
+                  () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const WeatherScreen())),
+                ),
+                _buildMenuCard(
+                  Icons.handshake_rounded,
+                  'Bids',
+                  'Buyer Offers',
+                  const Color(0xFF1E40AF),
+                  () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const BidsScreen())),
+                ),
+                _buildMenuCard(
+                  Icons.emoji_events_rounded,
+                  'Earnings & Score',
+                  'Agri-Score',
+                  const Color(0xFF7C3AED),
+                  () => Navigator.push(context,
                       MaterialPageRoute(
-                          builder: (_) => const WeatherScreen())),
+                          builder: (_) => const EarningsScreen())),
                 ),
               ],
             ),
@@ -175,18 +189,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMenuCard(
-      IconData icon,
-      String title,
-      String subtitle,
-      Color color,
-      VoidCallback onTap,
-      ) {
+    IconData icon,
+    String title,
+    String subtitle,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        // Use Border.all so every side has the same color → no
-        // "borderRadius can only be given on borders with uniform colors" error.
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
@@ -207,7 +219,6 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Icon badge
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -216,7 +227,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Icon(icon, size: 26, color: color),
                 ),
-                // Label block — sits at the bottom via spaceBetween
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
