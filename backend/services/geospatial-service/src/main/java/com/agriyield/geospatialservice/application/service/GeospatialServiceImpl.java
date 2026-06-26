@@ -525,19 +525,60 @@ public class GeospatialServiceImpl implements GeospatialServicePort {
 
         int daysSincePlanting = 60;
 
-        YieldPrediction prediction = aiService.predictYield(
-                farmId,
-                farm.cropType(),
-                peakNdvi,
-                growthRate,
-                currentNdvi,
-                weather.totalRainfallMm(),
-                weather.avgTempC(),
-                farm.areaHectares(),
-                daysSincePlanting
+        // Derived ML inputs
+        double ndviSmoothness = readings.size() >= 3
+                ? 1.0 - (readings.stream().mapToDouble(r -> Math.abs(r.getNdviValue() - currentNdvi)).average().orElse(0.0))
+                : 0.8;
+        int altitudeM             = 1800;  // Ethiopian highland default (metres)
+        int cropVarietyEncoded    = 1;     // 1 = local variety (default)
+        int inputQualityEncoded   = 1;     // 1 = basic inputs (default)
+        double historicalZoneYield = 18.0; // Ethiopian avg ~18 quintals/ha
+
+        AiServicePort.YieldPrediction aiPrediction = aiService.predictYield(
+                new AiServicePort.YieldPredictionInput(
+                        farmId.toString(),
+                        farm.cropType(),
+                        peakNdvi,
+                        growthRate,
+                        currentNdvi,
+                        ndviSmoothness,
+                        weather.totalRainfallMm(),
+                        weather.avgTempC(),
+                        altitudeM,
+                        cropVarietyEncoded,
+                        farm.areaHectares(),
+                        inputQualityEncoded,
+                        daysSincePlanting,
+                        historicalZoneYield
+                )
         );
 
-        if (prediction != null) {
+        if (aiPrediction != null) {
+            double meanPerHa  = aiPrediction.predictedYieldQuintalsPerHa();
+            double lowerPerHa = aiPrediction.lowerBound();
+            double upperPerHa = aiPrediction.upperBound();
+            double areaHa     = farm.areaHectares();
+
+            YieldPrediction prediction = YieldPrediction.builder()
+                    .cropType(farm.cropType())
+                    .predictedYieldMin(lowerPerHa)
+                    .predictedYieldMax(upperPerHa)
+                    .predictedYieldMean(meanPerHa)
+                    .totalYieldMinQuintals(lowerPerHa * areaHa)
+                    .totalYieldMaxQuintals(upperPerHa * areaHa)
+                    .totalYieldMeanQuintals(meanPerHa * areaHa)
+                    .confidencePct(aiPrediction.confidencePct())
+                    .weeksToHarvest((int) Math.max(1, (90 - daysSincePlanting) / 7.0))
+                    .modelVersion(aiPrediction.modelVersion())
+                    .ndviPeak(peakNdvi)
+                    .ndviGrowthRate(growthRate)
+                    .totalRainfallMm(weather.totalRainfallMm())
+                    .avgTempC(weather.avgTempC())
+                    .altitudeM(altitudeM)
+                    .inputQuality(inputQualityEncoded == 1 ? "BASIC" : "IMPROVED")
+                    .predictedAt(LocalDateTime.now())
+                    .build();
+
             prediction.setId(UUID.randomUUID());
             prediction.setFarmId(farmId);
             prediction.setCreatedAt(LocalDateTime.now());
