@@ -50,6 +50,19 @@ public class EscrowServiceGrpcClient implements EscrowServicePort {
     }
 
     @Override
+    public void refundBidDeposit(UUID bidId) {
+        log.info("Refunding bid deposit to offtaker: bidId={}", bidId);
+        try {
+            CancelEscrowRequest request = CancelEscrowRequest.newBuilder()
+                    .setInvestmentId(bidId.toString())
+                    .build();
+            escrowStub.cancel(request);
+        } catch (StatusRuntimeException e) {
+            log.error("Failed to refund bid deposit: {}", e.getMessage());
+        }
+    }
+
+    @Override
     public void processHarvestPayment(UUID farmId, UUID agreementId, BigDecimal totalPaymentEtb) {
         log.info("Processing harvest payment: farmId={} agreementId={} amount={}",
                 farmId, agreementId, totalPaymentEtb);
