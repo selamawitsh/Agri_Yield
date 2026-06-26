@@ -32,7 +32,7 @@ export default function LoginPage() {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-2xl">🌾</span>
+              <span className="text-white text-2xl"></span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Agri-Yield Investor</h1>
           <p className="text-gray-500 mt-1">Sign in to your account</p>
