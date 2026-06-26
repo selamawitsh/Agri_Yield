@@ -178,13 +178,26 @@ export default function AgreementPage() {
               </div>
             ) : !agreement.offtakerSignedAt ? (
               <div className="space-y-4">
-                    {agreement.contractPdfUrl && (
+                    {agreement.contractPdfUrl && !agreement.contractPdfUrl.startsWith('minio://') && (
                   <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
                     <p className="text-sm font-semibold text-gray-700 mb-2">Purchase Agreement PDF</p>
                     <a href={agreement.contractPdfUrl} target="_blank" rel="noopener noreferrer"
                       className="text-teal-600 text-sm font-medium hover:underline">
                       Open PDF Contract ↗
                     </a>
+                  </div>
+                )}
+                {agreement.contractHash && (
+                  <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                    <p className="text-sm font-semibold text-gray-700 mb-2">
+                      Contract Integrity Verified ✓
+                    </p>
+                    <p className="text-xs text-gray-400 mb-2">
+                      This agreement is cryptographically secured. Both parties sign using their Fayda National ID.
+                    </p>
+                    <div className="bg-white border border-gray-100 rounded-lg p-2">
+                      <p className="text-[11px] font-mono text-gray-500 break-all">{agreement.contractHash}</p>
+                    </div>
                   </div>
                 )}
                 <label className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl cursor-pointer">

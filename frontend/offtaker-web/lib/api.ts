@@ -148,3 +148,9 @@ export const getWeatherCurrent = (farmId: string) =>
 export const getFarmFullDetail = (farmId: string) =>
   api.get<{ success: boolean; data: import('./types').FarmFullDetail }>(
     `/offtaker/farms/${farmId}/full-detail`);
+
+export const getWeatherRisk = (farmId: string) =>
+  api.get<{ success: boolean; data: any }>(`/weather/risk/${farmId}`);
+
+export const getDroughtStatus = (farmId: string) =>
+  api.get<{ success: boolean; data: any }>(`/weather/drought/${farmId}`);

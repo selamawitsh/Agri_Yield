@@ -150,13 +150,13 @@ export default function BankAccountManager() {
         </div>
       ) : (
         accounts.map((account) => (
-          <div key={account.id} className={`border rounded-lg p-4 ${account.default ? 'border-teal-500 bg-teal-50' : 'border-gray-200'}`}>
+          <div key={account.id} className={`border rounded-lg p-4 ${account.isDefault ? 'border-teal-500 bg-teal-50' : 'border-gray-200'}`}>
             <div className="flex justify-between items-start">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{account.accountType}</span>
-                  {account.default && <span className="bg-teal-600 text-white text-xs px-2 py-0.5 rounded">Default</span>}
-                  {account.verified ? (
+                  {account.isDefault && <span className="bg-teal-600 text-white text-xs px-2 py-0.5 rounded">Default</span>}
+                  {account.isVerified ? (
                     <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">Verified</span>
                   ) : (
                     <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">Pending</span>
@@ -166,17 +166,17 @@ export default function BankAccountManager() {
                 <p className="text-sm text-gray-500">{account.accountHolderName}</p>
               </div>
               <div className="flex gap-2">
-                {!account.verified && (
+                {!account.isVerified && (
                   <button onClick={() => { setSelectedAccountId(account.id); setShowVerifyForm(true); }} className="text-blue-600 text-sm">
                     Verify
                   </button>
                 )}
-                {!account.default && account.verified && (
+                {!account.isDefault && account.isVerified && (
                   <button onClick={() => setDefaultAccount(account.id)} className="text-teal-600 text-sm">
                     Set Default
                   </button>
                 )}
-                {!account.default && (
+                {!account.isDefault && (
                   <button onClick={() => deleteAccount(account.id)} className="text-red-600 text-sm">
                     Delete
                   </button>
