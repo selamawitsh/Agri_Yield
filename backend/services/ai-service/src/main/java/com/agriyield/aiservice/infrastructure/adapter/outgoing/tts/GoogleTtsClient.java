@@ -1,61 +1,106 @@
 package com.agriyield.aiservice.infrastructure.adapter.outgoing.tts;
 
 import com.agriyield.aiservice.application.port.outgoing.TextToSpeechPort;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
 
-import java.util.Base64;
-import java.util.Map;
+import java.io.File;
+import java.nio.file.Files;
+import java.util.UUID;
 
+/**
+ * Local TTS using espeak-ng + ffmpeg.
+ * No API key needed. Runs entirely on the machine.
+ * Install: sudo apt-get install -y espeak-ng ffmpeg
+ */
 @Slf4j
 @Component
 public class GoogleTtsClient implements TextToSpeechPort {
 
-    private final WebClient webClient;
-    private final String apiKey;
-    private final String baseUrl;
-    private final ObjectMapper objectMapper;
-
-    public GoogleTtsClient(
-            @Value("${app.google-tts.api-key}") String apiKey,
-            @Value("${app.google-tts.base-url}") String baseUrl,
-            ObjectMapper objectMapper) {
-        this.apiKey = apiKey;
-        this.baseUrl = baseUrl;
-        this.objectMapper = objectMapper;
-        this.webClient = WebClient.builder()
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .build();
-    }
-
     @Override
     public byte[] synthesizeSpeech(String text, String languageCode) {
-        log.info("Google TTS: languageCode={} textLength={}", languageCode, text.length());
+        log.info("Local TTS: languageCode={} textLength={}", languageCode, text.length());
+
+        // Map language codes to espeak-ng voice names
+        String espeakVoice = switch (languageCode) {
+            case "am-ET" -> "am";       // Amharic
+            case "om-ET" -> "om";       // Oromiffa
+            case "ti-ET" -> "ti";       // Tigrinya
+            default      -> "en";       // English fallback
+        };
+
+        // Truncate to avoid very long synthesis
+        String truncated = text.length() > 3000
+                ? text.substring(0, 3000) + "."
+                : text;
+
+        // Clean text — remove special chars that break shell
+        String cleanText = truncated
+                .replace("\"", " ")
+                .replace("'", " ")
+                .replace("`", " ")
+                .replace("\\", " ")
+                .replace("\n", ". ")
+                .replace("\r", "");
+
+        String tmpId   = UUID.randomUUID().toString();
+        String wavPath = "/tmp/tts_" + tmpId + ".wav";
+        String mp3Path = "/tmp/tts_" + tmpId + ".mp3";
+
         try {
-            String truncated = text.length() > 4500 ? text.substring(0, 4500) + "..." : text;
-            Map<String, Object> requestBody = Map.of(
-                    "input", Map.of("text", truncated),
-                    "voice", Map.of("languageCode", languageCode, "ssmlGender", "NEUTRAL"),
-                    "audioConfig", Map.of("audioEncoding", "MP3", "speakingRate", 0.9)
+            // Step 1: espeak-ng → WAV
+            ProcessBuilder espeak = new ProcessBuilder(
+                    "espeak-ng",
+                    "-v", espeakVoice,
+                    "-s", "130",        // speaking rate (words per minute)
+                    "-a", "150",        // amplitude
+                    "-w", wavPath,      // output WAV file
+                    cleanText
             );
-            String jsonBody = objectMapper.writeValueAsString(requestBody);
-            String response = webClient.post()
-                    .uri(baseUrl + "?key=" + apiKey)
-                    .bodyValue(jsonBody)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-            var node = objectMapper.readTree(response);
-            String base64Audio = node.path("audioContent").asText();
-            return Base64.getDecoder().decode(base64Audio);
+            espeak.redirectErrorStream(true);
+            Process espeakProcess = espeak.start();
+            int espeakExit = espeakProcess.waitFor();
+
+            if (espeakExit != 0) {
+                log.warn("espeak-ng exited with code {}, trying English fallback", espeakExit);
+                // Retry with English if the voice isn't installed
+                ProcessBuilder fallback = new ProcessBuilder(
+                        "espeak-ng", "-v", "en", "-s", "130", "-a", "150", "-w", wavPath, cleanText
+                );
+                fallback.redirectErrorStream(true);
+                fallback.start().waitFor();
+            }
+
+            // Step 2: WAV → MP3 via ffmpeg
+            ProcessBuilder ffmpeg = new ProcessBuilder(
+                    "ffmpeg", "-y",
+                    "-i", wavPath,
+                    "-codec:a", "libmp3lame",
+                    "-qscale:a", "4",
+                    mp3Path
+            );
+            ffmpeg.redirectErrorStream(true);
+            Process ffmpegProcess = ffmpeg.start();
+            ffmpegProcess.waitFor();
+
+            // Step 3: Read MP3 bytes
+            File mp3File = new File(mp3Path);
+            if (!mp3File.exists() || mp3File.length() == 0) {
+                log.error("TTS output MP3 is empty or missing");
+                return new byte[0];
+            }
+
+            byte[] audioBytes = Files.readAllBytes(mp3File.toPath());
+            log.info("Local TTS produced {} bytes of MP3 audio", audioBytes.length);
+            return audioBytes;
+
         } catch (Exception e) {
-            log.error("Google TTS failed: {}", e.getMessage(), e);
+            log.error("Local TTS failed: {}", e.getMessage(), e);
             return new byte[0];
+        } finally {
+            // Clean up temp files
+            new File(wavPath).delete();
+            new File(mp3Path).delete();
         }
     }
 }
