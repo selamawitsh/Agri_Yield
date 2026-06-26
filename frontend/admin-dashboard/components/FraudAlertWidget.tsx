@@ -32,7 +32,7 @@ export default function FraudAlertWidget() {
     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
       <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-bold text-slate-900">🚨 Fraud Alerts</h2>
+          <h2 className="text-sm font-bold text-slate-900">Fraud Alerts</h2>
           <p className="text-xs text-slate-400 mt-0.5">
             {criticalCount > 0 && (
               <span className="text-red-600 font-bold">{criticalCount} critical · </span>
@@ -57,7 +57,7 @@ export default function FraudAlertWidget() {
         </div>
       ) : alerts.length === 0 ? (
         <div className="py-10 text-center">
-          <p className="text-2xl mb-2">✅</p>
+          <p className="text-2xl mb-2"></p>
           <p className="text-xs text-slate-400 font-semibold">No unresolved alerts</p>
         </div>
       ) : (

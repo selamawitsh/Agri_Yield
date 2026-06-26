@@ -227,7 +227,7 @@ export default function FraudAuditPage() {
 
           {!loading && alerts.length === 0 ? (
             <div className="py-16 text-center">
-              <p className="text-3xl mb-3">🛡️</p>
+                <p className="text-3xl mb-3"></p>
               <p className="text-sm font-bold text-slate-500">No fraud alerts found</p>
               <p className="text-xs text-slate-400 mt-1">
                 {unresolvedOnly ? 'All alerts have been resolved' : 'No alerts match the current filter'}
@@ -249,7 +249,7 @@ export default function FraudAuditPage() {
                         <FraudAlertTypeBadge type={alert.alertType} />
                         {alert.resolved && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-                            ✓ Resolved
+                            Resolved
                           </span>
                         )}
                       </div>
