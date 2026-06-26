@@ -134,8 +134,8 @@ export default function PortfolioVouchersPage() {
 
         {/* Farm groups */}
         {groups.length === 0 ? (
-          <div className="bg-white rounded-xl shadow p-12 text-center">
-            <p className="text-5xl mb-4">🎟️</p>
+            <div className="bg-white rounded-xl shadow p-12 text-center">
+            <p className="text-5xl mb-4"></p>
             <p className="text-gray-500 text-lg">No vouchers yet</p>
             <p className="text-gray-400 text-sm mt-1">
               Vouchers are generated once your invested farms are fully funded
@@ -203,7 +203,7 @@ export default function PortfolioVouchersPage() {
                       .map((v) => (
                         <div key={v.id} className="px-5 py-3 flex items-center gap-3">
                           <span className="text-lg">
-                            {{ SEED: '🌾', FERTILIZER: '🪣', PESTICIDE: '🛡️', TOOL: '🔧', OTHER: '📦' }[v.productCategory] ?? '📦'}
+                            {{ SEED: '', FERTILIZER: '', PESTICIDE: '', TOOL: '', OTHER: '' }[v.productCategory] ?? ''}
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-800 truncate">
