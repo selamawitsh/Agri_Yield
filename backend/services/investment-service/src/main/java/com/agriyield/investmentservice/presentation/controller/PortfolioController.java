@@ -7,6 +7,8 @@ import com.agriyield.investmentservice.infrastructure.config.JwtUtils;
 import com.agriyield.investmentservice.presentation.dto.response.ApiResponse;
 import com.agriyield.investmentservice.presentation.dto.response.InvestmentResponse;
 import com.agriyield.investmentservice.presentation.dto.response.PayoutRecordResponse;
+import com.agriyield.investmentservice.infrastructure.adapter.outgoing.persistence.entity.FarmJourneyEventEntity;
+import com.agriyield.investmentservice.infrastructure.repository.JpaFarmJourneyEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +26,7 @@ public class PortfolioController {
 
     private final ListingServicePort listingService;
     private final JwtUtils jwtUtils;
+    private final JpaFarmJourneyEventRepository journeyRepository;
 
     /** IS-07: View investor portfolio */
     @GetMapping
@@ -80,11 +83,33 @@ public class PortfolioController {
             .seasonName(i.getSeasonName())
             .expectedReturnPct(i.getExpectedReturnPct())
             .actualReturnPct(i.getActualReturnPct())
+            .payoutAmountEtb(i.getPayoutAmountEtb())
+            .payoutAt(i.getPayoutAt())
             .notes(i.getNotes())
             .cancelledReason(i.getCancelledReason())
             .createdAt(i.getCreatedAt())
             .updatedAt(i.getUpdatedAt())
             .build();
+    }
+
+    /** IS-13: Farm journey timeline for investor tracking */
+    @GetMapping("/journey/{farmId}")
+    public ResponseEntity<ApiResponse<java.util.List<java.util.Map<String, Object>>>> getJourney(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable java.util.UUID farmId) {
+        jwtUtils.extractUserId(authHeader);
+        java.util.List<java.util.Map<String, Object>> events = journeyRepository
+                .findByFarmIdOrderByOccurredAtAsc(farmId)
+                .stream()
+                .map(e -> {
+                    java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                    m.put("eventType", e.getEventType());
+                    m.put("occurredAt", e.getOccurredAt().toString());
+                    m.put("eventData", e.getEventData());
+                    return m;
+                })
+                .collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(events));
     }
 
     private PayoutRecordResponse toPayoutResponse(PayoutRecord p) {

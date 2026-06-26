@@ -30,6 +30,8 @@ public class InvestmentResponse {
     private String seasonName;
     private BigDecimal expectedReturnPct;
     private BigDecimal actualReturnPct;
+    private BigDecimal payoutAmountEtb;
+    private LocalDateTime payoutAt;
     private String notes;
     private String cancelledReason;
     private LocalDateTime createdAt;
